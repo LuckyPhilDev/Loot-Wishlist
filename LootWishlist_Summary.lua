@@ -100,15 +100,42 @@ end
 local function buildSummaryLines()
   local items = LootWishlist.GetTracked()
   if not items or not next(items) then return {} end
+  local function diffTag(name, id)
+    if name and name ~= "" then
+      local n = name:lower()
+      if n:find("raid finder") or n:find("lfr") then return "LFR" end
+      if n:find("normal") then return "N" end
+      if n:find("heroic") then return "H" end
+      if n:find("mythic%+") or n:find("keystone") then return "+" end
+      if n:find("mythic") then return "M" end
+    end
+    if id then
+      local map = { [1] = "N", [2] = "H", [8] = "+", [23] = "M", [24] = "TW", [14] = "N", [15] = "H", [16] = "M", [17] = "LFR" }
+      return map[id]
+    end
+    return nil
+  end
+  local function joinTags(set)
+    local arr = {}
+    for k in pairs(set) do table.insert(arr, k) end
+    table.sort(arr, function(a,b)
+      local order = { LFR=1, N=2, H=3, ["+"]=4, M=5 }
+      local oa = order[a] or 99
+      local ob = order[b] or 99
+      if oa ~= ob then return oa < ob end
+      return a < b
+    end)
+    return table.concat(arr, ", ")
+  end
   -- Group by instance
   local groups = {}
-  for id, info in pairs(items) do
+  for key, info in pairs(items) do
     local inst = info.dungeon or "Unknown"
     local g = groups[inst]
     if not g then g = { name = inst, isRaid = info.isRaid and true or false, items = {}, instanceID = info.instanceID }; groups[inst] = g end
     if info.isRaid then g.isRaid = true end
     if info.instanceID and not g.instanceID then g.instanceID = info.instanceID end
-    table.insert(g.items, { id = id, info = info })
+    table.insert(g.items, { key = key, id = info.id or tonumber(key) or 0, info = info })
   end
   local ordered = {}
   for name, g in pairs(groups) do table.insert(ordered, { name = name, g = g }) end
@@ -144,11 +171,23 @@ local function buildSummaryLines()
         return a.name < b.name
       end)
       for _, b in ipairs(bossOrdered) do
-        table.insert(lines, string.format("  - %s (%d)", b.name, #b.items))
+        local diffs = {}
+        for _, it in ipairs(b.items) do
+          local tag = diffTag(it.info.difficultyName, it.info.difficultyID)
+          if tag then diffs[tag] = true end
+        end
+        local tagText = next(diffs) and (" [".. joinTags(diffs) .. "]") or ""
+        table.insert(lines, string.format("  - %s (%d)%s", b.name, #b.items, tagText))
       end
     else
       -- Dungeon instances only (one per line)
-      table.insert(lines, string.format("|cffffd200%s|r (%d)", entry.name, #g.items))
+      local diffs = {}
+      for _, it in ipairs(g.items) do
+        local tag = diffTag(it.info.difficultyName, it.info.difficultyID)
+        if tag then diffs[tag] = true end
+      end
+      local tagText = next(diffs) and (" [".. joinTags(diffs) .. "]") or ""
+      table.insert(lines, string.format("|cffffd200%s|r (%d)%s", entry.name, #g.items, tagText))
     end
   end
   return lines

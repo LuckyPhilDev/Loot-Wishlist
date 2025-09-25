@@ -17,7 +17,7 @@ LootWishlist = {
 }
 
 -- Local state
-local trackedItems -- assigned after DB init
+local trackedItems -- assigned after DB init; may use string keys for difficulty variants
 
 -- No basic frame: AceGUI is the only UI path now
 
@@ -56,14 +56,25 @@ local function InitializeDB()
 end
 
 -- Public API: Add/Remove/Iterate --------------------------------------------
-function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID)
-  trackedItems[itemID] = {
+function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, difficultyID, difficultyName)
+  -- Compose a unique key so that the same item can be tracked for multiple difficulties
+  local key
+  if difficultyID then
+    key = tostring(itemID).."@"..tostring(difficultyID)
+  else
+    -- Back-compat when difficulty isn\'t provided
+    key = tostring(itemID)
+  end
+  trackedItems[key] = {
+    id = itemID,
     boss = bossName,
     dungeon = instanceName,
     isRaid = isRaid and true or false,
     link = itemLink,
     encounterID = encounterID,
     instanceID = instanceID,
+    difficultyID = difficultyID,
+    difficultyName = difficultyName,
   }
   -- Prefer Ace view opening; the UI module will handle opening and refreshing
   if LootWishlist.Ace and LootWishlist.Ace.open then
@@ -75,9 +86,25 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
   end
 end
 
-function LootWishlist.RemoveTrackedItem(itemID)
-  if trackedItems[itemID] then
-    trackedItems[itemID] = nil
+-- Remove one or more tracked entries.
+-- If keyOrID is a string key, remove that exact entry.
+-- If it\'s a number itemID and difficultyID is provided, remove matching entries for that difficulty only.
+-- If it\'s a number itemID and difficultyID is nil, remove all entries for that itemID.
+function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
+  local removed = false
+  if type(keyOrID) == "string" then
+    if trackedItems[keyOrID] then trackedItems[keyOrID] = nil; removed = true end
+  elseif type(keyOrID) == "number" then
+    for k, v in pairs(trackedItems) do
+      local vid = (type(v)=="table" and v.id) or k
+      local vdiff = (type(v)=="table" and v.difficultyID) or nil
+      if vid == keyOrID and (difficultyID == nil or vdiff == difficultyID) then
+        trackedItems[k] = nil
+        removed = true
+      end
+    end
+  end
+  if removed then
     if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   end
@@ -89,6 +116,13 @@ end
 
 function LootWishlist.GetTracked()
   return trackedItems
+end
+
+function LootWishlist.ClearAllTracked()
+  if not trackedItems or not next(trackedItems) then return end
+  for k in pairs(trackedItems) do trackedItems[k] = nil end
+  if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+  if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
 end
 
 function LootWishlist.GetSettings()
@@ -207,9 +241,7 @@ SlashCmdList.WISHLIST = function(msg)
       print("/wishlist testdrop-other <itemID|itemLink> [looterName]")
     end
   elseif msg == "clear" then
-    wipe(trackedItems)
-    if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
-    if LootWishlist.BasicUI and LootWishlist.BasicUI.refresh then LootWishlist.BasicUI.refresh() end
+    if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end
     print("Loot Wishlist: cleared all tracked items")
   else
     print("/wishlist commands: show | hide | remove <ID> | list | clear | debug")

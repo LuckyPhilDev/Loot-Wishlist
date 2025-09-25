@@ -7,6 +7,47 @@ local Alerts = LootWishlist.Alerts
 local alertFrame, alertFS, alertHideAt
 local raidDropFrame, raidDropFS, raidDropHideAt
 local rollAlertFrame, rollAlertFS, rollHideAt
+-- Track bag counts to detect when a tracked item later appears in your inventory
+local bagCounts = {}
+local recentSelfAlertAt = {}
+-- Current instance difficulty helper (module scope)
+local function getCurrentInstanceDifficulty()
+  if GetInstanceInfo then
+    local _, _, difficultyID, difficultyName = GetInstanceInfo()
+    return difficultyID, difficultyName
+  end
+  return nil, nil
+end
+
+-- Get the number of a given itemID in the player's bags (excluding bank)
+local function getInventoryCount(itemID)
+  if not itemID then return 0 end
+  local total = 0
+  if C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerItemInfo then
+    local maxBag = (NUM_BAG_SLOTS or 4)
+    for bag = 0, maxBag do
+      local slots = C_Container.GetContainerNumSlots(bag) or 0
+      for slot = 1, slots do
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if info and info.itemID == itemID then
+          total = total + (info.stackCount or 1)
+        end
+      end
+    end
+    local reagentBag = rawget(_G, "REAGENTBAG_CONTAINER") or 5
+    if type(reagentBag) == "number" then
+      local slots = C_Container.GetContainerNumSlots(reagentBag) or 0
+      for slot = 1, slots do
+        local info = C_Container.GetContainerItemInfo(reagentBag, slot)
+        if info and info.itemID == itemID then
+          total = total + (info.stackCount or 1)
+        end
+      end
+    end
+    return total
+  end
+  return 0
+end
 local rollAlertItems = {}
 -- Show a simple popup when a tracked item drops in a raid (regardless of looter)
 local function ShowRaidDropAlert(itemLink)
@@ -126,6 +167,7 @@ local function ShowRaidRollAlert(itemLink)
 end
 local btnRemove, btnKeep, btnWhisper, btnParty, btnDismiss
 local currentItemID, currentItemLink, currentLooter, currentIsSelf
+local currentDifficultyID, currentDifficultyName
 
 local function ensureAlertFrame()
   if alertFrame then return alertFrame end
@@ -346,7 +388,7 @@ local function configureSelfActions(itemID, itemLink)
     btnRemove:SetText("Remove")
     btnKeep:SetText("Keep")
     btnRemove:SetScript("OnClick", function()
-      if LootWishlist.RemoveTrackedItem then LootWishlist.RemoveTrackedItem(itemID) end
+      if LootWishlist.RemoveTrackedItem then LootWishlist.RemoveTrackedItem(itemID, currentDifficultyID) end
       alertFrame:Hide()
     end)
     btnKeep:SetScript("OnClick", function() alertFrame:Hide() end)
@@ -420,7 +462,7 @@ local function configureOtherActions(looterName, itemID, itemLink)
   end
 end
 
-local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID)
+local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, difficultyID, difficultyName)
   ShowDropAlert(itemLink)
   if isSelf then
     configureSelfActions(itemID, itemLink)
@@ -428,6 +470,10 @@ local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID)
     configureOtherActions(looterName, itemID, itemLink)
   end
   currentItemID, currentItemLink, currentLooter, currentIsSelf = itemID, itemLink, looterName, isSelf
+  currentDifficultyID, currentDifficultyName = difficultyID, difficultyName
+  if isSelf and itemID then
+    recentSelfAlertAt[itemID] = GetTime()
+  end
 end
 
 local function extractLinks(msg)
@@ -447,7 +493,18 @@ end
 
 local function isTracked(itemID)
   local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
-  return t and t[itemID] and true or false
+  if not t then return false end
+  for k, v in pairs(t) do
+    local vid = (type(v) == "table" and v.id) or nil
+    if vid and vid == itemID then return true end
+    -- Back-compat: legacy numeric or string keys without id field
+    if type(k) == "number" and k == itemID then return true end
+    if type(k) == "string" then
+      local nk = tonumber(k)
+      if nk and nk == itemID then return true end
+    end
+  end
+  return false
 end
 
 -- Event handling
@@ -455,6 +512,8 @@ local ef = CreateFrame("Frame")
 ef:RegisterEvent("CHAT_MSG_LOOT")
 ef:RegisterEvent("ENCOUNTER_LOOT_RECEIVED")
 ef:RegisterEvent("START_LOOT_ROLL")
+ef:RegisterEvent("BAG_UPDATE_DELAYED")
+ef:RegisterEvent("PLAYER_LOGIN")
 ef:SetScript("OnEvent", function(_, event, ...)
   if event == "CHAT_MSG_LOOT" then
     local msg = ...
@@ -468,10 +527,11 @@ ef:SetScript("OnEvent", function(_, event, ...)
           -- In raids, suppress the action/party-whisper alert and the simple raid drop banner.
           -- We'll rely on the START_LOOT_ROLL reminder popup instead.
         else
+          local diffID, diffName = getCurrentInstanceDifficulty()
           if isSelf then
-            ShowDropAlertWithContext(link, true, UnitName("player"), itemID)
+            ShowDropAlertWithContext(link, true, UnitName("player"), itemID, diffID, diffName)
           else
-            ShowDropAlertWithContext(link, false, looter, itemID)
+            ShowDropAlertWithContext(link, false, looter, itemID, diffID, diffName)
           end
         end
       end
@@ -489,7 +549,8 @@ ef:SetScript("OnEvent", function(_, event, ...)
         end
         local you = UnitName("player")
         local isSelf = (playerName == nil) or (playerName == you) or (playerName == you.."-"..GetRealmName())
-        ShowDropAlertWithContext(l, isSelf, playerName, itemID)
+        local diffID, diffName = getCurrentInstanceDifficulty()
+        ShowDropAlertWithContext(l, isSelf, playerName, itemID, diffID, diffName)
       end
       if itemLink then withLink(itemLink) else getItemLinkAsync(itemID, withLink) end
     end
@@ -516,6 +577,51 @@ ef:SetScript("OnEvent", function(_, event, ...)
     if not itemID then return end
     if not isTracked(itemID) then return end
     ShowRaidRollAlert(itemLink)
+  elseif event == "PLAYER_LOGIN" then
+    -- Initialize baseline bag counts for tracked items
+    local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
+    if tracked then
+      for _, v in pairs(tracked) do
+        local iid = v and v.id
+        if type(iid) == "number" then bagCounts[iid] = getInventoryCount(iid) end
+      end
+    end
+  elseif event == "BAG_UPDATE_DELAYED" then
+    -- Detect when a tracked item newly appears in your bags (e.g., trade),
+    -- and prompt to remove it from the wishlist with a self-style alert.
+    local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
+    if not tracked or not next(tracked) then return end
+    for _, info in pairs(tracked) do
+      local iid = info and info.id or nil
+      if type(iid) == "number" then
+        local current = getInventoryCount(iid)
+        local prev = bagCounts[iid]
+        if prev == nil then
+          -- Establish baseline without alerting the first time we see it
+          bagCounts[iid] = current
+        else
+          if (current or 0) > (prev or 0) then
+            bagCounts[iid] = current
+            -- Avoid duplicate prompt immediately after a self-loot alert
+            local last = recentSelfAlertAt[iid] or 0
+            if (GetTime() - last) > 8 then
+              local function withLink(l)
+                local diffID, diffName = getCurrentInstanceDifficulty()
+                ShowDropAlertWithContext(l or ("item:"..tostring(iid)), true, UnitName("player"), iid, diffID, diffName)
+              end
+              if info and info.link then
+                withLink(info.link)
+              else
+                getItemLinkAsync(iid, withLink)
+              end
+            end
+          else
+            -- Keep baseline up to date
+            bagCounts[iid] = current
+          end
+        end
+      end
+    end
   end
 end)
 

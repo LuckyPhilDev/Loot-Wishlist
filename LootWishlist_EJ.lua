@@ -57,6 +57,8 @@ local function DetermineEJContext(lootButton)
   local EJ_GetInstanceInfo = _G["EJ_GetInstanceInfo"]
   local EJ_GetEncounterInfo = _G["EJ_GetEncounterInfo"]
   local EJ_GetLootInfoByIndex = _G["EJ_GetLootInfoByIndex"]
+  local EJ_GetDifficulty = _G["EJ_GetDifficulty"]
+  local EJ_GetDifficultyInfo = _G["EJ_GetDifficultyInfo"]
 
   local instanceID = EncounterJournal and EncounterJournal.instanceID
   local instanceName = (instanceID and type(EJ_GetInstanceInfo)=="function" and EJ_GetInstanceInfo(instanceID)) or "Unknown"
@@ -87,7 +89,15 @@ local function DetermineEJContext(lootButton)
     end
   end
 
-  return isRaid, bossName, instanceName, encounterID, instanceID
+  -- Difficulty context
+  local diffID = type(EJ_GetDifficulty)=="function" and EJ_GetDifficulty() or nil
+  local diffName = nil
+  if diffID and type(EJ_GetDifficultyInfo)=="function" then
+    local name = EJ_GetDifficultyInfo(diffID)
+    if type(name)=="string" and name ~= "" then diffName = name end
+  end
+
+  return isRaid, bossName, instanceName, encounterID, instanceID, diffID, diffName
 end
 
 local function AddTrackButtonToLootButton(lootButton)
@@ -126,9 +136,9 @@ local function AddTrackButtonToLootButton(lootButton)
         if ok then itemLink = link end
       end
     end
-    local isRaid, bossName, instanceName, encounterID, instanceID = DetermineEJContext(lootButton)
+    local isRaid, bossName, instanceName, encounterID, instanceID, diffID, diffName = DetermineEJContext(lootButton)
     if itemID then
-      LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID)
+      LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, diffID, diffName)
       if LootWishlist.IsDebug() then print("Loot Wishlist: Tracked", itemID, isRaid and ("boss="..tostring(bossName)) or "") end
     else
       print("Loot Wishlist: Could not find item ID for this item")
