@@ -7,6 +7,7 @@ local Alerts = LootWishlist.Alerts
 local alertFrame, alertFS, alertHideAt
 local raidDropFrame, raidDropFS, raidDropHideAt
 local rollAlertFrame, rollAlertFS, rollHideAt
+local rollAlertItems = {}
 -- Show a simple popup when a tracked item drops in a raid (regardless of looter)
 local function ShowRaidDropAlert(itemLink)
   if not itemLink then return end
@@ -85,7 +86,7 @@ local function ShowRaidRollAlert(itemLink)
       end
     end)
     rollAlertFS = rollAlertFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    rollAlertFS:SetPoint("CENTER")
+  rollAlertFS:SetPoint("CENTER")
     rollAlertFS:SetJustifyH("CENTER")
     rollAlertFS:SetJustifyV("MIDDLE")
     rollAlertFS:SetText("")
@@ -99,11 +100,28 @@ local function ShowRaidRollAlert(itemLink)
       if rollHideAt and GetTime() >= rollHideAt then
         rollAlertFrame:Hide()
         rollHideAt = nil
+        -- Clear accumulated items when the alert hides
+        wipe(rollAlertItems)
       end
     end)
   end
-  rollAlertFS:SetText("Roll now if needed!\n"..(itemLink or "[unknown]"))
+  -- Accumulate unique items into the roll list
+  local exists = false
+  for _, l in ipairs(rollAlertItems) do if l == itemLink then exists = true; break end end
+  if not exists then table.insert(rollAlertItems, itemLink or "[unknown]") end
+  local lines = { "Roll now if needed!" }
+  for _, l in ipairs(rollAlertItems) do table.insert(lines, "- " .. (l or "[unknown]")) end
+  local text = table.concat(lines, "\n")
+  rollAlertFS:SetText(text)
+  -- Ensure wrapping width for height calculation
+  if rollAlertFS.SetWidth and rollAlertFrame.GetWidth then
+    rollAlertFS:SetWidth(rollAlertFrame:GetWidth() - 20)
+  end
+  -- Adjust height to fit multiple items
+  local desiredH = (rollAlertFS.GetStringHeight and (rollAlertFS:GetStringHeight() + 20)) or 60
+  rollAlertFrame:SetHeight(math.max(60, math.min(200, desiredH)))
   rollAlertFrame:Show()
+  -- Extend visibility timer with each new item
   rollHideAt = GetTime() + 8
 end
 local btnRemove, btnKeep, btnWhisper, btnParty, btnDismiss
@@ -446,11 +464,15 @@ ef:SetScript("OnEvent", function(_, event, ...)
     for _, link in ipairs(extractLinks(msg)) do
       local itemID = parseItemIDFromLink(link)
       if itemID and isTracked(itemID) then
-        if inRaid then ShowRaidDropAlert(link) end
-        if isSelf then
-          ShowDropAlertWithContext(link, true, UnitName("player"), itemID)
+        if inRaid then
+          -- In raids, suppress the action/party-whisper alert and the simple raid drop banner.
+          -- We'll rely on the START_LOOT_ROLL reminder popup instead.
         else
-          ShowDropAlertWithContext(link, false, looter, itemID)
+          if isSelf then
+            ShowDropAlertWithContext(link, true, UnitName("player"), itemID)
+          else
+            ShowDropAlertWithContext(link, false, looter, itemID)
+          end
         end
       end
     end
@@ -460,7 +482,11 @@ ef:SetScript("OnEvent", function(_, event, ...)
     if itemID and isTracked(itemID) then
       local function withLink(l)
         local inRaid = IsInRaid() or (IsInGroup() and IsInInstance() and select(2, IsInInstance()) == "raid")
-        if inRaid then ShowRaidDropAlert(l) end
+        if inRaid then
+          -- In raids, skip the action/party-whisper alert and the simple raid drop banner.
+          -- The roll reminder (START_LOOT_ROLL) will handle notifying the player.
+          return
+        end
         local you = UnitName("player")
         local isSelf = (playerName == nil) or (playerName == you) or (playerName == you.."-"..GetRealmName())
         ShowDropAlertWithContext(l, isSelf, playerName, itemID)
