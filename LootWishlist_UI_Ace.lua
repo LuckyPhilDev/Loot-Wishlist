@@ -95,7 +95,10 @@ local function renderItemRow(parent, itemKey, itemID, info, indent)
       if itemObj and itemObj.ContinueOnItemLoad then
         itemObj:ContinueOnItemLoad(function()
           local ilink = itemObj.GetItemLink and itemObj:GetItemLink()
-          if ilink then info.link = ilink; if AceGUI and AceView.frame then LootWishlist.Ace.refresh() end end
+          if ilink then info.link = ilink end
+          local iconTex = itemObj.GetItemIcon and itemObj:GetItemIcon()
+          if iconTex then info.icon = iconTex end
+          if AceGUI and AceView.frame then LootWishlist.Ace.refresh() end
         end)
       end
     elseif C_Item and C_Item.RequestLoadItemDataByID then
@@ -109,9 +112,18 @@ local function renderItemRow(parent, itemKey, itemID, info, indent)
     local spacer = AceGUI:Create("Label"); spacer["SetText"](spacer, " "); spacer["SetWidth"](spacer, 16)
     header["AddChild"](header, spacer)
   end
+  -- Item icon to the left of the link
+  local iconWidget = AceGUI:Create("Icon")
+  local iconTex = info.icon
+  if not iconTex and C_Item and C_Item.GetItemIconByID then iconTex = C_Item.GetItemIconByID(itemID) end
+  if not iconTex then iconTex = "Interface\\Icons\\INV_Misc_QuestionMark" end
+  iconWidget["SetImage"](iconWidget, iconTex)
+  iconWidget["SetImageSize"](iconWidget, 16, 16)
+  iconWidget["SetWidth"](iconWidget, 20)
+  header["AddChild"](header, iconWidget)
   local tag = diffTag(info.difficultyID, info.difficultyName)
   local labelText = tag and (link .. "  |cffa0a0a0[".. tag .. "]|r") or link
-  local label = AceGUI:Create("InteractiveLabel"); label["SetText"](label, labelText); label["SetRelativeWidth"](label, indent and 0.82 or 0.84)
+  local label = AceGUI:Create("InteractiveLabel"); label["SetText"](label, labelText); label["SetRelativeWidth"](label, indent and 0.80 or 0.82)
   label["SetCallback"](label, "OnEnter", function(widget) if link then GameTooltip:SetOwner(widget.frame, "ANCHOR_CURSOR"); GameTooltip:SetHyperlink(link); GameTooltip:Show() end end)
   label["SetCallback"](label, "OnLeave", function() GameTooltip:Hide() end)
   header["AddChild"](header, label)
