@@ -2,9 +2,7 @@
 
 local ADDON_NAME = ... or "LootWishlist"
 
--- Legacy DBs for migration
-RemindMeDB = RemindMeDB
-RemindMeCharDB = RemindMeCharDB
+-- (Legacy migration removed)
 
 -- New per-character DB
 LootWishlistCharDB = LootWishlistCharDB or {}
@@ -36,21 +34,6 @@ local function InitializeDB()
   s.partyTemplate = s.partyTemplate or C.DEFAULT_PARTY_TEMPLATE or "If %item% is tradeable, I'd love it (wishlist). Thanks!"
   -- New: raid roll alert toggle (default on)
   if s.enableRaidRollAlert == nil then s.enableRaidRollAlert = true end
-
-  -- Migrate from RemindMe (account-wide to per-character) if applicable
-  if (not next(LootWishlistCharDB.trackedItems)) and RemindMeCharDB and RemindMeCharDB.trackedItems and next(RemindMeCharDB.trackedItems) then
-    LootWishlistCharDB.trackedItems = CopyTable and CopyTable(RemindMeCharDB.trackedItems) or RemindMeCharDB.trackedItems
-    LootWishlistCharDB.window = RemindMeCharDB.window or LootWishlistCharDB.window
-    LootWishlistCharDB.aceStatus = RemindMeCharDB.aceStatus or LootWishlistCharDB.aceStatus
-    LootWishlistCharDB._migratedFromRemindMeChar = true
-    print("Loot Wishlist: Imported tracked items from RemindMe per-character data.")
-  elseif (not next(LootWishlistCharDB.trackedItems)) and RemindMeDB and RemindMeDB.trackedItems and next(RemindMeDB.trackedItems) then
-    LootWishlistCharDB.trackedItems = CopyTable and CopyTable(RemindMeDB.trackedItems) or RemindMeDB.trackedItems
-    LootWishlistCharDB.window = RemindMeDB.window or LootWishlistCharDB.window
-    LootWishlistCharDB.aceStatus = RemindMeDB.aceStatus or LootWishlistCharDB.aceStatus
-    LootWishlistCharDB._migratedFromRemindMe = true
-    print("Loot Wishlist: Imported tracked items from RemindMe account-wide data.")
-  end
 
   -- Restore window position is handled by Ace frame status table
 end
@@ -180,8 +163,7 @@ end)
 
 -- Slash commands -------------------------------------------------------------
 SLASH_WISHLIST1 = "/wishlist"
-SLASH_WISHLIST2 = "/remindme" -- keep legacy alias
-SLASH_WISHLIST3 = "/lwl" -- short alias for Loot Wishlist
+SLASH_WISHLIST2 = "/lwl" -- short alias for Loot Wishlist
 SlashCmdList.WISHLIST = function(msg)
   msg = msg and msg:lower() or ""
   if msg == "show" then

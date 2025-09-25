@@ -15,8 +15,7 @@
 	- Alerts only trigger for items currently on your wishlist and show a clickable item link. Positions are remembered.
 - 🎲 Optional raid roll alert: When a group loot roll begins in a raid for a wishlist item, a small popup reminds you to roll (toggleable).
 - ✉️ Custom messages: Configure Whisper and Party templates with placeholders: `%item%`, `%looter%`.
-- ⌨️ Slash commands: `/wishlist`, `/lwl`, plus legacy `/remindme`.
-- 🔄 Migration support: Imports tracked items from older “RemindMe” data on first run.
+- ⌨️ Slash commands: `/wishlist`, `/lwl`.
 
 Ace3 is recommended for the full UI window. The Encounter Journal button and tracking work without it, but the list window uses AceGUI.
 

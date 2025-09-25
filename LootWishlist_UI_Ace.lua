@@ -87,6 +87,7 @@ local function getEncounterOrder(instanceID)
   return order
 end
 
+-- Renders one item row inside the scroll list
 local function renderItemRow(parent, itemKey, itemID, info, indent)
   if not info.link then
     local ItemAPI = _G["Item"]
@@ -137,6 +138,59 @@ local function renderItemRow(parent, itemKey, itemID, info, indent)
   parent["AddChild"](parent, header)
 end
 
+-- Renders all items for a single boss subsection within a raid
+local function renderRaidBossSection(scroll, boss)
+  local blabel = AceGUI:Create("Label"); blabel["SetFullWidth"](blabel, true); blabel["SetText"](blabel, string.format("  |cffffbf00%s|r (%d)", boss.name, #boss.items))
+  scroll["AddChild"](scroll, blabel)
+  table.sort(boss.items, function(a,b)
+    if a.id ~= b.id then return a.id < b.id end
+    local ad = (a.info and a.info.difficultyID) or 0
+    local bd = (b.info and b.info.difficultyID) or 0
+    return ad < bd
+  end)
+  for _, it in ipairs(boss.items) do renderItemRow(scroll, it.key, it.id, it.info, true) end
+end
+
+-- Renders the whole raid group (grouped by boss in EJ order)
+local function renderRaidGroup(scroll, g)
+  local bossGroups = {}
+  for _, it in ipairs(g.items) do
+    local bname = (it.info.boss and it.info.boss ~= "") and it.info.boss or "Unknown Boss"
+    local encID = it.info.encounterID or -1
+    if not bossGroups[bname] then bossGroups[bname] = {encounterID = encID, items = {}} end
+    if encID ~= -1 then bossGroups[bname].encounterID = encID end
+    table.insert(bossGroups[bname].items, it)
+  end
+  local bossOrdered = {}
+  for bname, data in pairs(bossGroups) do table.insert(bossOrdered, { name = bname, items = data.items, encounterID = data.encounterID or -1 }) end
+  local orderMap = getEncounterOrder(g.instanceID)
+  table.sort(bossOrdered, function(a,b)
+    local ao = orderMap and (orderMap.id[a.encounterID] or orderMap.name[a.name:lower()]) or nil
+    local bo = orderMap and (orderMap.id[b.encounterID] or orderMap.name[b.name:lower()]) or nil
+    if ao and bo and ao ~= bo then return ao < bo end
+    if ao and not bo then return true end
+    if bo and not ao then return false end
+    if a.encounterID ~= -1 and b.encounterID ~= -1 and a.encounterID ~= b.encounterID then
+      return a.encounterID < b.encounterID
+    end
+    return a.name < b.name
+  end)
+  for _, b in ipairs(bossOrdered) do renderRaidBossSection(scroll, b) end
+end
+
+-- Renders a non-raid group (flat list)
+local function renderDungeonGroup(scroll, g)
+  table.sort(g.items, function(a,b)
+    local ab = a.info.boss or ""; local bb = b.info.boss or ""
+    if ab ~= bb then return ab < bb end
+    if a.id ~= b.id then return a.id < b.id end
+    local ad = (a.info and a.info.difficultyID) or 0
+    local bd = (b.info and b.info.difficultyID) or 0
+    return ad < bd
+  end)
+  for _, it in ipairs(g.items) do renderItemRow(scroll, it.key, it.id, it.info, true) end
+end
+
 local function refresh()
   if not AceGUI or not AceView.frame or not AceView.scroll then return end
   AceView.scroll["ReleaseChildren"](AceView.scroll)
@@ -157,51 +211,10 @@ local function refresh()
     local heading = AceGUI:Create("Heading"); heading["SetText"](heading, string.format("|cffffd200%s|r (%d)%s", entry.name, count, g.isRaid and "  |cffff7f00[Raid]|r" or "")); heading["SetFullWidth"](heading, true)
     AceView.scroll["AddChild"](AceView.scroll, heading)
 
-  if g.isRaid then
-      -- Boss grouping
-      local bossGroups = {}
-      for _, it in ipairs(g.items) do
-        local bname = (it.info.boss and it.info.boss ~= "") and it.info.boss or "Unknown Boss"
-        local encID = it.info.encounterID or -1
-        if not bossGroups[bname] then bossGroups[bname] = {encounterID = encID, items = {}} end
-        if encID ~= -1 then bossGroups[bname].encounterID = encID end
-        table.insert(bossGroups[bname].items, it)
-      end
-      local bossOrdered = {}
-      for bname, data in pairs(bossGroups) do table.insert(bossOrdered, { name = bname, items = data.items, encounterID = data.encounterID or -1 }) end
-      local orderMap = getEncounterOrder(g.instanceID)
-      table.sort(bossOrdered, function(a,b)
-        local ao = orderMap and (orderMap.id[a.encounterID] or orderMap.name[a.name:lower()]) or nil
-        local bo = orderMap and (orderMap.id[b.encounterID] or orderMap.name[b.name:lower()]) or nil
-        if ao and bo and ao ~= bo then return ao < bo end
-        if ao and not bo then return true end
-        if bo and not ao then return false end
-        if a.encounterID ~= -1 and b.encounterID ~= -1 and a.encounterID ~= b.encounterID then
-          return a.encounterID < b.encounterID
-        end
-        return a.name < b.name
-      end)
-      for _, b in ipairs(bossOrdered) do
-        local blabel = AceGUI:Create("Label"); blabel["SetFullWidth"](blabel, true); blabel["SetText"](blabel, string.format("  |cffffbf00%s|r (%d)", b.name, #b.items))
-        AceView.scroll["AddChild"](AceView.scroll, blabel)
-        table.sort(b.items, function(a,b)
-          if a.id ~= b.id then return a.id < b.id end
-          local ad = (a.info and a.info.difficultyID) or 0
-          local bd = (b.info and b.info.difficultyID) or 0
-          return ad < bd
-        end)
-        for _, it in ipairs(b.items) do renderItemRow(AceView.scroll, it.key, it.id, it.info, true) end
-      end
+    if g.isRaid then
+      renderRaidGroup(AceView.scroll, g)
     else
-      table.sort(g.items, function(a,b)
-        local ab = a.info.boss or ""; local bb = b.info.boss or ""
-        if ab ~= bb then return ab < bb end
-        if a.id ~= b.id then return a.id < b.id end
-        local ad = (a.info and a.info.difficultyID) or 0
-        local bd = (b.info and b.info.difficultyID) or 0
-        return ad < bd
-      end)
-      for _, it in ipairs(g.items) do renderItemRow(AceView.scroll, it.key, it.id, it.info, true) end
+      renderDungeonGroup(AceView.scroll, g)
     end
   end
 end
