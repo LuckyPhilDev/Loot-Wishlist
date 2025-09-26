@@ -1,10 +1,10 @@
 ## Interface: 110205
 ## Title: Loot Wishlist
 ## Notes: Track loot from the Adventure Guide and manage a per-character wishlist.
-## Version: 1.0.0
+## Version: 1.1.0
 ## OptionalDeps: Ace3
 ## SavedVariablesPerCharacter: LootWishlistCharDB
-## SavedVariables: RemindMeDB, RemindMeCharDB
+## SavedVariables: LootWishlistDB, RemindMeDB, RemindMeCharDB
 
 embeds.xml
 

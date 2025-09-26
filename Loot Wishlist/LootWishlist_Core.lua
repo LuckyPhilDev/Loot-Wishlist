@@ -6,6 +6,8 @@ local ADDON_NAME = ... or "LootWishlist"
 
 -- New per-character DB
 LootWishlistCharDB = LootWishlistCharDB or {}
+-- New account-wide DB
+LootWishlistDB = LootWishlistDB or {}
 
 local DEBUG = false
 
@@ -26,14 +28,30 @@ local function InitializeDB()
   LootWishlist.trackedItems = LootWishlistCharDB.trackedItems
   trackedItems = LootWishlist.trackedItems
 
-  -- Settings defaults
+  -- Initialize settings tables
   LootWishlistCharDB.settings = LootWishlistCharDB.settings or {}
-  local s = LootWishlistCharDB.settings
+  LootWishlistDB.settings = LootWishlistDB.settings or {}
+
   local C = LootWishlist.Const or {}
-  s.whisperTemplate = s.whisperTemplate or C.DEFAULT_WHISPER_TEMPLATE or "Hi %looter%, grats! If %item% is tradeable, could I please have it? It's on my wishlist."
-  s.partyTemplate = s.partyTemplate or C.DEFAULT_PARTY_TEMPLATE or "If %item% is tradeable, I'd love it (wishlist). Thanks!"
-  -- New: raid roll alert toggle (default on)
-  if s.enableRaidRollAlert == nil then s.enableRaidRollAlert = true end
+  local charS = LootWishlistCharDB.settings
+  local acctS = LootWishlistDB.settings
+
+  -- Migration: move whisper/party templates from per-character to account-wide if present
+  if charS.whisperTemplate and not acctS.whisperTemplate then acctS.whisperTemplate = charS.whisperTemplate; charS.whisperTemplate = nil end
+  if charS.partyTemplate and not acctS.partyTemplate then acctS.partyTemplate = charS.partyTemplate; charS.partyTemplate = nil end
+
+  -- Migration: move raid roll alert toggle from per-character to account-wide
+  if charS.enableRaidRollAlert ~= nil and acctS.enableRaidRollAlert == nil then
+    acctS.enableRaidRollAlert = charS.enableRaidRollAlert
+    charS.enableRaidRollAlert = nil
+  end
+
+  -- Defaults for account-wide templates
+  acctS.whisperTemplate = acctS.whisperTemplate or C.DEFAULT_WHISPER_TEMPLATE or "Hi %looter%, grats! If %item% is tradeable, could I please have it? It's on my wishlist."
+  acctS.partyTemplate = acctS.partyTemplate or C.DEFAULT_PARTY_TEMPLATE or "If %item% is tradeable, I'd love it (wishlist). Thanks!"
+
+  -- Account-wide toggle default
+  if acctS.enableRaidRollAlert == nil then acctS.enableRaidRollAlert = true end
 
   -- Restore window position is handled by Ace frame status table
 end
@@ -108,8 +126,40 @@ function LootWishlist.ClearAllTracked()
   if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
 end
 
-function LootWishlist.GetSettings()
-  return LootWishlistCharDB and LootWishlistCharDB.settings or nil
+do
+  -- Proxy that reads/writes account-wide templates and per-character toggles
+  local settingsProxy
+  function LootWishlist.GetSettings()
+    if settingsProxy then return settingsProxy end
+    local function buildProxy()
+      local proxy = {}
+      return setmetatable(proxy, {
+        __index = function(_, k)
+          local acct = (LootWishlistDB and LootWishlistDB.settings) or {}
+          local ch = (LootWishlistCharDB and LootWishlistCharDB.settings) or {}
+          if k == "whisperTemplate" or k == "partyTemplate" then
+            return acct[k]
+          elseif k == "enableRaidRollAlert" then
+            return acct[k]
+          end
+          return acct[k] or ch[k]
+        end,
+        __newindex = function(_, k, v)
+          local acct = (LootWishlistDB and LootWishlistDB.settings) or {}
+          local ch = (LootWishlistCharDB and LootWishlistCharDB.settings) or {}
+          if k == "whisperTemplate" or k == "partyTemplate" then
+            acct[k] = v
+          elseif k == "enableRaidRollAlert" then
+            acct[k] = v
+          else
+            acct[k] = v
+          end
+        end,
+      })
+    end
+    settingsProxy = buildProxy()
+    return settingsProxy
+  end
 end
 
 function LootWishlist.SetDebug(val)

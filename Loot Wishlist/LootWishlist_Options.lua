@@ -8,7 +8,9 @@ local panel
 local settingsCategory -- DF Settings category object
 
 local function GetSettings()
-  return LootWishlist.GetSettings and LootWishlist.GetSettings() or (LootWishlistCharDB and LootWishlistCharDB.settings)
+  if LootWishlist.GetSettings then return LootWishlist.GetSettings() end
+  -- Fallback if proxy not available yet: prefer account-wide, then per-character
+  return (LootWishlistDB and LootWishlistDB.settings) or (LootWishlistCharDB and LootWishlistCharDB.settings)
 end
 
 local function CreateMultiLineEditBox(parent, label, width, height)

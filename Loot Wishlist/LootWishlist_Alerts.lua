@@ -407,7 +407,7 @@ local function configureOtherActions(looterName, itemID, itemLink)
     alertFrame:SetHeight((LootWishlist.Const and LootWishlist.Const.ALERT_HEIGHT_WITH_BUTTONS) or 130)
   end
   looterName = looterName or "player"
-  local st = LootWishlist.GetSettings and LootWishlist.GetSettings() or (LootWishlistCharDB and LootWishlistCharDB.settings) or {}
+  local st = LootWishlist.GetSettings and LootWishlist.GetSettings() or (LootWishlistDB and LootWishlistDB.settings) or {}
   local function applyTemplate(tpl)
     if not tpl or tpl == "" then return "" end
     local out = tpl:gsub("%%item%%", itemLink or "[item]")
@@ -557,7 +557,7 @@ ef:SetScript("OnEvent", function(_, event, ...)
   elseif event == "START_LOOT_ROLL" then
     -- rollID, rollTime
     local rollID = ...
-    local st = LootWishlist.GetSettings and LootWishlist.GetSettings() or (LootWishlistCharDB and LootWishlistCharDB.settings) or {}
+  local st = LootWishlist.GetSettings and LootWishlist.GetSettings() or (LootWishlistDB and LootWishlistDB.settings) or {}
     if st and st.enableRaidRollAlert == false then return end
     -- Only alert in raid instances or raid groups
     local inRaid = IsInRaid() or (IsInGroup() and IsInInstance() and select(2, IsInInstance()) == "raid")
