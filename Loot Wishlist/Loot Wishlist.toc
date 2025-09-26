@@ -6,6 +6,8 @@
 ## SavedVariablesPerCharacter: LootWishlistCharDB
 ## SavedVariables: RemindMeDB, RemindMeCharDB
 
+embeds.xml
+
 LootWishlist_Constants.lua
 LootWishlist_Core.lua
 LootWishlist_Options.lua
