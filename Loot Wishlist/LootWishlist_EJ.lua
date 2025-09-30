@@ -101,52 +101,64 @@ local function DetermineEJContext(lootButton)
 end
 
 local function AddTrackButtonToLootButton(lootButton)
-  if not lootButton or lootButton.LootWishlistTrackButton then return end
+  if not lootButton then return end
+  -- Determine if this row represents a real loot item (not headers like 'Bonus Loot')
+  local itemID = ExtractItemID(lootButton)
 
-  local btn = CreateFrame("Button", nil, lootButton)
-  btn:SetSize(50, 20)
-  btn:SetText("Wishlist")
-  btn:SetNormalFontObject("GameFontNormalSmall")
-  btn:SetPoint("TOPRIGHT", lootButton, "TOPRIGHT", -4, -5)
-  btn:SetFrameLevel(lootButton:GetFrameLevel() + 5)
-  btn:SetFrameStrata("HIGH")
+  -- Create button if missing
+  local btn = lootButton.LootWishlistTrackButton
+  if not btn then
+    btn = CreateFrame("Button", nil, lootButton)
+    btn:SetSize(50, 20)
+    btn:SetText("Wishlist")
+    btn:SetNormalFontObject("GameFontNormalSmall")
+    btn:SetPoint("TOPRIGHT", lootButton, "TOPRIGHT", -4, -5)
+    btn:SetFrameLevel(lootButton:GetFrameLevel() + 5)
+    btn:SetFrameStrata("HIGH")
 
-  local bg = btn:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints()
-  bg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
-
-  btn:SetScript("OnEnter", function(self)
-    bg:SetColorTexture(0.3, 0.3, 0.3, 0.8)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText("Track this item")
-    GameTooltip:Show()
-  end)
-  btn:SetScript("OnLeave", function()
+    local bg = btn:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
     bg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
-    GameTooltip:Hide()
-  end)
 
-  btn:SetScript("OnClick", function()
-    local itemID = ExtractItemID(lootButton)
-    local itemLink = lootButton.link or lootButton.itemLink
-    if not itemLink and type(lootButton.index) == "number" then
-      local EJ_GetLootInfoByIndex = _G["EJ_GetLootInfoByIndex"]
-      if type(EJ_GetLootInfoByIndex)=="function" then
-        local ok, _, _, _, _, _, link = pcall(EJ_GetLootInfoByIndex, lootButton.index, EncounterJournal and EncounterJournal.encounterID)
-        if ok then itemLink = link end
+    btn:SetScript("OnEnter", function(self)
+      bg:SetColorTexture(0.3, 0.3, 0.3, 0.8)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText("Track this item")
+      GameTooltip:Show()
+    end)
+    btn:SetScript("OnLeave", function()
+      bg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+      GameTooltip:Hide()
+    end)
+
+    btn:SetScript("OnClick", function()
+      local idNow = ExtractItemID(lootButton)
+      local itemLink = lootButton.link or lootButton.itemLink
+      if not itemLink and type(lootButton.index) == "number" then
+        local EJ_GetLootInfoByIndex = _G["EJ_GetLootInfoByIndex"]
+        if type(EJ_GetLootInfoByIndex)=="function" then
+          local ok, _, _, _, _, _, link = pcall(EJ_GetLootInfoByIndex, lootButton.index, EncounterJournal and EncounterJournal.encounterID)
+          if ok then itemLink = link end
+        end
       end
-    end
-    local isRaid, bossName, instanceName, encounterID, instanceID, diffID, diffName = DetermineEJContext(lootButton)
-    if itemID then
-      LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, diffID, diffName)
-      if LootWishlist.IsDebug() then print("Loot Wishlist: Tracked", itemID, isRaid and ("boss="..tostring(bossName)) or "") end
-    else
-      print("Loot Wishlist: Could not find item ID for this item")
-    end
-  end)
+      local isRaid, bossName, instanceName, encounterID, instanceID, diffID, diffName = DetermineEJContext(lootButton)
+      if idNow then
+        LootWishlist.AddTrackedItem(idNow, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, diffID, diffName)
+        if LootWishlist.IsDebug and LootWishlist.IsDebug() then print("Loot Wishlist: Tracked", idNow, isRaid and ("boss="..tostring(bossName)) or "") end
+      else
+        print("Loot Wishlist: Could not find item ID for this item")
+      end
+    end)
 
-  btn:Show()
-  lootButton.LootWishlistTrackButton = btn
+    lootButton.LootWishlistTrackButton = btn
+  end
+
+  -- Show only for item rows; hide for headers like 'Bonus Loot'
+  if itemID then
+    btn:Show()
+  else
+    btn:Hide()
+  end
 end
 
 local function GetLootScrollBox()
