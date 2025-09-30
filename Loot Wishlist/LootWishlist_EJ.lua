@@ -4,17 +4,39 @@ LootWishlist = LootWishlist or {}
 LootWishlist.EJ = LootWishlist.EJ or {}
 
 local function IsRaidInstance(instanceID)
-  local EJ_GetInstanceByIndex = _G["EJ_GetInstanceByIndex"]
-  if not instanceID or type(EJ_GetInstanceByIndex) ~= "function" then return false end
-  if not LootWishlist_IsRaidCache then
-    LootWishlist_IsRaidCache = {}
-    for i = 1, 500 do
-      local rid = EJ_GetInstanceByIndex(i, true)
-      if not rid then break end
-      LootWishlist_IsRaidCache[rid] = true
-    end
+  if not instanceID then return false end
+  -- Prefer direct API if available
+  local EJ_InstanceIsRaid = _G["EJ_InstanceIsRaid"]
+  if type(EJ_InstanceIsRaid) == "function" then
+    local ok, isRaid = pcall(EJ_InstanceIsRaid, instanceID)
+    if ok and type(isRaid) == "boolean" then return isRaid end
   end
-  return LootWishlist_IsRaidCache[instanceID] or false
+
+  -- Fallback: Search the current tier's instance lists for membership
+  local EJ_GetInstanceByIndex = _G["EJ_GetInstanceByIndex"]
+  if type(EJ_GetInstanceByIndex) ~= "function" then return false end
+
+  -- Cache per instanceID outcome to avoid repeated scans
+  LootWishlist_IsRaidCache = LootWishlist_IsRaidCache or {}
+  if LootWishlist_IsRaidCache[instanceID] ~= nil then return LootWishlist_IsRaidCache[instanceID] end
+
+  local function inList(isRaid)
+    for i = 1, 1000 do
+      local id = EJ_GetInstanceByIndex(i, isRaid)
+      if not id then break end
+      if id == instanceID then return true end
+    end
+    return false
+  end
+
+  local isRaid = inList(true)
+  if not isRaid then
+    local isDungeon = inList(false)
+    if isDungeon then isRaid = false end
+  end
+  if isRaid == nil then isRaid = false end
+  LootWishlist_IsRaidCache[instanceID] = isRaid
+  return isRaid
 end
 
 local function ExtractItemID(lootButton)
