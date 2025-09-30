@@ -7,6 +7,21 @@ local Alerts = LootWishlist.Alerts
 local alertFrame, alertFS, alertHideAt
 local raidDropFrame, raidDropFS, raidDropHideAt
 local rollAlertFrame, rollAlertFS, rollHideAt
+local specReminderFrame, specReminderFS, specReminderHideAt
+local dungeonReminded = {}
+local bossReminded = {}
+-- Track previous instance state so we can reset dedupers when leaving
+local lastInInstance, lastInstanceType
+
+-- Debug helper
+local function dprint(...)
+  local ok = LootWishlist and LootWishlist.IsDebug and LootWishlist.IsDebug()
+  if not ok then return end
+  local msg = "[LootWishlist] "
+  local parts = {}
+  for i = 1, select('#', ...) do parts[i] = tostring(select(i, ...)) end
+  print(msg .. table.concat(parts, " "))
+end
 -- Track bag counts to detect when a tracked item later appears in your inventory
 local bagCounts = {}
 local recentSelfAlertAt = {}
@@ -17,6 +32,296 @@ local function getCurrentInstanceDifficulty()
     return difficultyID, difficultyName
   end
   return nil, nil
+end
+
+-- Current loot specialization helpers --------------------------------------
+local function getCurrentSpecID()
+  if GetSpecialization then
+    local idx = GetSpecialization()
+    if idx then
+      local ok, specID = pcall(GetSpecializationInfo, idx)
+      if ok and type(specID) == "number" then return specID end
+    end
+  end
+  return nil
+end
+
+local function getLootSpecID()
+  if GetLootSpecialization then
+    local sid = GetLootSpecialization()
+    if sid and sid ~= 0 then return sid end
+  end
+  return getCurrentSpecID()
+end
+
+local function getSpecNameByID(specID)
+  if not specID then return nil end
+  local ok, _sid, name = pcall(GetSpecializationInfoByID, specID)
+  if ok and type(name) == "string" and name ~= "" then return name end
+  return tostring(specID)
+end
+
+-- Player specialization set and coverage helpers ----------------------------
+local function getPlayerSpecIDs()
+  local out = {}
+  if GetNumSpecializations and GetSpecializationInfo then
+    local count = GetNumSpecializations()
+    if type(count) == "number" and count > 0 then
+      for i = 1, count do
+        local ok, id = pcall(GetSpecializationInfo, i)
+        if ok and type(id) == "number" then table.insert(out, id) end
+      end
+    end
+  end
+  return out
+end
+
+local function isAnySpecForPlayer(specs)
+  if type(specs) ~= "table" or not next(specs) then return true end -- no restriction means any spec
+  local playerSpecs = getPlayerSpecIDs()
+  if #playerSpecs == 0 then return false end
+  local set = {}
+  for _, sid in ipairs(specs) do set[sid] = true end
+  for _, ps in ipairs(playerSpecs) do if not set[ps] then return false end end
+  return true
+end
+
+-- Instance mapping helpers --------------------------------------------------
+local function normalizeName(s)
+  if type(s) ~= "string" then return s end
+  s = s:lower()
+  s = s:gsub("[%s%p]", "")
+  return s
+end
+
+local function getCurrentEJInstanceID()
+  local mapID = GetInstanceInfo and select(8, GetInstanceInfo()) or nil
+  local uiMapID = (C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")) or nil
+  local EJ_GetInstanceForMap = _G and _G["EJ_GetInstanceForMap"]
+  if type(EJ_GetInstanceForMap) == "function" then
+    if mapID then
+      local ok, ej = pcall(EJ_GetInstanceForMap, mapID)
+      if ok and type(ej) == "number" and ej > 0 then return ej end
+    end
+    if uiMapID then
+      local ok, ej = pcall(EJ_GetInstanceForMap, uiMapID)
+      if ok and type(ej) == "number" and ej > 0 then return ej end
+    end
+  end
+  return nil
+end
+
+-- Spec reminder UI ----------------------------------------------------------
+local function ShowSpecReminder(lines)
+  if not lines or #lines == 0 then return end
+  if not specReminderFrame then
+    specReminderFrame = CreateFrame("Frame", "LootWishlistSpecReminder", UIParent, "BackdropTemplate")
+    specReminderFrame:SetSize(520, 80)
+    specReminderFrame:SetPoint("TOP", UIParent, "TOP", 0, -340)
+    specReminderFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    specReminderFrame:SetBackdrop({
+      bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+      edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+      tile = true, tileSize = 16, edgeSize = 12,
+      insets = { left = 3, right = 3, top = 3, bottom = 3 }
+    })
+    specReminderFrame:SetBackdropColor(0, 0, 0, 0.85)
+    specReminderFrame:SetBackdropBorderColor(0.4, 1.0, 0.4, 0.95)
+    specReminderFrame:EnableMouse(true)
+    specReminderFrame:SetMovable(true)
+    specReminderFrame:RegisterForDrag("LeftButton")
+    specReminderFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    specReminderFrame:SetScript("OnDragStop", function(self)
+      self:StopMovingOrSizing()
+      if LootWishlistCharDB and self:GetPoint(1) then
+        local p, rel, rp, x, y = self:GetPoint(1)
+        LootWishlistCharDB.specReminderWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
+      end
+    end)
+    specReminderFS = specReminderFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+    specReminderFS:SetPoint("CENTER")
+    specReminderFS:SetJustifyH("CENTER")
+    specReminderFS:SetJustifyV("MIDDLE")
+    specReminderFS:SetText("")
+    local w = LootWishlistCharDB and LootWishlistCharDB.specReminderWindow
+    if w and w.point then
+      specReminderFrame:ClearAllPoints()
+      specReminderFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
+    end
+    specReminderFrame:Hide()
+    specReminderFrame:SetScript("OnUpdate", function(_, _elapsed)
+      if specReminderHideAt and GetTime() >= specReminderHideAt then
+        specReminderFrame:Hide()
+        specReminderHideAt = nil
+      end
+    end)
+  end
+  local text = table.concat(lines, "\n")
+  specReminderFS:SetText(text)
+  if specReminderFS.SetWidth and specReminderFrame.GetWidth then
+    specReminderFS:SetWidth(specReminderFrame:GetWidth() - 20)
+  end
+  local desiredH = (specReminderFS.GetStringHeight and (specReminderFS:GetStringHeight() + 24)) or 80
+  specReminderFrame:SetHeight(math.max(60, math.min(220, desiredH)))
+  specReminderFrame:Show()
+  specReminderHideAt = GetTime() + 10
+end
+
+-- Matching logic ------------------------------------------------------------
+local function playerLootSpecMatches(specs)
+  if type(specs) ~= "table" then return true end
+  if not next(specs) then return true end -- treat empty as any spec
+  local lsid = getLootSpecID()
+  if not lsid then return true end
+  for _, sid in ipairs(specs) do if sid == lsid then return true end end
+  return false
+end
+
+local function collectDungeonSpecSuggestions()
+  local inInstance, instType = IsInInstance()
+  dprint("collectDungeonSpecSuggestions inInstance=", inInstance, "type=", instType)
+  if not inInstance or instType ~= "party" then return nil end
+  local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or nil
+  local ejID = getCurrentEJInstanceID()
+  dprint("instance=", instName or "nil", "ejID=", tostring(ejID or "nil"))
+  if not instName and not ejID then return nil end
+  local deDupeKey = ejID or instName
+  if dungeonReminded[deDupeKey] then dprint("already reminded for", deDupeKey); return nil end
+  local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
+  local tcount = 0; if tracked then for _ in pairs(tracked) do tcount = tcount + 1 end end
+  dprint("tracked items=", tcount)
+  if not tracked or not next(tracked) then return nil end
+  local bySpec = {}
+  local haveAny = false
+  local lsid = getLootSpecID()
+  local stayStrictItems, stayAnyItems = {}, {}
+  for _, v in pairs(tracked) do
+    if type(v) == "table" and (not v.isRaid) then
+      local match
+      if ejID and v.instanceID then
+        match = (v.instanceID == ejID)
+      else
+        match = (v.dungeon == instName) or (normalizeName(v.dungeon) == normalizeName(instName or ""))
+      end
+      if match then
+        dprint("candidate item", v.id, "dungeon=", v.dungeon, "instanceID=", tostring(v.instanceID or "nil"), "link=", v.link or ("item:"..tostring(v.id)))
+        local specs = v.specs
+        if type(specs) == "table" and next(specs) then
+          dprint("specs=", table.concat((function() local tmp={} for _,sid in ipairs(specs) do table.insert(tmp, tostring(sid)) end return tmp end)(), ","), "lootSpec=", tostring(lsid or "nil"))
+          if not playerLootSpecMatches(specs) then
+            local suggestID
+            for _, sid in ipairs(specs) do suggestID = sid; break end
+            if not suggestID then -- fallback if table isn't array-like
+              for _, sid in pairs(specs) do if type(sid)=="number" then suggestID = sid; break end end
+            end
+            local name = getSpecNameByID(suggestID) or "appropriate spec"
+            if name == "" then name = "appropriate spec" end
+            bySpec[name] = bySpec[name] or {}
+            table.insert(bySpec[name], v.link or ("item:"..tostring(v.id)))
+            haveAny = true
+          else
+            -- Matches current loot spec; accumulate to show a 'stay' recommendation alongside switches
+            local link = v.link or ("item:"..tostring(v.id))
+            if isAnySpecForPlayer(specs) then
+              table.insert(stayAnyItems, link)
+            else
+              table.insert(stayStrictItems, link)
+            end
+          end
+        else
+          dprint("no specific specs (any spec) for", v.id)
+          -- Treat as any-spec eligible
+          local link = v.link or ("item:"..tostring(v.id))
+          table.insert(stayAnyItems, link)
+        end
+      else
+        dprint("skip item", v.id, "(instance mismatch)", "v.dungeon=", tostring(v.dungeon), "inst=", tostring(instName), "norm=", normalizeName(v.dungeon or ""), "vs", normalizeName(instName or ""), "v.instanceID=", tostring(v.instanceID or "nil"), "ejID=", tostring(ejID or "nil"))
+      end
+    end
+  end
+  if not haveAny then return nil end
+  local lines = { "Wrong loot spec for wishlist items:" }
+  for specName, items in pairs(bySpec) do
+    table.sort(items)
+    table.insert(lines, string.format("- Switch %s for %s", specName, table.concat(items, ", ")))
+  end
+  if lsid and #stayStrictItems > 0 then
+    table.sort(stayStrictItems)
+    local curName = getSpecNameByID(lsid) or "current spec"
+    table.insert(lines, string.format("- Stay %s for %s", curName, table.concat(stayStrictItems, ", ")))
+  end
+  if #stayAnyItems > 0 then
+    table.sort(stayAnyItems)
+    table.insert(lines, string.format("- OK in any spec: %s", table.concat(stayAnyItems, ", ")))
+  end
+  dungeonReminded[deDupeKey] = true
+  return lines
+end
+
+local function collectRaidTargetSpecSuggestions()
+  local inInstance, instType = IsInInstance()
+  dprint("collectRaidTargetSpecSuggestions inInstance=", inInstance, "type=", instType)
+  if not inInstance or instType ~= "raid" then return nil end
+  if not UnitExists("target") then dprint("no target"); return nil end
+  local targetName = UnitName("target")
+  if not targetName then return nil end
+  local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or ""
+  local key = instName .. "|" .. targetName
+  if bossReminded[key] then dprint("already reminded for", key); return nil end
+  local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
+  if not tracked or not next(tracked) then return nil end
+  local bySpec = {}
+  local haveAny = false
+  local lsid = getLootSpecID()
+  local stayStrictItems, stayAnyItems = {}, {}
+  for _, v in pairs(tracked) do
+    if type(v) == "table" and v.isRaid and (v.boss == targetName) then
+      local specs = v.specs
+      if type(specs) == "table" and next(specs) then
+        dprint("boss item", v.id, "specs:", table.concat((function() local tmp={} for _,sid in ipairs(specs) do table.insert(tmp, tostring(sid)) end return tmp end)(), ","), "lootSpec=", tostring(lsid or "nil"))
+        if not playerLootSpecMatches(specs) then
+          local suggestID
+          for _, sid in ipairs(specs) do suggestID = sid; break end
+          if not suggestID then -- fallback if table isn't array-like
+            for _, sid in pairs(specs) do if type(sid)=="number" then suggestID = sid; break end end
+          end
+          local name = getSpecNameByID(suggestID) or "appropriate spec"
+          if name == "" then name = "appropriate spec" end
+          bySpec[name] = bySpec[name] or {}
+          table.insert(bySpec[name], v.link or ("item:"..tostring(v.id)))
+          haveAny = true
+        else
+          local link = v.link or ("item:"..tostring(v.id))
+          if isAnySpecForPlayer(specs) then
+            table.insert(stayAnyItems, link)
+          else
+            table.insert(stayStrictItems, link)
+          end
+        end
+      else
+        dprint("no specific specs (any spec) for", v.id)
+        local link = v.link or ("item:"..tostring(v.id))
+        table.insert(stayAnyItems, link)
+      end
+    end
+  end
+  if not haveAny then return nil end
+  local lines = { "Wrong loot spec for wishlist items:" }
+  for specName, items in pairs(bySpec) do
+    table.sort(items)
+    table.insert(lines, string.format("- Switch %s for %s", specName, table.concat(items, ", ")))
+  end
+  if lsid and #stayStrictItems > 0 then
+    table.sort(stayStrictItems)
+    local curName = getSpecNameByID(lsid) or "current spec"
+    table.insert(lines, string.format("- Stay %s for %s", curName, table.concat(stayStrictItems, ", ")))
+  end
+  if #stayAnyItems > 0 then
+    table.sort(stayAnyItems)
+    table.insert(lines, string.format("- OK in any spec: %s", table.concat(stayAnyItems, ", ")))
+  end
+  bossReminded[key] = true
+  return lines
 end
 
 -- Get the number of a given itemID in the player's bags (excluding bank)
@@ -514,6 +819,9 @@ ef:RegisterEvent("ENCOUNTER_LOOT_RECEIVED")
 ef:RegisterEvent("START_LOOT_ROLL")
 ef:RegisterEvent("BAG_UPDATE_DELAYED")
 ef:RegisterEvent("PLAYER_LOGIN")
+ef:RegisterEvent("PLAYER_ENTERING_WORLD")
+ef:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+ef:RegisterEvent("PLAYER_TARGET_CHANGED")
 ef:SetScript("OnEvent", function(_, event, ...)
   if event == "CHAT_MSG_LOOT" then
     local msg = ...
@@ -622,6 +930,40 @@ ef:SetScript("OnEvent", function(_, event, ...)
         end
       end
     end
+  elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
+    dprint("event:", event)
+    -- Detect leaving an instance and reset de-dupers so re-entry can show again
+    local nowIn, nowType = IsInInstance()
+    if lastInInstance == nil then
+      -- First observation
+      lastInInstance, lastInstanceType = nowIn, nowType
+    else
+      if lastInInstance and not nowIn then
+        dprint("left instance; resetting spec reminder dedupers")
+        if wipe then
+          wipe(dungeonReminded)
+          wipe(bossReminded)
+        else
+          dungeonReminded = {}
+          bossReminded = {}
+        end
+      end
+      lastInInstance, lastInstanceType = nowIn, nowType
+    end
+    local lines = collectDungeonSpecSuggestions()
+    if lines then ShowSpecReminder(lines) else
+      -- Slight delay retry to allow instance info to settle
+      if C_Timer and C_Timer.After then
+        C_Timer.After(1.0, function()
+          local l2 = collectDungeonSpecSuggestions()
+          if l2 then ShowSpecReminder(l2) end
+        end)
+      end
+    end
+  elseif event == "PLAYER_TARGET_CHANGED" then
+    dprint("event: PLAYER_TARGET_CHANGED")
+    local lines = collectRaidTargetSpecSuggestions()
+    if lines then ShowSpecReminder(lines) end
   end
 end)
 

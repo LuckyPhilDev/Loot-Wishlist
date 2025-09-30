@@ -21,6 +21,54 @@ local trackedItems -- assigned after DB init; may use string keys for difficulty
 
 -- No basic frame: AceGUI is the only UI path now
 
+-- Spec detection ------------------------------------------------------------
+local function tryGetItemSpecsImmediate(itemID, itemLink)
+  local query = itemLink or (itemID and ("item:"..tostring(itemID))) or itemID
+  if not query then return nil end
+  -- Prefer modern API
+  if C_Item and C_Item.GetItemSpecInfo then
+    local ok, res = pcall(C_Item.GetItemSpecInfo, query)
+    if ok and type(res) == "table" and #res > 0 then return res end
+  end
+  return nil
+end
+
+local function computeItemSpecs(itemID, itemLink, onDone)
+  -- Try immediately first
+  local specs = tryGetItemSpecsImmediate(itemID, itemLink)
+  if specs then if onDone then onDone(specs) end; return end
+  -- Try async load via Item API if available
+  local ItemAPI = _G and _G["Item"]
+  if type(ItemAPI) == "table" and ItemAPI.CreateFromItemID then
+    local obj = ItemAPI:CreateFromItemID(itemID)
+    if obj and obj.ContinueOnItemLoad then
+      obj:ContinueOnItemLoad(function()
+        local again = tryGetItemSpecsImmediate(itemID, (obj.GetItemLink and obj:GetItemLink()) or itemLink)
+        if onDone then onDone(again or {}) end
+      end)
+      return
+    end
+  end
+  -- Fallback: request and call back empty
+  if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(itemID) end
+  if onDone then onDone({}) end
+end
+
+function LootWishlist.GetSpecNames(specIDs)
+  local names = {}
+  if type(specIDs) ~= "table" then return names end
+  local getInfo = _G and _G["GetSpecializationInfoByID"]
+  for _, sid in ipairs(specIDs) do
+    if type(getInfo) == "function" then
+      local ok, _specID, specName = pcall(getInfo, sid)
+      if ok and type(specName) == "string" and specName ~= "" then
+        table.insert(names, specName)
+      end
+    end
+  end
+  return names
+end
+
 -- DB and migration -----------------------------------------------------------
 local function InitializeDB()
   -- Initialize per-character DB
@@ -49,11 +97,24 @@ local function InitializeDB()
   -- Defaults for account-wide templates
   acctS.whisperTemplate = acctS.whisperTemplate or C.DEFAULT_WHISPER_TEMPLATE or "Hi %looter%, grats! If %item% is tradeable, could I please have it? It's on my wishlist."
   acctS.partyTemplate = acctS.partyTemplate or C.DEFAULT_PARTY_TEMPLATE or "If %item% is tradeable, I'd love it (wishlist). Thanks!"
+  if acctS.debug == nil then acctS.debug = false end
+  DEBUG = acctS.debug and true or false
 
   -- Account-wide toggle default
   if acctS.enableRaidRollAlert == nil then acctS.enableRaidRollAlert = true end
 
   -- Restore window position is handled by Ace frame status table
+
+  -- Backfill specs for existing tracked entries if missing
+  for _, v in pairs(trackedItems) do
+    if type(v) == "table" and type(v.id) == "number" and (v.specs == nil or (type(v.specs)=="table" and next(v.specs)==nil)) then
+      computeItemSpecs(v.id, v.link, function(specs)
+        v.specs = specs or {}
+        if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+        if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+      end)
+    end
+  end
 end
 
 -- Public API: Add/Remove/Iterate --------------------------------------------
@@ -76,7 +137,15 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
     instanceID = instanceID,
     difficultyID = difficultyID,
     difficultyName = difficultyName,
+    specs = nil,
   }
+  -- Compute and attach spec list asynchronously
+  computeItemSpecs(itemID, itemLink, function(specs)
+    local entry = trackedItems[key]
+    if entry then entry.specs = specs or {} end
+    if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+  end)
   -- Prefer Ace view opening; the UI module will handle opening and refreshing
   if LootWishlist.Ace and LootWishlist.Ace.open then
     LootWishlist.Ace.open()
@@ -164,6 +233,9 @@ end
 
 function LootWishlist.SetDebug(val)
   DEBUG = not not val
+  if LootWishlistDB and LootWishlistDB.settings then
+    LootWishlistDB.settings.debug = DEBUG
+  end
   print("Loot Wishlist debug:", DEBUG and "ON" or "OFF")
 end
 
@@ -206,6 +278,19 @@ f:SetScript("OnEvent", function(self, event, ...)
     if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.showIfNeeded then LootWishlist.Summary.showIfNeeded() end
   elseif event == "GET_ITEM_INFO_RECEIVED" then
+    -- When item info is received, try to resolve missing spec info for that item
+    local itemID = ...
+    if type(itemID) == "number" then
+      for _, v in pairs(trackedItems) do
+        if type(v) == "table" and v.id == itemID and (v.specs == nil or (type(v.specs)=="table" and next(v.specs)==nil)) then
+          computeItemSpecs(itemID, v.link, function(specs)
+            v.specs = specs or {}
+            if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+            if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+          end)
+        end
+      end
+    end
     if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   end

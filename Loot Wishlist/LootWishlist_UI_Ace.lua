@@ -123,7 +123,51 @@ local function renderItemRow(parent, itemKey, itemID, info, indent)
   iconWidget["SetWidth"](iconWidget, 20)
   header["AddChild"](header, iconWidget)
   local tag = diffTag(info.difficultyID, info.difficultyName)
-  local labelText = tag and (link .. "  |cffa0a0a0[".. tag .. "]|r") or link
+  -- Build spec names text if available; show {any spec} when unrestricted for player's class
+  local specText
+  do
+    local specs = info and info.specs
+    -- Helper: build player's specID set
+    local playerSpecIDs = {}
+    local psCount = 0
+    local numSpecs = _G.GetNumSpecializations and _G.GetNumSpecializations() or 0
+    if type(numSpecs) == "number" and numSpecs > 0 then
+      for i = 1, numSpecs do
+        local ok, specID = pcall(_G.GetSpecializationInfo, i)
+        if ok and type(specID) == "number" then playerSpecIDs[specID] = true; psCount = psCount + 1 end
+      end
+    end
+
+    local function allPlayerSpecsCovered()
+      if psCount == 0 then return false end
+      if type(specs) ~= "table" or not next(specs) then return true end -- no specific info: treat as any spec
+      local specSet = {}
+      for _, sid in ipairs(specs) do specSet[sid] = true end
+      for sid in pairs(playerSpecIDs) do
+        if not specSet[sid] then return false end
+      end
+      return true
+    end
+
+    if allPlayerSpecsCovered() then
+      specText = "|cffa0a0a0{any spec}|r"
+    elseif type(specs) == "table" and next(specs) then
+      local getNames = LootWishlist and LootWishlist.GetSpecNames
+      local names = (type(getNames) == "function" and getNames(specs)) or {}
+      local text = (type(names) == "table" and next(names) and table.concat(names, "/")) or nil
+      if not text then
+        -- Fallback to spec ID list if names not available
+        local tmp = {}
+        for _, sid in ipairs(specs) do table.insert(tmp, tostring(sid)) end
+        text = table.concat(tmp, "/")
+      end
+      if text and text ~= "" then specText = string.format("|cffa0a0a0{%s}|r", text) end
+    end
+  end
+  local parts = { link }
+  if tag then table.insert(parts, string.format("|cffa0a0a0[%s]|r", tag)) end
+  if specText then table.insert(parts, specText) end
+  local labelText = table.concat(parts, "  ")
   local label = AceGUI:Create("InteractiveLabel"); label["SetText"](label, labelText); label["SetRelativeWidth"](label, indent and 0.80 or 0.82)
   label["SetCallback"](label, "OnEnter", function(widget) if link then GameTooltip:SetOwner(widget.frame, "ANCHOR_CURSOR"); GameTooltip:SetHyperlink(link); GameTooltip:Show() end end)
   label["SetCallback"](label, "OnLeave", function() GameTooltip:Hide() end)
