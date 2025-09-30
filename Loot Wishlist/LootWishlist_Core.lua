@@ -95,8 +95,8 @@ local function InitializeDB()
   end
 
   -- Defaults for account-wide templates
-  acctS.whisperTemplate = acctS.whisperTemplate or C.DEFAULT_WHISPER_TEMPLATE or "Hi %looter%, grats! If %item% is tradeable, could I please have it? It's on my wishlist."
-  acctS.partyTemplate = acctS.partyTemplate or C.DEFAULT_PARTY_TEMPLATE or "If %item% is tradeable, I'd love it (wishlist). Thanks!"
+  acctS.whisperTemplate = acctS.whisperTemplate or C.DEFAULT_WHISPER_TEMPLATE 
+  acctS.partyTemplate = acctS.partyTemplate or C.DEFAULT_PARTY_TEMPLATE
   if acctS.debug == nil then acctS.debug = false end
   DEBUG = acctS.debug and true or false
 
