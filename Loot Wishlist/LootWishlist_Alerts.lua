@@ -807,6 +807,30 @@ local function getItemLinkAsync(itemID, cb)
   end
 end
 
+-- Warbound detection --------------------------------------------------------
+local function isWarboundItemLink(itemLink)
+  if not itemLink then return false end
+  local warboundKey = rawget(_G, "ITEM_WARBOUND_UNTIL_EQUIPPED")
+  local function hasWarboundText(s)
+    if type(s) ~= "string" then return false end
+    if warboundKey and s:find(warboundKey, 1, true) then return true end
+    return s:lower():find("warbound", 1, true) ~= nil
+  end
+  if C_TooltipInfo and C_TooltipInfo.GetHyperlink then
+    local ok, tip = pcall(C_TooltipInfo.GetHyperlink, itemLink)
+    if ok and type(tip) == "table" and tip.lines then
+      if TooltipUtil and TooltipUtil.SurfaceArgs then pcall(TooltipUtil.SurfaceArgs, tip) end
+      for _, line in ipairs(tip.lines) do
+        if TooltipUtil and TooltipUtil.SurfaceArgs then pcall(TooltipUtil.SurfaceArgs, line) end
+        if hasWarboundText(line and line.leftText) or hasWarboundText(line and line.rightText) then
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
 -- Helpers to parse chat loot messages into looter context (localized-safe best effort)
 local function escapeLuaPattern(s)
   return s and s:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1") or s
@@ -1035,6 +1059,7 @@ ef:SetScript("OnEvent", function(_, event, ...)
     for _, link in ipairs(extractLinks(msg)) do
       local itemID = parseItemIDFromLink(link)
       if itemID and isTracked(itemID) then
+        if isWarboundItemLink(link) then dprint("skip warbound drop", link); return end
         if inRaid then
           -- In raids, suppress the action/party-whisper alert and the simple raid drop banner.
           -- We'll rely on the START_LOOT_ROLL reminder popup instead.
@@ -1053,6 +1078,7 @@ ef:SetScript("OnEvent", function(_, event, ...)
     local _encounterID, itemID, itemLink, _quantity, playerName = ...
     if itemID and isTracked(itemID) then
       local function withLink(l)
+        if l and isWarboundItemLink(l) then return end
         local inRaid = IsInRaid() or (IsInGroup() and IsInInstance() and select(2, IsInInstance()) == "raid")
         if inRaid then
           -- In raids, skip the action/party-whisper alert and the simple raid drop banner.
@@ -1083,7 +1109,8 @@ ef:SetScript("OnEvent", function(_, event, ...)
     if not itemLink and GetLootRollItemLink then
       itemLink = GetLootRollItemLink(rollID)
     end
-    if not itemLink then return end
+  if not itemLink then return end
+  if isWarboundItemLink(itemLink) then return end
     -- Only alert for wishlist-tracked items
     local itemID = tonumber(itemLink:match("item:(%d+)"))
     if not itemID then return end
@@ -1118,6 +1145,7 @@ ef:SetScript("OnEvent", function(_, event, ...)
             local last = recentSelfAlertAt[iid] or 0
             if (GetTime() - last) > 8 then
               local function withLink(l)
+                if l and isWarboundItemLink(l) then return end
                 local diffID, diffName = getCurrentInstanceDifficulty()
                 ShowDropAlertWithContext(l or ("item:"..tostring(iid)), true, UnitName("player"), iid, diffID, diffName)
               end
