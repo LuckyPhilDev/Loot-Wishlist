@@ -330,6 +330,13 @@ SlashCmdList.WISHLIST = function(msg)
     else
       print("Open Interface Options and look for 'Loot Wishlist'.")
     end
+  elseif msg == "reset-spec" or msg == "resetspec" then
+    if LootWishlist.Alerts and LootWishlist.Alerts.ResetSpecReminderDebounce then
+      LootWishlist.Alerts.ResetSpecReminderDebounce()
+      print("Loot Wishlist: spec reminder reset. Target a boss or re-enter to trigger again.")
+    else
+      print("Loot Wishlist: alerts module not ready.")
+    end
   elseif msg:match("^testdrop ") then
     local arg = msg:match("^testdrop%s+(.+)$")
     if arg then
@@ -361,6 +368,6 @@ SlashCmdList.WISHLIST = function(msg)
     if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end
     print("Loot Wishlist: cleared all tracked items")
   else
-    print("/wishlist commands: show | hide | remove <ID> | list | clear | debug")
+    print("/wishlist commands: show | hide | remove <ID> | list | clear | debug | reset-spec")
   end
 end

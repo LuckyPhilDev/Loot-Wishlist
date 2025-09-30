@@ -968,6 +968,19 @@ ef:SetScript("OnEvent", function(_, event, ...)
 end)
 
 -- Public API
+function Alerts.ResetSpecReminderDebounce()
+  if wipe then
+    wipe(dungeonReminded)
+    wipe(bossReminded)
+  else
+    dungeonReminded = {}
+    bossReminded = {}
+  end
+  -- Also forget last instance state to avoid immediate re-blocking
+  lastInInstance, lastInstanceType = nil, nil
+  dprint("Spec reminder debounce reset")
+end
+
 function Alerts.TestDrop(input, forceNot)
   local itemID, link
   if type(input) == "number" then itemID = input end
