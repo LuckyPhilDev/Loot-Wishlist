@@ -8,8 +8,12 @@ local alertFrame, alertFS, alertHideAt
 local raidDropFrame, raidDropFS, raidDropHideAt
 local rollAlertFrame, rollAlertFS, rollHideAt
 local specReminderFrame, specReminderFS, specReminderHideAt
+local assistFrame, assistFS, assistHideAt, assistBtnWhisper, assistBtnParty
+local lastAssistTargetName, lastAssistMessageWhisper, lastAssistMessageParty
 local dungeonReminded = {}
 local bossReminded = {}
+local assistDungeonReminded = {}
+local assistBossReminded = {}
 -- Track previous instance state so we can reset dedupers when leaving
 local lastInInstance, lastInstanceType
 
@@ -165,6 +169,206 @@ local function ShowSpecReminder(lines)
   specReminderFrame:SetHeight(math.max(60, math.min(220, desiredH)))
   specReminderFrame:Show()
   specReminderHideAt = GetTime() + 10
+end
+
+-- Assist reminder UI --------------------------------------------------------
+local function ensureAssistFrame()
+  if assistFrame then return assistFrame end
+  assistFrame = CreateFrame("Frame", "LootWishlistAssistReminder", UIParent, "BackdropTemplate")
+  assistFrame:SetSize(520, 90)
+  assistFrame:SetPoint("TOP", UIParent, "TOP", 0, -410)
+  assistFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+  assistFrame:SetBackdrop({
+    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 12,
+    insets = { left = 3, right = 3, top = 3, bottom = 3 }
+  })
+  assistFrame:SetBackdropColor(0, 0, 0, 0.85)
+  assistFrame:SetBackdropBorderColor(0.4, 0.8, 1.0, 0.95)
+  assistFrame:EnableMouse(true)
+  assistFrame:SetMovable(true)
+  assistFrame:RegisterForDrag("LeftButton")
+  assistFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+  assistFrame:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    if LootWishlistCharDB and self:GetPoint(1) then
+      local p, rel, rp, x, y = self:GetPoint(1)
+      LootWishlistCharDB.assistReminderWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
+    end
+  end)
+  assistFS = assistFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+  assistFS:SetPoint("TOP", 0, -8)
+  assistFS:SetJustifyH("CENTER")
+  assistFS:SetJustifyV("MIDDLE")
+  assistFS:SetText("")
+
+  assistBtnWhisper = CreateFrame("Button", nil, assistFrame, "UIPanelButtonTemplate")
+  assistBtnParty = CreateFrame("Button", nil, assistFrame, "UIPanelButtonTemplate")
+  assistBtnWhisper:SetSize(110, 22)
+  assistBtnParty:SetSize(110, 22)
+  assistBtnWhisper:SetText("Whisper")
+  assistBtnParty:SetText("Party")
+  assistBtnWhisper:SetPoint("BOTTOM", assistFrame, "BOTTOM", -70, 10)
+  assistBtnParty:SetPoint("BOTTOM", assistFrame, "BOTTOM", 70, 10)
+
+  assistBtnWhisper:SetScript("OnClick", function()
+    if not lastAssistTargetName or not lastAssistMessageWhisper then assistFrame:Hide(); return end
+    if ChatEdit_ChooseBoxForSend and ChatEdit_SendText and ChatEdit_ActivateChat then
+      local eb = ChatEdit_ChooseBoxForSend()
+      if eb then
+        local prevShown = eb:IsShown()
+        ChatEdit_ActivateChat(eb)
+        eb:SetText(string.format("/w %s %s", lastAssistTargetName, lastAssistMessageWhisper))
+        ChatEdit_SendText(eb, 0)
+        eb:SetText("")
+        if not prevShown then eb:Hide() end
+      end
+    end
+    assistFrame:Hide()
+  end)
+  assistBtnParty:SetScript("OnClick", function()
+    if not lastAssistMessageParty then assistFrame:Hide(); return end
+    -- Compute group chat prefix locally to avoid dependency order issues
+    local prefix = "/s"
+    if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then prefix = "/i"
+    elseif IsInRaid() then prefix = "/raid"
+    elseif IsInGroup() then prefix = "/p" end
+    if ChatEdit_ChooseBoxForSend and ChatEdit_SendText and ChatEdit_ActivateChat then
+      local eb = ChatEdit_ChooseBoxForSend()
+      if eb then
+        local prevShown = eb:IsShown()
+        ChatEdit_ActivateChat(eb)
+        eb:SetText(prefix .. " " .. lastAssistMessageParty)
+        ChatEdit_SendText(eb, 0)
+        eb:SetText("")
+        if not prevShown then eb:Hide() end
+      end
+    end
+    assistFrame:Hide()
+  end)
+
+  local w = LootWishlistCharDB and LootWishlistCharDB.assistReminderWindow
+  if w and w.point then
+    assistFrame:ClearAllPoints()
+    assistFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
+  end
+  assistFrame:Hide()
+  assistFrame:SetScript("OnUpdate", function()
+    if assistHideAt and GetTime() >= assistHideAt then
+      assistFrame:Hide()
+      assistHideAt = nil
+    end
+  end)
+  return assistFrame
+end
+
+local function ShowAssistReminder(lines, firstTargetName, firstSpecName, itemsList)
+  if not lines or #lines == 0 then return end
+  local f = ensureAssistFrame()
+  local text = table.concat(lines, "\n")
+  assistFS:SetText(text)
+  if assistFS.SetWidth and f.GetWidth then
+    assistFS:SetWidth(f:GetWidth() - 20)
+  end
+  local desiredH = (assistFS.GetStringHeight and (assistFS:GetStringHeight() + 40)) or 90
+  f:SetHeight(math.max(80, math.min(240, desiredH)))
+  -- Prepare default messages targeting the first suggestion
+  lastAssistTargetName = firstTargetName
+  if firstTargetName and firstSpecName and itemsList then
+    lastAssistMessageWhisper = string.format("Hey %s, could you set your loot spec to %s for %s? It's on my wishlist.", firstTargetName, firstSpecName, itemsList)
+    lastAssistMessageParty = string.format("%s, could you set loot spec to %s for %s?", firstTargetName, firstSpecName, itemsList)
+  else
+    lastAssistMessageWhisper, lastAssistMessageParty = nil, nil
+  end
+  f:Show()
+  assistHideAt = GetTime() + 12
+end
+
+-- Group assist suggestion builder ------------------------------------------
+local function getSpecInfoByID(specID)
+  if not specID then return nil,nil,nil end
+  local ok, _id, name, _desc, _icon, _role, classFile = pcall(GetSpecializationInfoByID, specID)
+  if ok then return name, classFile, _id end
+  return nil,nil,nil
+end
+
+local function iterateGroupUnits()
+  local units = {}
+  if IsInRaid() then
+    local n = GetNumGroupMembers() or 0
+    for i=1,n do table.insert(units, "raid"..i) end
+  elseif IsInGroup() then
+    local n = GetNumGroupMembers() or 0
+    for i=1,math.max(0,n-1) do table.insert(units, "party"..i) end -- party1..4; player excluded below
+  end
+  return units
+end
+
+local function collectAssistForContext(isRaidContext, bossName, instName, ejID)
+  local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
+  if not tracked or not next(tracked) then return nil end
+  local units = iterateGroupUnits()
+  if #units == 0 then return nil end
+  local suggestions = {} -- name -> {specName, items{}}
+  local firstName, firstSpec, firstItems
+  -- Precompute group member classes
+  local memberClass = {}
+  for _, unit in ipairs(units) do
+    if UnitIsPlayer(unit) and not UnitIsUnit(unit, "player") then
+      local name = UnitName(unit)
+      local _, classFile = UnitClass(unit)
+      if name and classFile then memberClass[name] = classFile end
+    end
+  end
+  if not next(memberClass) then return nil end
+
+  local function addSuggest(name, specName, link)
+    if not suggestions[name] then suggestions[name] = {specName = specName, items = {}} end
+    table.insert(suggestions[name].items, link)
+  end
+
+  for _, v in pairs(tracked) do
+    if type(v) == "table" then
+      local contextOK = false
+      if isRaidContext then
+        contextOK = v.isRaid and (v.boss == bossName)
+      else
+        if v.isRaid then contextOK = false else
+          if ejID and v.instanceID then contextOK = (v.instanceID == ejID) else contextOK = (v.dungeon == instName) or (normalizeName(v.dungeon) == normalizeName(instName or "")) end
+        end
+      end
+      if contextOK then
+        local specs = v.specs
+        if type(specs) == "table" and next(specs) then
+          for _, sid in ipairs(specs) do
+            local specName, classFile = getSpecInfoByID(sid)
+            if specName and classFile then
+              for mName, mClass in pairs(memberClass) do
+                if mClass == classFile then
+                  addSuggest(mName, specName, v.link or ("item:"..tostring(v.id)))
+                  if not firstName then firstName, firstSpec, firstItems = mName, specName, v.link or ("item:"..tostring(v.id)) end
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+
+  if not next(suggestions) then return nil end
+  -- Build lines
+  local lines = { "Ask group to help with wishlist items:" }
+  local sortedNames = {}
+  for name in pairs(suggestions) do table.insert(sortedNames, name) end
+  table.sort(sortedNames)
+  for _, name in ipairs(sortedNames) do
+    local s = suggestions[name]
+    table.sort(s.items)
+    table.insert(lines, string.format("- %s (%s): %s", name, s.specName or "Spec", table.concat(s.items, ", ")))
+  end
+  return lines, firstName, firstSpec, firstItems
 end
 
 -- Matching logic ------------------------------------------------------------
@@ -960,10 +1164,36 @@ ef:SetScript("OnEvent", function(_, event, ...)
         end)
       end
     end
+    -- Assist suggestions for dungeon context
+    do
+      local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or nil
+      local ejID = getCurrentEJInstanceID()
+      local key = ejID or instName
+      if key and not assistDungeonReminded[key] then
+        local lines2, tName, tSpec, tItems = collectAssistForContext(false, nil, instName, ejID)
+        if lines2 then
+          ShowAssistReminder(lines2, tName, tSpec, tItems)
+          assistDungeonReminded[key] = true
+        end
+      end
+    end
   elseif event == "PLAYER_TARGET_CHANGED" then
     dprint("event: PLAYER_TARGET_CHANGED")
     local lines = collectRaidTargetSpecSuggestions()
     if lines then ShowSpecReminder(lines) end
+    -- Assist suggestions for raid boss context
+    do
+      local targetName = UnitName("target")
+      local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or ""
+      local key = instName .. "|" .. tostring(targetName or "")
+      if targetName and not assistBossReminded[key] then
+        local lines2, tName, tSpec, tItems = collectAssistForContext(true, targetName, instName, nil)
+        if lines2 then
+          ShowAssistReminder(lines2, tName, tSpec, tItems)
+          assistBossReminded[key] = true
+        end
+      end
+    end
   end
 end)
 
@@ -972,9 +1202,13 @@ function Alerts.ResetSpecReminderDebounce()
   if wipe then
     wipe(dungeonReminded)
     wipe(bossReminded)
+    wipe(assistDungeonReminded)
+    wipe(assistBossReminded)
   else
     dungeonReminded = {}
     bossReminded = {}
+    assistDungeonReminded = {}
+    assistBossReminded = {}
   end
   -- Also forget last instance state to avoid immediate re-blocking
   lastInInstance, lastInstanceType = nil, nil
