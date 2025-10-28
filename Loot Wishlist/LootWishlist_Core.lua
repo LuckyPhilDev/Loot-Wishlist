@@ -105,6 +105,46 @@ local function InitializeDB()
 
   -- Restore window position is handled by Ace frame status table
 
+  -- Gentle migration for legacy tracked shapes (pre-difficulty and non-table values)
+  do
+    local toAdd = {}
+    local toRemove = {}
+    local function parseKeyParts(k)
+      if k == nil then return nil, nil end
+      local ks = tostring(k)
+  local id = tonumber(ks:match("^(%d+)$") or ks:match("^(%d+)%@%d+$"))
+  local diff = tonumber(ks:match("^%d+%@(%d+)$"))
+      return id, diff
+    end
+    for k, v in pairs(trackedItems) do
+      if type(v) ~= "table" or (type(v)=="table" and type(v.id) ~= "number") then
+        local id, diff = parseKeyParts(k)
+        if id then
+          local newKey = diff and (tostring(id).."@"..tostring(diff)) or tostring(id)
+          toAdd[newKey] = toAdd[newKey] or {
+            id = id,
+            boss = nil,
+            dungeon = nil,
+            isRaid = nil,
+            link = nil,
+            encounterID = nil,
+            instanceID = nil,
+            difficultyID = diff,
+            difficultyName = nil,
+            specs = nil,
+          }
+          table.insert(toRemove, k)
+        end
+      end
+    end
+    for k in pairs(toAdd) do
+      trackedItems[k] = trackedItems[k] or toAdd[k]
+    end
+    for _, k in ipairs(toRemove) do
+      trackedItems[k] = nil
+    end
+  end
+
   -- Backfill specs for existing tracked entries if missing
   for _, v in pairs(trackedItems) do
     if type(v) == "table" and type(v.id) == "number" and (v.specs == nil or (type(v.specs)=="table" and next(v.specs)==nil)) then
@@ -162,13 +202,25 @@ end
 -- If it\'s a number itemID and difficultyID is nil, remove all entries for that itemID.
 function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
   local removed = false
+  local function parseKeyParts(k)
+    if k == nil then return nil, nil end
+    local ks = tostring(k)
+  local id = tonumber(ks:match("^(%d+)$") or ks:match("^(%d+)%@%d+$"))
+  local diff = tonumber(ks:match("^%d+%@(%d+)$"))
+    return id, diff
+  end
   if type(keyOrID) == "string" then
     if trackedItems[keyOrID] then trackedItems[keyOrID] = nil; removed = true end
   elseif type(keyOrID) == "number" then
     for k, v in pairs(trackedItems) do
-      local vid = (type(v)=="table" and v.id) or k
-      local vdiff = (type(v)=="table" and v.difficultyID) or nil
-      if vid == keyOrID and (difficultyID == nil or vdiff == difficultyID) then
+      local vid, vdiff
+      if type(v) == "table" then
+        vid = v.id
+        vdiff = v.difficultyID
+      else
+        vid, vdiff = parseKeyParts(k)
+      end
+      if vid == keyOrID and (difficultyID == nil or vdiff == difficultyID or vdiff == nil) then
         trackedItems[k] = nil
         removed = true
       end

@@ -93,6 +93,7 @@ Ace3 is recommended for the full UI window. The Encounter Journal button and tra
 - Item data sometimes loads asynchronously; spec tags and links may appear a moment later.
 - Group assist suggestions are class/spec based; they assume teammates can set loot spec even if not currently in that spec.
 - Warbound detection uses tooltip text; if Blizzard wording changes in the future, behavior may need an update.
+ - Legacy wishlists from older addon versions are auto-migrated on login. Removing items works across legacy entries and difficulty-tagged variants.
 
 ---
 
