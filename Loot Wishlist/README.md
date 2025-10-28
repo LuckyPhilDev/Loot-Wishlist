@@ -22,7 +22,7 @@
 		- Not eligible: … (red, for non‑class items)
 	- Raids: the same summary shows when you target a boss that drops your tracked items.
 	- Reminders show once per instance/boss and reset when you leave (or via a command).
-- 🤝 Group assist suggestions: Suggests party/raid members who could set their loot spec to help you funnel a tracked item, with one‑click Whisper/Party prompts.
+- 🤝 Group assist suggestions (dungeons only): Suggests party members who could set their loot spec to help you funnel a tracked item, with one‑click Whisper/Party prompts.
 - 📝 Sticky summary: A compact, draggable “sticky note” shows dungeons/raid bosses that still have wishlist items. Click to open the full list. Position is remembered.
 - ✉️ Custom messages: Configure Whisper and Party templates with placeholders: `%item%`, `%looter%`.
 - ⌨️ Slash commands: `/wishlist`, `/lwl` (see below).
@@ -43,7 +43,7 @@ Ace3 is recommended for the full UI window. The Encounter Journal button and tra
 	 - When you loot it, choose “Remove” in the alert, or
 	 - Use `/wishlist remove <itemID>`.
 5. Customize messages or toggle raid roll alerts via `/wishlist options` (Interface → AddOns → Loot Wishlist).
-6. Group assist: In a group, zone into a tracked dungeon or target a tracked raid boss to see who can switch their loot spec to help.
+6. Group assist: In a group, zone into a tracked dungeon to see who can switch their loot spec to help. (Dungeon‑only; disabled in raids.)
 
 ---
 
@@ -55,6 +55,7 @@ Ace3 is recommended for the full UI window. The Encounter Journal button and tra
 - Alerts use a clickable item link and auto‑size to content. Windows remember their positions.
 - Warbound items (“Warbound until equipped”) are ignored by alerts and messaging.
 - Spec reminders show once per instance/boss and reset on leaving the instance (or via a slash command).
+ - Spec reminders, group assist, and raid roll banners include a “Dismiss” button so you can close them immediately.
 
 ---
 

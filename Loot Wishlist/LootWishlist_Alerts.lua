@@ -7,8 +7,8 @@ local Alerts = LootWishlist.Alerts
 local alertFrame, alertFS, alertHideAt
 local raidDropFrame, raidDropFS, raidDropHideAt
 local rollAlertFrame, rollAlertFS, rollHideAt
-local specReminderFrame, specReminderFS, specReminderHideAt
-local assistFrame, assistFS, assistHideAt, assistBtnWhisper, assistBtnParty
+local specReminderFrame, specReminderFS, specReminderHideAt, specDismissBtn
+local assistFrame, assistFS, assistHideAt, assistBtnWhisper, assistBtnParty, assistBtnDismiss
 local lastAssistTargetName, lastAssistMessageWhisper, lastAssistMessageParty
 local dungeonReminded = {}
 local bossReminded = {}
@@ -143,10 +143,20 @@ local function ShowSpecReminder(lines)
       end
     end)
     specReminderFS = specReminderFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    specReminderFS:SetPoint("CENTER")
+    -- Anchor text near the top to make room for a Dismiss button at the bottom
+    specReminderFS:SetPoint("TOP", 0, -8)
     specReminderFS:SetJustifyH("CENTER")
     specReminderFS:SetJustifyV("MIDDLE")
     specReminderFS:SetText("")
+    -- Add a Dismiss button
+    specDismissBtn = CreateFrame("Button", nil, specReminderFrame, "UIPanelButtonTemplate")
+    specDismissBtn:SetSize(100, 22)
+    specDismissBtn:SetText("Dismiss")
+    specDismissBtn:SetPoint("BOTTOM", specReminderFrame, "BOTTOM", 0, 10)
+    specDismissBtn:SetScript("OnClick", function()
+      specReminderHideAt = nil
+      specReminderFrame:Hide()
+    end)
     local w = LootWishlistCharDB and LootWishlistCharDB.specReminderWindow
     if w and w.point then
       specReminderFrame:ClearAllPoints()
@@ -165,8 +175,8 @@ local function ShowSpecReminder(lines)
   if specReminderFS.SetWidth and specReminderFrame.GetWidth then
     specReminderFS:SetWidth(specReminderFrame:GetWidth() - 20)
   end
-  local desiredH = (specReminderFS.GetStringHeight and (specReminderFS:GetStringHeight() + 24)) or 80
-  specReminderFrame:SetHeight(math.max(60, math.min(220, desiredH)))
+  local desiredH = (specReminderFS.GetStringHeight and (specReminderFS:GetStringHeight() + 40)) or 90
+  specReminderFrame:SetHeight(math.max(80, math.min(240, desiredH)))
   specReminderFrame:Show()
   specReminderHideAt = GetTime() + 10
 end
@@ -205,12 +215,16 @@ local function ensureAssistFrame()
 
   assistBtnWhisper = CreateFrame("Button", nil, assistFrame, "UIPanelButtonTemplate")
   assistBtnParty = CreateFrame("Button", nil, assistFrame, "UIPanelButtonTemplate")
+  assistBtnDismiss = CreateFrame("Button", nil, assistFrame, "UIPanelButtonTemplate")
   assistBtnWhisper:SetSize(110, 22)
   assistBtnParty:SetSize(110, 22)
+  assistBtnDismiss:SetSize(110, 22)
   assistBtnWhisper:SetText("Whisper")
   assistBtnParty:SetText("Party")
-  assistBtnWhisper:SetPoint("BOTTOM", assistFrame, "BOTTOM", -70, 10)
-  assistBtnParty:SetPoint("BOTTOM", assistFrame, "BOTTOM", 70, 10)
+  assistBtnDismiss:SetText("Dismiss")
+  assistBtnWhisper:SetPoint("BOTTOM", assistFrame, "BOTTOM", -120, 10)
+  assistBtnParty:SetPoint("BOTTOM", assistFrame, "BOTTOM", 0, 10)
+  assistBtnDismiss:SetPoint("BOTTOM", assistFrame, "BOTTOM", 120, 10)
 
   assistBtnWhisper:SetScript("OnClick", function()
     if not lastAssistTargetName or not lastAssistMessageWhisper then assistFrame:Hide(); return end
@@ -245,6 +259,11 @@ local function ensureAssistFrame()
         if not prevShown then eb:Hide() end
       end
     end
+    assistFrame:Hide()
+  end)
+
+  assistBtnDismiss:SetScript("OnClick", function()
+    assistHideAt = nil
     assistFrame:Hide()
   end)
 
@@ -563,7 +582,7 @@ local function ShowRaidDropAlert(itemLink)
   if not itemLink then return end
   if not raidDropFrame then
     raidDropFrame = CreateFrame("Frame", "LootWishlistRaidDropFrame", UIParent, "BackdropTemplate")
-    raidDropFrame:SetSize(420, 60)
+    raidDropFrame:SetSize(420, 80)
     raidDropFrame:SetPoint("TOP", UIParent, "TOP", 0, -220)
     raidDropFrame:SetFrameStrata("FULLSCREEN_DIALOG")
     raidDropFrame:SetBackdrop({
@@ -586,10 +605,20 @@ local function ShowRaidDropAlert(itemLink)
       end
     end)
     raidDropFS = raidDropFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    raidDropFS:SetPoint("CENTER")
+    -- Anchor text near the top to make room for a Dismiss button
+    raidDropFS:SetPoint("TOP", 0, -8)
     raidDropFS:SetJustifyH("CENTER")
     raidDropFS:SetJustifyV("MIDDLE")
     raidDropFS:SetText("")
+    -- Add a Dismiss button
+    local raidDropBtnDismiss = CreateFrame("Button", nil, raidDropFrame, "UIPanelButtonTemplate")
+    raidDropBtnDismiss:SetSize(100, 22)
+    raidDropBtnDismiss:SetText("Dismiss")
+    raidDropBtnDismiss:SetPoint("BOTTOM", raidDropFrame, "BOTTOM", 0, 10)
+    raidDropBtnDismiss:SetScript("OnClick", function()
+      raidDropHideAt = nil
+      raidDropFrame:Hide()
+    end)
     local w = LootWishlistCharDB and LootWishlistCharDB.raidDropWindow
     if w and w.point then
       raidDropFrame:ClearAllPoints()
@@ -636,10 +665,21 @@ local function ShowRaidRollAlert(itemLink)
       end
     end)
     rollAlertFS = rollAlertFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-  rollAlertFS:SetPoint("CENTER")
+    -- Anchor text near the top to make room for a Dismiss button
+    rollAlertFS:SetPoint("TOP", 0, -8)
     rollAlertFS:SetJustifyH("CENTER")
     rollAlertFS:SetJustifyV("MIDDLE")
     rollAlertFS:SetText("")
+    -- Add a Dismiss button
+    local rollBtnDismiss = CreateFrame("Button", nil, rollAlertFrame, "UIPanelButtonTemplate")
+    rollBtnDismiss:SetSize(100, 22)
+    rollBtnDismiss:SetText("Dismiss")
+    rollBtnDismiss:SetPoint("BOTTOM", rollAlertFrame, "BOTTOM", 0, 10)
+    rollBtnDismiss:SetScript("OnClick", function()
+      rollHideAt = nil
+      rollAlertFrame:Hide()
+      if wipe then wipe(rollAlertItems) end
+    end)
     local w = LootWishlistCharDB and LootWishlistCharDB.raidRollWindow
     if w and w.point then
       rollAlertFrame:ClearAllPoints()
@@ -668,7 +708,7 @@ local function ShowRaidRollAlert(itemLink)
     rollAlertFS:SetWidth(rollAlertFrame:GetWidth() - 20)
   end
   -- Adjust height to fit multiple items
-  local desiredH = (rollAlertFS.GetStringHeight and (rollAlertFS:GetStringHeight() + 20)) or 60
+  local desiredH = (rollAlertFS.GetStringHeight and (rollAlertFS:GetStringHeight() + 40)) or 80
   rollAlertFrame:SetHeight(math.max(60, math.min(200, desiredH)))
   rollAlertFrame:Show()
   -- Extend visibility timer with each new item
