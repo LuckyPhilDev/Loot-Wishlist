@@ -1209,19 +1209,7 @@ ef:SetScript("OnEvent", function(_, event, ...)
     dprint("event: PLAYER_TARGET_CHANGED")
     local lines = collectRaidTargetSpecSuggestions()
     if lines then ShowSpecReminder(lines) end
-    -- Assist suggestions for raid boss context
-    do
-      local targetName = UnitName("target")
-      local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or ""
-      local key = instName .. "|" .. tostring(targetName or "")
-      if targetName and not assistBossReminded[key] then
-        local lines2, tName, tSpec, tItems = collectAssistForContext(true, targetName, instName, nil)
-        if lines2 then
-          ShowAssistReminder(lines2, tName, tSpec, tItems)
-          assistBossReminded[key] = true
-        end
-      end
-    end
+    -- Intentionally do NOT show assist suggestions in raids
   end
 end)
 
