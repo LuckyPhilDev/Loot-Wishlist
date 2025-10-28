@@ -33,7 +33,12 @@ local recentSelfAlertAt = {}
 local function getCurrentInstanceDifficulty()
   if GetInstanceInfo then
     local _, _, difficultyID, difficultyName = GetInstanceInfo()
-    return difficultyID, difficultyName
+    -- Outside instances WoW can return 0/""; treat that as no difficulty context
+    if type(difficultyID) == "number" and difficultyID > 0 then
+      return difficultyID, difficultyName
+    else
+      return nil, nil
+    end
   end
   return nil, nil
 end
@@ -574,6 +579,8 @@ local function getInventoryCount(itemID)
     end
     return total
   end
+  -- Debug: legacy bag API path not available in this build; return 0
+  dprint("getInventoryCount fallback 0 for", tostring(itemID))
   return 0
 end
 local rollAlertItems = {}
@@ -961,7 +968,21 @@ local function configureSelfActions(itemID, itemLink)
     btnRemove:SetText("Remove")
     btnKeep:SetText("Keep")
     btnRemove:SetScript("OnClick", function()
-      if LootWishlist.RemoveTrackedItem then LootWishlist.RemoveTrackedItem(itemID, currentDifficultyID) end
+      -- Debug: count before
+      local before = 0
+      do
+        local t = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
+        if t then for _ in pairs(t) do before = before + 1 end end
+      end
+      dprint("Remove clicked for", tostring(itemID), "diffID=", tostring(currentDifficultyID or "nil"), "beforeCount=", tostring(before))
+      if LootWishlist.RemoveTrackedItem then LootWishlist.RemoveTrackedItem(itemID, currentDifficultyID) else dprint("RemoveTrackedItem missing") end
+      -- Debug: count after
+      local after = 0
+      do
+        local t = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
+        if t then for _ in pairs(t) do after = after + 1 end end
+      end
+      dprint("After removal count=", tostring(after))
       alertFrame:Hide()
     end)
     btnKeep:SetScript("OnClick", function() alertFrame:Hide() end)
@@ -1036,6 +1057,7 @@ local function configureOtherActions(looterName, itemID, itemLink)
 end
 
 local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, difficultyID, difficultyName)
+  dprint("ShowDropAlertWithContext:", "itemID=", tostring(itemID), "self=", tostring(isSelf), "looter=", tostring(looterName), "diff=", tostring(difficultyID), tostring(difficultyName))
   ShowDropAlert(itemLink)
   if isSelf then
     configureSelfActions(itemID, itemLink)
@@ -1166,27 +1188,32 @@ ef:SetScript("OnEvent", function(_, event, ...)
       end
     end
   elseif event == "BAG_UPDATE_DELAYED" then
+    dprint("event: BAG_UPDATE_DELAYED")
     -- Detect when a tracked item newly appears in your bags (e.g., trade),
     -- and prompt to remove it from the wishlist with a self-style alert.
     local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
-    if not tracked or not next(tracked) then return end
+    if not tracked or not next(tracked) then dprint("no tracked items; skipping bag scan"); return end
     for _, info in pairs(tracked) do
       local iid = info and info.id or nil
       if type(iid) == "number" then
         local current = getInventoryCount(iid)
         local prev = bagCounts[iid]
+        dprint("scan item:", tostring(iid), "prev=", tostring(prev), "now=", tostring(current))
         if prev == nil then
           -- Establish baseline without alerting the first time we see it
           bagCounts[iid] = current
+          dprint("baseline set for", tostring(iid), "=", tostring(current))
         else
           if (current or 0) > (prev or 0) then
+            dprint("count increased for", tostring(iid), tostring(prev), "->", tostring(current))
             bagCounts[iid] = current
             -- Avoid duplicate prompt immediately after a self-loot alert
             local last = recentSelfAlertAt[iid] or 0
             if (GetTime() - last) > 8 then
               local function withLink(l)
-                if l and isWarboundItemLink(l) then return end
+                if l and isWarboundItemLink(l) then dprint("skip warbound bag gain for", tostring(iid)); return end
                 local diffID, diffName = getCurrentInstanceDifficulty()
+                dprint("triggering self remove alert for", tostring(iid), "diff=", tostring(diffID), tostring(diffName), "link=", tostring(l))
                 ShowDropAlertWithContext(l or ("item:"..tostring(iid)), true, UnitName("player"), iid, diffID, diffName)
               end
               if info and info.link then
@@ -1194,6 +1221,8 @@ ef:SetScript("OnEvent", function(_, event, ...)
               else
                 getItemLinkAsync(iid, withLink)
               end
+            else
+              dprint("suppressed due to recent self alert: item", tostring(iid), "age=", string.format("%.2f", GetTime() - last))
             end
           else
             -- Keep baseline up to date

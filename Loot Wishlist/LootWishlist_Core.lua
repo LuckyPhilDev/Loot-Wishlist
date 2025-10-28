@@ -179,6 +179,9 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
     difficultyName = difficultyName,
     specs = nil,
   }
+  if LootWishlist.IsDebug and LootWishlist.IsDebug() then
+    print("[LootWishlist][debug] AddTrackedItem id=", itemID, "key=", key, "diffID=", tostring(difficultyID or "nil"), "boss=", tostring(bossName or ""), "instance=", tostring(instanceName or ""))
+  end
   -- Compute and attach spec list asynchronously
   computeItemSpecs(itemID, itemLink, function(specs)
     local entry = trackedItems[key]
@@ -201,7 +204,13 @@ end
 -- If it\'s a number itemID and difficultyID is provided, remove matching entries for that difficulty only.
 -- If it\'s a number itemID and difficultyID is nil, remove all entries for that itemID.
 function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
+  -- Treat 0 as no difficulty filter (happens outside instances)
+  if type(difficultyID) == "number" and difficultyID <= 0 then difficultyID = nil end
+  if LootWishlist.IsDebug and LootWishlist.IsDebug() then
+    print("[LootWishlist][debug] RemoveTrackedItem arg=", tostring(keyOrID), "diffID=", tostring(difficultyID or "nil"))
+  end
   local removed = false
+  local removedKeys = {}
   local function parseKeyParts(k)
     if k == nil then return nil, nil end
     local ks = tostring(k)
@@ -210,7 +219,7 @@ function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
     return id, diff
   end
   if type(keyOrID) == "string" then
-    if trackedItems[keyOrID] then trackedItems[keyOrID] = nil; removed = true end
+    if trackedItems[keyOrID] then trackedItems[keyOrID] = nil; removed = true; table.insert(removedKeys, tostring(keyOrID)) end
   elseif type(keyOrID) == "number" then
     for k, v in pairs(trackedItems) do
       local vid, vdiff
@@ -220,15 +229,29 @@ function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
       else
         vid, vdiff = parseKeyParts(k)
       end
-      if vid == keyOrID and (difficultyID == nil or vdiff == difficultyID or vdiff == nil) then
+      local match = (vid == keyOrID and (difficultyID == nil or vdiff == difficultyID or vdiff == nil))
+      if LootWishlist.IsDebug and LootWishlist.IsDebug() then
+        print("[LootWishlist][debug] consider key=", tostring(k), "vid=", tostring(vid), "vdiff=", tostring(vdiff), "match=", tostring(match))
+      end
+      if match then
         trackedItems[k] = nil
         removed = true
+        table.insert(removedKeys, tostring(k))
       end
     end
   end
   if removed then
+    if LootWishlist.IsDebug and LootWishlist.IsDebug() then
+      local cnt = 0
+      for _ in pairs(trackedItems) do cnt = cnt + 1 end
+      print("[LootWishlist][debug] removed keys:", table.concat(removedKeys, ", "), "remaining=", cnt)
+    end
     if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+  else
+    if LootWishlist.IsDebug and LootWishlist.IsDebug() then
+      print("[LootWishlist][debug] RemoveTrackedItem: no matching entries removed")
+    end
   end
 end
 
