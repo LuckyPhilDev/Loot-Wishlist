@@ -79,10 +79,6 @@ Ace3 is recommended for the full UI window. The Encounter Journal button and tra
 - `/wishlist remove <itemID>` — remove a single item
 - `/wishlist clear` — remove all tracked items
 - `/wishlist debug` — toggle verbose debug logging
-- `/wishlist reset-spec` — reset spec and group‑assist reminder de‑dupers so popups can re‑show
-- `/wishlist testdrop <itemID|itemLink>` — simulate a self‑drop for a tracked item
-- `/wishlist testdrop-not <itemID|itemLink>` — simulate a drop for an untracked item (should not alert)
-- `/wishlist testdrop-other <itemID|itemLink> [player]` — simulate someone else looting
 
 `/lwl` is a short alias for all of the above.
 
