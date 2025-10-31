@@ -5,17 +5,10 @@ All notable changes to Loot Wishlist will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.1] - 2025-10-28
-
-### Fixed
-- Fixed an issue where clicking "Remove" in the self-loot dialog (e.g., after moving an item from bank to bags) sometimes didn't remove the item if you were outside an instance. The addon now correctly treats "no instance" as no difficulty, so removal applies to all tracked difficulties for that item.
-
-### Improved
-- More robust bag-gain detection messaging and internal handling when a tracked item appears in your bags.
-- "Warbound Until Equipped" items continue to be ignored by remove prompts (no behavior change), with clearer internal diagnostics.
+## [1.3.1] - 2025-10-31
 
 ### Added
-- Added optional verbose debug logs to help diagnose edge cases. Toggle with `/wishlist debug`. When enabled, logs show bag scans, alert context, and removal decisions. No impact when off.
+- CI/CD implementation, test release
 
 ## [1.3.0] - 2025-10-15
 
