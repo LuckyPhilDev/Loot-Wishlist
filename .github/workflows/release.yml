@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          # Remove 'v' prefix from tag (v1.3.1 -> 1.3.1)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+      
+      - name: Update TOC version
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          TOC_FILE="Loot Wishlist/Loot Wishlist.toc"
+          
+          # Update the version line in the TOC file
+          sed -i "s/^## Version: .*/## Version: $VERSION/" "$TOC_FILE"
+          
+          # Verify the change
+          echo "Updated TOC file:"
+          grep "## Version:" "$TOC_FILE"
+      
+      - name: Commit TOC version update
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add "Loot Wishlist/Loot Wishlist.toc"
+          git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.get_version.outputs.VERSION }}"
+      
+      - name: Push TOC update to main
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
+      
+      - name: Create release package
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          mkdir -p "builds"
+          
+          cd "Loot Wishlist"
+          zip -r "../builds/${VERSION}-Loot Wishlist.zip" \
+            . \
+            -x "*.git*" "*.github*" "*.md" "tests/*" "*.zip"
+          
+          cd ..
+          echo "Created package: builds/${VERSION}-Loot Wishlist.zip"
+          ls -lh builds/
+      
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          
+          # Try to extract changelog from CHANGELOG.md if it exists
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract section between this version and the next version marker
+            sed -n "/## \[*${VERSION}\]*\|## ${VERSION}/,/## /p" CHANGELOG.md | sed '1!d;$d' > release_notes.txt
+            
+            # If nothing extracted, use a default message
+            if [ ! -s release_notes.txt ]; then
+              echo "Release version ${VERSION}" > release_notes.txt
+            fi
+          else
+            # No changelog file, create default notes
+            echo "Release version ${VERSION}" > release_notes.txt
+            echo "" >> release_notes.txt
+            echo "See commit history for changes." >> release_notes.txt
+          fi
+          
+          cat release_notes.txt
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: builds/*.zip
+          body_file: release_notes.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: loot-wishlist-${{ steps.get_version.outputs.VERSION }}
+          path: builds/*.zip
+          retention-days: 90
+  
+  # Optional: Auto-upload to CurseForge
+  # Uncomment and add CURSEFORGE_TOKEN to GitHub Secrets
+  # curseforge:
+  #   name: Upload to CurseForge
+  #   runs-on: ubuntu-latest
+  #   needs: release
+  #   if: "!contains(github.ref, 'beta') && !contains(github.ref, 'alpha')"
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     
+  #     - name: Download artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: loot-wishlist-*
+  #         merge-multiple: true
+  #         path: builds/
+  #     
+  #     - name: Upload to CurseForge
+  #       uses: itsmeow/curseforge-upload@v3
+  #       with:
+  #         token: ${{ secrets.CURSEFORGE_TOKEN }}
+  #         project_id: 123456  # Your CurseForge project ID
+  #         game_endpoint: wow
+  #         file_path: builds/*.zip
+  #         changelog_type: markdown
+  #         changelog: release_notes.txt
+  #         game_versions: 90207,517  # WoW version IDs
+  #         release_type: release

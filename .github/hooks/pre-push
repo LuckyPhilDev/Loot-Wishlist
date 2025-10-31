@@ -1,0 +1,32 @@
+#!/bin/bash
+# Pre-push hook to warn if TOC version doesn't match latest tag
+# Install: cp .github/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+
+# Get the latest tag version (remove 'v' prefix)
+LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+
+if [ -z "$LATEST_TAG" ]; then
+  # No tags yet, skip check
+  exit 0
+fi
+
+# Get version from TOC file
+TOC_FILE="Loot Wishlist/Loot Wishlist.toc"
+TOC_VERSION=$(grep "^## Version:" "$TOC_FILE" | awk '{print $3}')
+
+if [ "$LATEST_TAG" != "$TOC_VERSION" ]; then
+  echo "⚠️  Warning: TOC version ($TOC_VERSION) doesn't match latest tag ($LATEST_TAG)"
+  echo "   The GitHub Action will update the TOC when you push a new tag."
+  echo ""
+  echo "   To create a new release:"
+  echo "   1. git tag v1.X.X"
+  echo "   2. git push origin v1.X.X"
+  echo ""
+  read -p "Continue anyway? (y/N) " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    exit 1
+  fi
+fi
+
+exit 0
