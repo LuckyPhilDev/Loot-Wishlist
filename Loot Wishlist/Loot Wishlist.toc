@@ -11,6 +11,7 @@ embeds.xml
 LootWishlist_Constants.lua
 LootWishlist_Core.lua
 LootWishlist_Options.lua
+LootWishlist_UI_Styles.lua
 LootWishlist_UI_Ace.lua
 LootWishlist_EJ.lua
 LootWishlist_Summary.lua

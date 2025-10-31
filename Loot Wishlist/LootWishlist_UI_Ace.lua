@@ -87,8 +87,12 @@ local function getEncounterOrder(instanceID)
   return order
 end
 
--- Renders one item row inside the scroll list
+-- Renders one item row inside the scroll list (modern version with enhanced visuals)
 local function renderItemRow(parent, itemKey, itemID, info, indent)
+  -- Get Styles module
+  local Styles = LootWishlist.UI and LootWishlist.UI.Styles
+  local useModernStyle = Styles and Styles.IsModernStyleEnabled()
+  
   if not info.link then
     local ItemAPI = _G["Item"]
     if type(ItemAPI)=="table" and ItemAPI.CreateFromItemID then
@@ -99,6 +103,8 @@ local function renderItemRow(parent, itemKey, itemID, info, indent)
           if ilink then info.link = ilink end
           local iconTex = itemObj.GetItemIcon and itemObj:GetItemIcon()
           if iconTex then info.icon = iconTex end
+          local quality = itemObj.GetItemQuality and itemObj:GetItemQuality()
+          if quality then info.quality = quality end
           if AceGUI and AceView.frame then LootWishlist.Ace.refresh() end
         end)
       end
@@ -106,21 +112,70 @@ local function renderItemRow(parent, itemKey, itemID, info, indent)
       C_Item.RequestLoadItemDataByID(itemID)
     end
   end
+  
+  -- Try to get quality if not cached
+  if not info.quality and C_Item and C_Item.GetItemQualityByID then
+    local quality = C_Item.GetItemQualityByID(itemID)
+    if quality then info.quality = quality end
+  end
   local link = info.link or ("item:"..tostring(itemID))
+  
   -- Single header group to minimize vertical padding
   local header = AceGUI:Create("SimpleGroup"); header["SetLayout"](header, "Flow"); header["SetFullWidth"](header, true)
+  
   if indent then
     local spacer = AceGUI:Create("Label"); spacer["SetText"](spacer, " "); spacer["SetWidth"](spacer, 16)
     header["AddChild"](header, spacer)
   end
-  -- Item icon to the left of the link
+  
+  -- Item icon (larger if modern style enabled)
   local iconWidget = AceGUI:Create("Icon")
   local iconTex = info.icon
   if not iconTex and C_Item and C_Item.GetItemIconByID then iconTex = C_Item.GetItemIconByID(itemID) end
-  if not iconTex then iconTex = "Interface\\Icons\\INV_Misc_QuestionMark" end
+  if not iconTex then iconTex = (Styles and Styles.Icons.item_placeholder) or "Interface\\Icons\\INV_Misc_QuestionMark" end
   iconWidget["SetImage"](iconWidget, iconTex)
-  iconWidget["SetImageSize"](iconWidget, 16, 16)
-  iconWidget["SetWidth"](iconWidget, 20)
+  
+  -- Add tooltip to icon
+  iconWidget["SetCallback"](iconWidget, "OnEnter", function(widget)
+    if link then
+      GameTooltip:SetOwner(widget.frame, "ANCHOR_CURSOR")
+      GameTooltip:SetHyperlink(link)
+      GameTooltip:Show()
+    end
+  end)
+  iconWidget["SetCallback"](iconWidget, "OnLeave", function()
+    GameTooltip:Hide()
+  end)
+  
+  if useModernStyle then
+    iconWidget["SetImageSize"](iconWidget, 40, 40)
+    iconWidget["SetWidth"](iconWidget, 44)
+    
+    -- Apply quality border color if we have quality info
+    if info.quality and iconWidget.frame then
+      local qualityColor = Styles.GetQualityColor(info.quality)
+      -- Create a border frame around the icon
+      local border = iconWidget.frame.qualityBorder
+      if not border then
+        border = CreateFrame("Frame", nil, iconWidget.frame)
+        border:SetAllPoints(iconWidget.image or iconWidget.frame)
+        border:SetFrameLevel((iconWidget.frame:GetFrameLevel() or 0) + 1)
+        iconWidget.frame.qualityBorder = border
+      end
+      if border.SetBackdrop then
+        border:SetBackdrop({
+          edgeFile = "Interface\\Buttons\\WHITE8X8",
+          edgeSize = 2,
+          insets = { left = 0, right = 0, top = 0, bottom = 0 }
+        })
+        border:SetBackdropBorderColor(unpack(qualityColor))
+      end
+    end
+  else
+    iconWidget["SetImageSize"](iconWidget, 16, 16)
+    iconWidget["SetWidth"](iconWidget, 20)
+  end
+  
   header["AddChild"](header, iconWidget)
   local tag = diffTag(info.difficultyID, info.difficultyName)
   -- Build spec names text if available; show {any spec} when unrestricted for player's class
@@ -164,21 +219,85 @@ local function renderItemRow(parent, itemKey, itemID, info, indent)
       if text and text ~= "" then specText = string.format("|cffa0a0a0{%s}|r", text) end
     end
   end
+  
+  -- Build label text with metadata
   local parts = { link }
   if tag then table.insert(parts, string.format("|cffa0a0a0[%s]|r", tag)) end
   if specText then table.insert(parts, specText) end
+  
+  -- Add boss/instance metadata in modern style
+  if useModernStyle then
+    local metadata = {}
+    if info.boss and info.boss ~= "" then
+      table.insert(metadata, "|cff888888" .. info.boss .. "|r")
+    end
+    if info.dungeon and info.dungeon ~= "" and info.dungeon ~= info.boss then
+      table.insert(metadata, "|cff666666" .. info.dungeon .. "|r")
+    end
+    if #metadata > 0 then
+      table.insert(parts, table.concat(metadata, " • "))
+    end
+  end
+  
   local labelText = table.concat(parts, "  ")
-  local label = AceGUI:Create("InteractiveLabel"); label["SetText"](label, labelText); label["SetRelativeWidth"](label, indent and 0.80 or 0.82)
-  label["SetCallback"](label, "OnEnter", function(widget) if link then GameTooltip:SetOwner(widget.frame, "ANCHOR_CURSOR"); GameTooltip:SetHyperlink(link); GameTooltip:Show() end end)
-  label["SetCallback"](label, "OnLeave", function() GameTooltip:Hide() end)
+  local label = AceGUI:Create("InteractiveLabel")
+  label["SetText"](label, labelText)
+  label["SetRelativeWidth"](label, indent and 0.75 or 0.77)
+  label["SetCallback"](label, "OnEnter", function(widget)
+    if link then
+      GameTooltip:SetOwner(widget.frame, "ANCHOR_CURSOR")
+      GameTooltip:SetHyperlink(link)
+      GameTooltip:Show()
+    end
+    -- Apply hover effect in modern style
+    if useModernStyle and widget.frame and widget.frame.SetBackdrop then
+      Styles.ApplyBackdrop(widget.frame, "row", Styles.Colors.bg_hover)
+    end
+  end)
+  label["SetCallback"](label, "OnLeave", function(widget)
+    GameTooltip:Hide()
+    -- Remove hover effect
+    if useModernStyle and widget.frame and widget.frame.SetBackdrop then
+      widget.frame:SetBackdrop(nil)
+    end
+  end)
   header["AddChild"](header, label)
   local remove = AceGUI:Create("Icon")
-  remove["SetImage"](remove, "Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
-  -- Slightly smaller to reduce overall row height while staying clickable
-  remove["SetImageSize"](remove, 22, 22)
-  remove["SetWidth"](remove, 24)
+  local removeIcon = (useModernStyle and Styles and Styles.Icons.remove) or "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
+  remove["SetImage"](remove, removeIcon)
+  
+  if useModernStyle then
+    remove["SetImageSize"](remove, 24, 24)
+    remove["SetWidth"](remove, 28)
+    
+    -- Add hover effect to remove button
+    if remove.frame then
+      local origAlpha = remove.frame:GetAlpha()
+      remove["SetCallback"](remove, "OnEnter", function(widget)
+        if widget.frame then widget.frame:SetAlpha(1.0) end
+        GameTooltip:SetOwner(widget.frame, "ANCHOR_CURSOR")
+        GameTooltip:SetText("Remove from wishlist", 1, 1, 1)
+        GameTooltip:Show()
+      end)
+      remove["SetCallback"](remove, "OnLeave", function(widget)
+        if widget.frame then widget.frame:SetAlpha(origAlpha) end
+        GameTooltip:Hide()
+      end)
+    end
+  else
+    remove["SetImageSize"](remove, 22, 22)
+    remove["SetWidth"](remove, 24)
+  end
+  
   remove["SetCallback"](remove, "OnClick", function() LootWishlist.RemoveTrackedItem(itemKey) end)
   header["AddChild"](header, remove)
+  
+  -- Apply row background in modern style
+  if useModernStyle and header.frame and header.frame.SetBackdrop then
+    Styles.ApplyBackdrop(header.frame, "row", {0.08, 0.08, 0.12, 0.5})
+    Styles.ApplyHoverEffect(header.frame, {0.08, 0.08, 0.12, 0.5}, Styles.Colors.bg_hover)
+  end
+  
   parent["AddChild"](parent, header)
 end
 
@@ -278,6 +397,15 @@ local function open()
     AceView.clearBtn = nil
     AceGUI:Release(widget); AceView.frame=nil; AceView.scroll=nil; LootWishlist.Ace.isOpen=false
   end)
+  
+  -- Apply modern styling if available and enabled
+  local Styles = LootWishlist.UI and LootWishlist.UI.Styles
+  if Styles and Styles.IsModernStyleEnabled() then
+    local frameWidget = rawget(frame, "frame")
+    if frameWidget and frameWidget.SetBackdrop then
+      Styles.ApplyBackdrop(frameWidget, "window", Styles.Colors.bg_primary, Styles.Colors.border_default)
+    end
+  end
 
   local scroll = AceGUI:Create("ScrollFrame"); scroll["SetLayout"](scroll, "List"); scroll["SetFullWidth"](scroll, true); scroll["SetFullHeight"](scroll, true)
   frame["AddChild"](frame, scroll)
@@ -328,18 +456,42 @@ local function open()
         cab:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -120, 8)
       end
     end
-    cab:SetEnabled(false)
+    
+    -- Check if we have any items to determine initial enabled state
+    local hasItems = false
+    for _ in pairs(LootWishlist.GetTracked() or {}) do hasItems = true; break end
+    cab:SetEnabled(hasItems)
+    
+    -- Apply modern button styling
+    if Styles and Styles.IsModernStyleEnabled() and cab.SetBackdrop then
+      Styles.ApplyBackdrop(cab, "button", Styles.Colors.bg_secondary, Styles.Colors.border_default)
+      -- Set normal font color
+      if cab.GetFontString then
+        local fs = cab:GetFontString()
+        if fs then fs:SetTextColor(unpack(Styles.Colors.text_primary)) end
+      end
+    end
+    
     cab:SetScript("OnClick", function()
-      _G.StaticPopupDialogs = _G.StaticPopupDialogs or {}
-      _G.StaticPopupDialogs["LOOTWISHLIST_CLEAR_ALL"] = {
+      StaticPopupDialogs["LOOTWISHLIST_CLEAR_ALL"] = {
         text = "This will remove ALL wishlist items for this character. Are you sure?",
         button1 = "Yes",
         button2 = "No",
-        OnAccept = function() if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end end,
-        timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+        OnAccept = function()
+          if LootWishlist.ClearAllTracked then
+            LootWishlist.ClearAllTracked()
+            -- Refresh the UI after clearing
+            if AceView and AceView.frame and LootWishlist.Ace.refresh then
+              LootWishlist.Ace.refresh()
+            end
+          end
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
       }
-      local show = rawget(_G, "StaticPopup_Show")
-      if type(show) == "function" then show("LOOTWISHLIST_CLEAR_ALL") else print("Type /wishlist clear to confirm clearing all items.") end
+      StaticPopup_Show("LOOTWISHLIST_CLEAR_ALL")
     end)
     AceView.clearBtn = cab
   end
