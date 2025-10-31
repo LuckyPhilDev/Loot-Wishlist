@@ -358,13 +358,30 @@ local function refresh()
   if not AceGUI or not AceView.frame or not AceView.scroll then return end
   AceView.scroll["ReleaseChildren"](AceView.scroll)
   local ordered = groupItemsByInstance()
-  local hasAny = false; for _ in pairs(LootWishlist.GetTracked() or {}) do hasAny = true; break end
+  
+  -- Count total items
+  local totalCount = 0
+  for _ in pairs(LootWishlist.GetTracked() or {}) do totalCount = totalCount + 1 end
+  local hasAny = totalCount > 0
+  
+  -- Update Clear All button state
   if AceView.clearBtn then
     if AceView.clearBtn.SetEnabled then
       AceView.clearBtn:SetEnabled(hasAny)
     else
       if hasAny and AceView.clearBtn.Enable then AceView.clearBtn:Enable() end
       if (not hasAny) and AceView.clearBtn.Disable then AceView.clearBtn:Disable() end
+    end
+  end
+  
+  -- Update count label in status bar
+  if AceView.countLabel then
+    if totalCount == 0 then
+      AceView.countLabel:SetText("|cff888888No items in wishlist|r")
+    elseif totalCount == 1 then
+      AceView.countLabel:SetText("|cffffffff1 item|r in wishlist")
+    else
+      AceView.countLabel:SetText(string.format("|cffffffff%d items|r in wishlist", totalCount))
     end
   end
 
@@ -393,8 +410,12 @@ local function open()
   LootWishlistCharDB.aceStatus = LootWishlistCharDB.aceStatus or {}
   frame["SetStatusTable"](frame, LootWishlistCharDB.aceStatus)
   frame["SetCallback"](frame, "OnClose", function(widget)
+    -- Clean up custom status bar elements
+    if AceView.statusBar and AceView.statusBar.Hide then AceView.statusBar:Hide() end
     if AceView.clearBtn and AceView.clearBtn.Hide then AceView.clearBtn:Hide() end
     AceView.clearBtn = nil
+    AceView.countLabel = nil
+    AceView.statusBar = nil
     AceGUI:Release(widget); AceView.frame=nil; AceView.scroll=nil; LootWishlist.Ace.isOpen=false
   end)
   
@@ -410,69 +431,50 @@ local function open()
   local scroll = AceGUI:Create("ScrollFrame"); scroll["SetLayout"](scroll, "List"); scroll["SetFullWidth"](scroll, true); scroll["SetFullHeight"](scroll, true)
   frame["AddChild"](frame, scroll)
 
-  -- Hide bottom status area (gray)
-  local _sbg = rawget(frame, "statusbg"); if _sbg and _sbg.Hide then _sbg:Hide() end
-  local _st = rawget(frame, "statustext"); if _st and _st.Hide then _st:Hide() end
-
-  AceView.frame, AceView.scroll = frame, scroll
-  LootWishlist.Ace.isOpen = true
-  -- Create a native Clear All button anchored next to the bottom Close button
-  local closeBtn = rawget(frame, "button") or rawget(frame, "closebutton")
-  local parent
-  if (not closeBtn) then
-    -- Try to find the Close button by scanning the widget frame's children
-    local base = rawget(frame, "frame")
-    if base and base.GetChildren then
-      local children = { base:GetChildren() }
-  local closeText = "Close"
-      for _, child in ipairs(children) do
-        if child and child.GetObjectType and child:GetObjectType() == "Button" then
-          local txt = child.GetText and child:GetText()
-          if txt == closeText or txt == "Close" then
-            closeBtn = child
-            break
-          end
-        end
-      end
-      parent = base
-    end
-  end
-  if closeBtn and closeBtn.GetParent then parent = closeBtn:GetParent() end
-  parent = parent or UIParent
-  do
-    local cab = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    cab:SetText("Clear All")
-    cab:SetSize(100, 22)
-    cab:ClearAllPoints()
-    if closeBtn then
-      cab:SetPoint("RIGHT", closeBtn, "LEFT", -8, 0)
-      cab:SetPoint("BOTTOM", closeBtn, "BOTTOM", 0, 0)
-    else
-      -- Fallback: bottom-right of the frame if Close button not found
-      local base = rawget(frame, "frame")
-      if base then
-        cab:SetPoint("BOTTOMRIGHT", base, "BOTTOMRIGHT", -120, 8)
-      else
-        cab:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -120, 8)
+  -- Keep the bottom status area visible and create custom status bar
+  local statusBg = rawget(frame, "statusbg")
+  local statusText = rawget(frame, "statustext")
+  
+  -- Create custom status bar with Clear All button
+  local baseFrame = rawget(frame, "frame")
+  if baseFrame then
+    -- Create status bar container
+    local statusBar = CreateFrame("Frame", nil, baseFrame)
+    statusBar:SetHeight(28)
+    statusBar:SetPoint("BOTTOMLEFT", baseFrame, "BOTTOMLEFT", 10, 10)
+    statusBar:SetPoint("BOTTOMRIGHT", baseFrame, "BOTTOMRIGHT", -10, 10)
+    
+    -- Apply styling to status bar
+    if Styles and Styles.IsModernStyleEnabled() then
+      if statusBar.SetBackdrop then
+        statusBar:SetBackdrop({
+          bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+          edgeFile = nil,
+          tile = false,
+          insets = { left = 0, right = 0, top = 0, bottom = 0 }
+        })
+        statusBar:SetBackdropColor(0.05, 0.05, 0.08, 0.8)
       end
     end
     
-    -- Check if we have any items to determine initial enabled state
-    local hasItems = false
-    for _ in pairs(LootWishlist.GetTracked() or {}) do hasItems = true; break end
-    cab:SetEnabled(hasItems)
+    -- Create Clear All button on the left side
+    local clearBtn = CreateFrame("Button", nil, statusBar, "UIPanelButtonTemplate")
+    clearBtn:SetText("Clear All")
+    clearBtn:SetSize(90, 22)
+    clearBtn:SetPoint("LEFT", statusBar, "LEFT", 4, 0)
     
     -- Apply modern button styling
-    if Styles and Styles.IsModernStyleEnabled() and cab.SetBackdrop then
-      Styles.ApplyBackdrop(cab, "button", Styles.Colors.bg_secondary, Styles.Colors.border_default)
-      -- Set normal font color
-      if cab.GetFontString then
-        local fs = cab:GetFontString()
-        if fs then fs:SetTextColor(unpack(Styles.Colors.text_primary)) end
+    if Styles and Styles.IsModernStyleEnabled() then
+      if clearBtn.SetBackdrop then
+        Styles.ApplyBackdrop(clearBtn, "button", Styles.Colors.bg_secondary, Styles.Colors.border_default)
+      end
+      local fs = clearBtn:GetFontString()
+      if fs then
+        fs:SetTextColor(unpack(Styles.Colors.text_primary))
       end
     end
     
-    cab:SetScript("OnClick", function()
+    clearBtn:SetScript("OnClick", function()
       StaticPopupDialogs["LOOTWISHLIST_CLEAR_ALL"] = {
         text = "This will remove ALL wishlist items for this character. Are you sure?",
         button1 = "Yes",
@@ -493,8 +495,20 @@ local function open()
       }
       StaticPopup_Show("LOOTWISHLIST_CLEAR_ALL")
     end)
-    AceView.clearBtn = cab
+    
+    -- Create item count label in the center
+    local countLabel = statusBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    countLabel:SetPoint("CENTER", statusBar, "CENTER", 0, 0)
+    countLabel:SetTextColor(0.8, 0.8, 0.8, 1)
+    
+    -- Store references
+    AceView.clearBtn = clearBtn
+    AceView.countLabel = countLabel
+    AceView.statusBar = statusBar
   end
+
+  AceView.frame, AceView.scroll = frame, scroll
+  LootWishlist.Ace.isOpen = true
   refresh()
 end
 
