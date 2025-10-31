@@ -97,7 +97,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: loot-wishlist-${{ steps.get_version.outputs.VERSION }}.zip
-          body_file: release_notes.txt
+          body_path: release_notes.txt
           draft: false
           prerelease: false
           name: "v${{ steps.get_version.outputs.VERSION }}"

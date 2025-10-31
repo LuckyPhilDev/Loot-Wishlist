@@ -5,6 +5,15 @@ All notable changes to Loot Wishlist will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2025-10-31
+
+### Fixed
+- Fixed automated release workflow zip packaging structure - addon folder now properly extracts to AddOns directory
+- Fixed GitHub Actions parameter warning (body_file → body_path)
+
+### Changed
+- Improved CI/CD workflow for cleaner release packaging
+
 ## [1.3.1] - 2025-10-31
 
 ### Added
