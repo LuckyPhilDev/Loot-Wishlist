@@ -437,15 +437,28 @@ local function collectDungeonSpecSuggestions()
         if type(specs) == "table" and next(specs) then
           dprint("specs=", table.concat((function() local tmp={} for _,sid in ipairs(specs) do table.insert(tmp, tostring(sid)) end return tmp end)(), ","), "lootSpec=", tostring(lsid or "nil"))
           if not playerLootSpecMatches(specs) then
-            local suggestID
-            for _, sid in ipairs(specs) do suggestID = sid; break end
-            if not suggestID then -- fallback if table isn't array-like
-              for _, sid in pairs(specs) do if type(sid)=="number" then suggestID = sid; break end end
+            -- Build spec name from all valid specs
+            local specNames = {}
+            for _, sid in ipairs(specs) do
+              local name = getSpecNameByID(sid)
+              if name and name ~= "" then
+                table.insert(specNames, name)
+              end
             end
-            local name = getSpecNameByID(suggestID) or "appropriate spec"
-            if name == "" then name = "appropriate spec" end
-            bySpec[name] = bySpec[name] or {}
-            table.insert(bySpec[name], v.link or ("item:"..tostring(v.id)))
+            if #specNames == 0 then
+              -- Fallback to non-array iteration
+              for _, sid in pairs(specs) do
+                if type(sid) == "number" then
+                  local name = getSpecNameByID(sid)
+                  if name and name ~= "" then
+                    table.insert(specNames, name)
+                  end
+                end
+              end
+            end
+            local specKey = #specNames > 0 and table.concat(specNames, " or ") or "appropriate spec"
+            bySpec[specKey] = bySpec[specKey] or {}
+            table.insert(bySpec[specKey], v.link or ("item:"..tostring(v.id)))
             haveAny = true
           else
             -- Matches current loot spec; accumulate to show a 'stay' recommendation alongside switches
@@ -508,15 +521,28 @@ local function collectRaidTargetSpecSuggestions()
       if type(specs) == "table" and next(specs) then
         dprint("boss item", v.id, "specs:", table.concat((function() local tmp={} for _,sid in ipairs(specs) do table.insert(tmp, tostring(sid)) end return tmp end)(), ","), "lootSpec=", tostring(lsid or "nil"))
         if not playerLootSpecMatches(specs) then
-          local suggestID
-          for _, sid in ipairs(specs) do suggestID = sid; break end
-          if not suggestID then -- fallback if table isn't array-like
-            for _, sid in pairs(specs) do if type(sid)=="number" then suggestID = sid; break end end
+          -- Build spec name from all valid specs
+          local specNames = {}
+          for _, sid in ipairs(specs) do
+            local name = getSpecNameByID(sid)
+            if name and name ~= "" then
+              table.insert(specNames, name)
+            end
           end
-          local name = getSpecNameByID(suggestID) or "appropriate spec"
-          if name == "" then name = "appropriate spec" end
-          bySpec[name] = bySpec[name] or {}
-          table.insert(bySpec[name], v.link or ("item:"..tostring(v.id)))
+          if #specNames == 0 then
+            -- Fallback to non-array iteration
+            for _, sid in pairs(specs) do
+              if type(sid) == "number" then
+                local name = getSpecNameByID(sid)
+                if name and name ~= "" then
+                  table.insert(specNames, name)
+                end
+              end
+            end
+          end
+          local specKey = #specNames > 0 and table.concat(specNames, " or ") or "appropriate spec"
+          bySpec[specKey] = bySpec[specKey] or {}
+          table.insert(bySpec[specKey], v.link or ("item:"..tostring(v.id)))
           haveAny = true
         else
           local link = v.link or ("item:"..tostring(v.id))
