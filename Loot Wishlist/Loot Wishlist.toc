@@ -13,6 +13,6 @@ LootWishlist_Core.lua
 LootWishlist_Options.lua
 LootWishlist_UI_Styles.lua
 LootWishlist_UI_Ace.lua
-LootWishlist_EJ.lua
+LootWishlist_EncounterJournal.lua
 LootWishlist_Summary.lua
 LootWishlist_Alerts.lua

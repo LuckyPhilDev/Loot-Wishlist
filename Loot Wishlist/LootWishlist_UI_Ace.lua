@@ -460,8 +460,8 @@ local function open()
     -- Create Clear All button on the left side
     local clearBtn = CreateFrame("Button", nil, statusBar, "UIPanelButtonTemplate")
     clearBtn:SetText("Clear All")
-    clearBtn:SetSize(90, 22)
-    clearBtn:SetPoint("LEFT", statusBar, "LEFT", 4, 0)
+    clearBtn:SetSize(100, 20)
+    clearBtn:SetPoint("BOTTOMLEFT", statusBar, "BOTTOMLEFT", 6, 7.5)
     
     -- Apply modern button styling
     if Styles and Styles.IsModernStyleEnabled() then
