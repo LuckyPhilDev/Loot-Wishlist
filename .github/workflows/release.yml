@@ -15,9 +15,9 @@ jobs:
           fetch-depth: 0   # needed so changelog/versioning works properly
 
       - name: Package and upload
-        uses: BigWigsMods/packager@v2.3.1
+        run: |
+          bash <(curl -s https://raw.githubusercontent.com/BigWigsMods/packager/master/release.sh)
         env:
-          WORKING_DIRECTORY: Loot Wishlist
           CF_API_KEY: ${{ secrets.CURSEFORGE_TOKEN }}
 
           # Optional: also attach the zip to a GitHub Release.

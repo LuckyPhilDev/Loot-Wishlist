@@ -1,0 +1,8 @@
+package-as: Loot Wishlist
+
+move-folders:
+  Loot Wishlist/Loot Wishlist: Loot Wishlist
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
