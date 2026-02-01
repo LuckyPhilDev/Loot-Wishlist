@@ -5,6 +5,7 @@
 ## OptionalDeps: Ace3
 ## SavedVariablesPerCharacter: LootWishlistCharDB
 ## SavedVariables: LootWishlistDB, RemindMeDB, RemindMeCharDB
+## X-Curse-Project-ID: 1353310
 
 embeds.xml
 

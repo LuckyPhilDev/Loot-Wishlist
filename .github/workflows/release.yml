@@ -1,132 +1,24 @@
-name: Release
-
 on:
   push:
     tags:
-      - 'v*'
-
-permissions:
-  contents: write
+      - "v*"
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # needed so changelog/versioning works properly
 
-      - name: Extract version from tag
-        id: get_version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Release version: $VERSION"
+      - name: Package and upload
+        uses: BigWigsMods/packager@v2.3.1
+        env:
+          WORKING_DIRECTORY: Loot Wishlist
+          CF_API_KEY: ${{ secrets.CURSEFORGE_TOKEN }}
 
-      - name: Update TOC version
-        run: |
-          TOC_FILE="Loot Wishlist/Loot Wishlist.toc"
-          sed -i "s/^## Version: .*/## Version: ${{ steps.get_version.outputs.VERSION }}/" "$TOC_FILE"
-          
-          echo "TOC file updated:"
-          grep "## Version:" "$TOC_FILE"
-
-      - name: Commit TOC changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          
-          if git diff --quiet; then
-            echo "No changes to commit"
-          else
-            git add "Loot Wishlist/Loot Wishlist.toc"
-            git commit -m "chore: bump version to ${{ steps.get_version.outputs.VERSION }}"
-            git push origin HEAD:main
-          fi
-
-      - name: Create release package
-        run: |
-          # Create a clean directory for packaging
-          mkdir -p package
-          
-          # Copy the addon folder into package directory
-          cp -r "Loot Wishlist" package/
-          
-          # Remove any unwanted files (git files, markdown, etc.)
-          find package/ -name ".git*" -exec rm -rf {} + 2>/dev/null || true
-          find package/ -name "*.md" -delete 2>/dev/null || true
-          
-          # Create the zip from inside the package directory
-          cd package
-          zip -r "../loot-wishlist-${{ steps.get_version.outputs.VERSION }}.zip" "Loot Wishlist/"
-          cd ..
-          
-          # Verify the zip structure
-          echo "Zip contents:"
-          unzip -l "loot-wishlist-${{ steps.get_version.outputs.VERSION }}.zip" | head -20
-      
-      - name: Extract changelog
-        id: changelog
-        run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
-          
-          # Try to extract changelog for this version
-          if [ -f "CHANGELOG.md" ]; then
-            # Extract the section for this version
-            awk "/## \[$VERSION\]/,/## \[/{if(/## \[/ && !/## \[$VERSION\]/)exit;print}" CHANGELOG.md > release_notes.txt
-            
-            # If extraction was successful and has content
-            if [ -s release_notes.txt ]; then
-              echo "Changelog extracted successfully"
-            else
-              echo "Release version $VERSION" > release_notes.txt
-              echo "" >> release_notes.txt
-              echo "See commit history for changes." >> release_notes.txt
-            fi
-          else
-            echo "Release version $VERSION" > release_notes.txt
-            echo "" >> release_notes.txt
-            echo "See commit history for changes." >> release_notes.txt
-          fi
-          
-          echo "Release notes:"
-          cat release_notes.txt
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: loot-wishlist-${{ steps.get_version.outputs.VERSION }}.zip
-          body_path: release_notes.txt
-          draft: false
-          prerelease: false
-          name: "v${{ steps.get_version.outputs.VERSION }}"
-  
-  # Optional: Auto-upload to CurseForge
-  # Uncomment and add CURSEFORGE_TOKEN to GitHub Secrets
-  # curseforge:
-  #   name: Upload to CurseForge
-  #   runs-on: ubuntu-latest
-  #   needs: release
-  #   if: "!contains(github.ref, 'beta') && !contains(github.ref, 'alpha')"
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     
-  #     - name: Download artifact
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         pattern: loot-wishlist-*
-  #         merge-multiple: true
-  #         path: builds/
-  #     
-  #     - name: Upload to CurseForge
-  #       uses: itsmeow/curseforge-upload@v3
-  #       with:
-  #         token: ${{ secrets.CURSEFORGE_TOKEN }}
-  #         project_id: 123456  # Your CurseForge project ID
-  #         game_endpoint: wow
-  #         file_path: builds/*.zip
-  #         changelog_type: markdown
-  #         changelog: release_notes.txt
-  #         game_versions: 90207,517  # WoW version IDs
-  #         release_type: release
+          # Optional: also attach the zip to a GitHub Release.
+          # Docs say it expects a GitHub PAT in GITHUB_OAUTH.
+          # If you don’t care about GitHub releases, delete these two lines.
+          GITHUB_OAUTH: ${{ secrets.GITHUB_OAUTH }}
