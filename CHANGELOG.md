@@ -2,8 +2,16 @@
 
 All notable changes to Loot Wishlist will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.4.0] - 2026-02-01
+
+### Changed
+- Updated Interface version to 120000 for Midnight expansion support
+- Spec reminders now show all valid specs for multi-spec items (e.g., "Windwalker or Brewmaster" instead of just "Windwalker")
+- Renamed internal file LootWishlist_EJ.lua to LootWishlist_EncounterJournal.lua for clarity
+- Improved Clear All button positioning to mirror Close button layout
+
+### Fixed
+- Fixed Clear All button positioning in main window
 
 ## [1.3.3] - 2025-10-31
 
@@ -36,23 +44,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Issues
 - Item data sometimes loads asynchronously; spec tags and links may appear a moment later
-
----
-
-## Template for New Releases
-
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-- New features
-
-### Changed
-- Changes to existing functionality
-
-### Fixed
-- Bug fixes
-
-### Removed
-- Removed features
-```
