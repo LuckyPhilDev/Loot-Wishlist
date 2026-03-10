@@ -102,6 +102,7 @@ local function InitializeDB()
 
   -- Account-wide toggle default
   if acctS.enableRaidRollAlert == nil then acctS.enableRaidRollAlert = true end
+  if acctS.hideSummaryWindow == nil then acctS.hideSummaryWindow = false end
 
   -- Restore window position is handled by Ace frame status table
 

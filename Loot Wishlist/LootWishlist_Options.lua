@@ -96,9 +96,29 @@ local function CreateOptionsPanel()
   rollCB.Text:SetText("Enable raid roll alert")
   rollCB:SetChecked(s.enableRaidRollAlert ~= false)
 
+  local summaryCB = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
+  summaryCB:SetPoint("TOPLEFT", rollCB, "BOTTOMLEFT", 0, -6)
+  summaryCB.Text:SetText("Hide summary window")
+  summaryCB:SetChecked(s.hideSummaryWindow == true)
+  summaryCB:SetScript("OnClick", function(self)
+    local val = self:GetChecked() and true or false
+    if LootWishlistDB and LootWishlistDB.settings then
+      LootWishlistDB.settings.hideSummaryWindow = val
+    end
+    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+  end)
+
+  local openSummaryBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+  openSummaryBtn:SetSize(100, 22)
+  openSummaryBtn:SetPoint("LEFT", summaryCB.Text, "RIGHT", 12, 0)
+  openSummaryBtn:SetText("Open Wishlist")
+  openSummaryBtn:SetScript("OnClick", function()
+    if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
+  end)
+
   local save = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
   save:SetSize(120, 22)
-  save:SetPoint("TOPLEFT", rollCB, "BOTTOMLEFT", 0, -10)
+  save:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -10)
   save:SetText("Save")
   save:SetScript("OnClick", function()
     local st = GetSettings()
@@ -106,7 +126,9 @@ local function CreateOptionsPanel()
       st.whisperTemplate = wEdit:GetText() or st.whisperTemplate
       st.partyTemplate = pEdit:GetText() or st.partyTemplate
       st.enableRaidRollAlert = rollCB:GetChecked() and true or false
+      st.hideSummaryWindow = summaryCB:GetChecked() and true or false
       example:SetText("Example whisper: " .. applyPlaceholders(st.whisperTemplate or "", "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(st.partyTemplate or "", "[Example Item]"))
+      if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
     end
   end)
 

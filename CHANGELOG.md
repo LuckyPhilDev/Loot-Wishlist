@@ -2,6 +2,12 @@
 
 All notable changes to Loot Wishlist will be documented in this file.
 
+## [1.4.2] - 2026-03-10
+
+### Added
+- Settings option to hide the sticky summary window
+- "Open Wishlist" button in settings to open the full wishlist from the options panel
+
 ## [1.4.0] - 2026-02-01
 
 ### Changed

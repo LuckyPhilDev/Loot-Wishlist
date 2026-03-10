@@ -195,6 +195,8 @@ end
 
 local function refresh()
   local f = ensureFrame()
+  local settings = LootWishlistDB and LootWishlistDB.settings
+  if settings and settings.hideSummaryWindow then f:Hide(); return end
   local lines = buildSummaryLines()
   if not next(lines) then f:Hide(); return end
   local content = table.concat(lines, "\n")
