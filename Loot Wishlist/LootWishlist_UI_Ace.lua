@@ -52,6 +52,10 @@ local function groupItemsByInstance()
   return ordered
 end
 
+-- Player spec IDs computed once per refresh, shared across all renderItemRow calls
+local renderPlayerSpecIDs = {}
+local renderPlayerSpecCount = 0
+
 -- Cache for EJ encounter order per instance
 local encounterOrderCache = {}
 local function getEncounterOrder(instanceID)
@@ -182,16 +186,9 @@ local function renderItemRow(parent, itemKey, itemID, info, indent)
   local specText
   do
     local specs = info and info.specs
-    -- Helper: build player's specID set
-    local playerSpecIDs = {}
-    local psCount = 0
-    local numSpecs = _G.GetNumSpecializations and _G.GetNumSpecializations() or 0
-    if type(numSpecs) == "number" and numSpecs > 0 then
-      for i = 1, numSpecs do
-        local ok, specID = pcall(_G.GetSpecializationInfo, i)
-        if ok and type(specID) == "number" then playerSpecIDs[specID] = true; psCount = psCount + 1 end
-      end
-    end
+    -- Use player spec IDs computed once for the whole refresh pass
+    local playerSpecIDs = renderPlayerSpecIDs
+    local psCount = renderPlayerSpecCount
 
     local function allPlayerSpecsCovered()
       if psCount == 0 then return false end
@@ -207,16 +204,23 @@ local function renderItemRow(parent, itemKey, itemID, info, indent)
     if allPlayerSpecsCovered() then
       specText = "|cffa0a0a0{any spec}|r"
     elseif type(specs) == "table" and next(specs) then
-      local getNames = LootWishlist and LootWishlist.GetSpecNames
-      local names = (type(getNames) == "function" and getNames(specs)) or {}
-      local text = (type(names) == "table" and next(names) and table.concat(names, "/")) or nil
-      if not text then
-        -- Fallback to spec ID list if names not available
-        local tmp = {}
-        for _, sid in ipairs(specs) do table.insert(tmp, tostring(sid)) end
-        text = table.concat(tmp, "/")
+      -- Cache spec names string on the info object; recompute only if specs table reference changed
+      if info._specNamesForSpecs ~= specs then
+        local getNames = LootWishlist and LootWishlist.GetSpecNames
+        local names = (type(getNames) == "function" and getNames(specs)) or {}
+        local text = (type(names) == "table" and next(names) and table.concat(names, "/")) or nil
+        if not text then
+          -- Fallback to spec ID list if names not available
+          local tmp = {}
+          for _, sid in ipairs(specs) do table.insert(tmp, tostring(sid)) end
+          text = table.concat(tmp, "/")
+        end
+        info._specNamesStr = text
+        info._specNamesForSpecs = specs
       end
-      if text and text ~= "" then specText = string.format("|cffa0a0a0{%s}|r", text) end
+      if info._specNamesStr and info._specNamesStr ~= "" then
+        specText = string.format("|cffa0a0a0{%s}|r", info._specNamesStr)
+      end
     end
   end
   
@@ -356,6 +360,18 @@ end
 
 local function refresh()
   if not AceGUI or not AceView.frame or not AceView.scroll then return end
+
+  -- Compute player spec IDs once for all renderItemRow calls this pass
+  renderPlayerSpecIDs = {}
+  renderPlayerSpecCount = 0
+  local numSpecs = _G.GetNumSpecializations and _G.GetNumSpecializations() or 0
+  if type(numSpecs) == "number" and numSpecs > 0 then
+    for i = 1, numSpecs do
+      local ok, specID = pcall(_G.GetSpecializationInfo, i)
+      if ok and type(specID) == "number" then renderPlayerSpecIDs[specID] = true; renderPlayerSpecCount = renderPlayerSpecCount + 1 end
+    end
+  end
+
   AceView.scroll["ReleaseChildren"](AceView.scroll)
   local ordered = groupItemsByInstance()
   
@@ -516,6 +532,18 @@ local function hide()
   if AceView.frame then AceView.frame["Hide"](AceView.frame); LootWishlist.Ace.isOpen = false end
 end
 
-LootWishlist.Ace.refresh = refresh
+-- Debounced refresh: collapses multiple rapid calls into a single next-frame rebuild
+local refreshPending = false
+local function scheduleRefresh()
+  if not AceGUI or not AceView.frame or not AceView.scroll then return end
+  if refreshPending then return end
+  refreshPending = true
+  C_Timer.After(0, function()
+    refreshPending = false
+    refresh()
+  end)
+end
+
+LootWishlist.Ace.refresh = scheduleRefresh
 LootWishlist.Ace.open = open
 LootWishlist.Ace.hide = hide

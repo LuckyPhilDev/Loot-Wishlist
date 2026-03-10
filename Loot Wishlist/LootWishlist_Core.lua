@@ -194,7 +194,6 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
   -- Prefer Ace view opening; the UI module will handle opening and refreshing
   if LootWishlist.Ace and LootWishlist.Ace.open then
     LootWishlist.Ace.open()
-    LootWishlist.Ace.refresh()
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   else
     print("Loot Wishlist: AceGUI-3.0 not found. Please install Ace3 to use the UI. Item tracked.")
@@ -362,8 +361,6 @@ f:SetScript("OnEvent", function(self, event, ...)
         end
       end
     end
-    if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
-    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   end
 end)
 
