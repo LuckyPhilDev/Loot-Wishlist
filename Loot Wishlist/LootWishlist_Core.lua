@@ -22,7 +22,7 @@ LootWishlist = {
 -- Local state
 local trackedItems -- assigned after DB init; may use string keys for difficulty variants
 
--- No basic frame: AceGUI is the only UI path now
+-- No basic frame: custom raw-frame UI is the only path now
 
 -- Spec detection ------------------------------------------------------------
 local function tryGetItemSpecsImmediate(itemID, itemLink)
@@ -149,12 +149,15 @@ local function InitializeDB()
     end
   end
 
-  -- Backfill specs for existing tracked entries if missing
+  -- Backfill specs for existing tracked entries if missing.
+  -- Callbacks use deferredRefresh to avoid a per-item cascade of full rebuilds.
   for _, v in pairs(trackedItems) do
     if type(v) == "table" and type(v.id) == "number" and (v.specs == nil or (type(v.specs)=="table" and next(v.specs)==nil)) then
       computeItemSpecs(v.id, v.link, function(specs)
         v.specs = specs or {}
-        if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+        local ace = LootWishlist.Ace
+        if ace and ace.deferredRefresh then ace.deferredRefresh()
+        elseif ace and ace.refresh then ace.refresh() end
         if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
       end)
     end
@@ -163,6 +166,7 @@ end
 
 -- Public API: Add/Remove/Iterate --------------------------------------------
 function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, difficultyID, difficultyName)
+  local t0 = debugprofilestop()
   -- Compose a unique key so that the same item can be tracked for multiple difficulties
   local key
   if difficultyID then
@@ -171,6 +175,9 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
     -- Back-compat when difficulty isn\'t provided
     key = tostring(itemID)
   end
+  local count = 0
+  for _ in pairs(trackedItems) do count = count + 1 end
+  print("|cffff8800[LWL-perf]|r AddTrackedItem START id=" .. tostring(itemID) .. " key=" .. key .. " existing=" .. count)
   trackedItems[key] = {
     id = itemID,
     boss = bossName,
@@ -184,20 +191,27 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
     specs = nil,
   }
   DevLog("AddTrackedItem id=", itemID, "key=", key, "diffID=", tostring(difficultyID or "nil"), "boss=", tostring(bossName or ""), "instance=", tostring(instanceName or ""))
-  -- Compute and attach spec list asynchronously
+  -- Compute and attach spec list asynchronously.
+  -- Uses deferredRefresh since open() already does an immediate refresh.
   computeItemSpecs(itemID, itemLink, function(specs)
     local entry = trackedItems[key]
     if entry then entry.specs = specs or {} end
-    if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+    print("|cffff8800[LWL-perf]|r computeItemSpecs CALLBACK for id=" .. tostring(itemID))
+    local ace = LootWishlist.Ace
+    if ace and ace.deferredRefresh then ace.deferredRefresh()
+    elseif ace and ace.refresh then ace.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   end)
   -- Prefer Ace view opening; the UI module will handle opening and refreshing
+  local tBeforeOpen = debugprofilestop()
   if LootWishlist.Ace and LootWishlist.Ace.open then
     LootWishlist.Ace.open()
+    print("|cffff8800[LWL-perf]|r Ace.open() took " .. string.format("%.1f", debugprofilestop() - tBeforeOpen) .. "ms")
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   else
-    print("Loot Wishlist: AceGUI-3.0 not found. Please install Ace3 to use the UI. Item tracked.")
+    print("Loot Wishlist: UI module not loaded. Item tracked.")
   end
+  print("|cffff8800[LWL-perf]|r AddTrackedItem END total=" .. string.format("%.1f", debugprofilestop() - t0) .. "ms")
 end
 
 -- Remove one or more tracked entries.
@@ -348,14 +362,17 @@ f:SetScript("OnEvent", function(self, event, ...)
     if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.showIfNeeded then LootWishlist.Summary.showIfNeeded() end
   elseif event == "GET_ITEM_INFO_RECEIVED" then
-    -- When item info is received, try to resolve missing spec info for that item
+    -- When item info is received, try to resolve missing spec info for that item.
+    -- Uses deferredRefresh to batch multiple rapid callbacks into one rebuild.
     local itemID = ...
     if type(itemID) == "number" then
       for _, v in pairs(trackedItems) do
         if type(v) == "table" and v.id == itemID and (v.specs == nil or (type(v.specs)=="table" and next(v.specs)==nil)) then
           computeItemSpecs(itemID, v.link, function(specs)
             v.specs = specs or {}
-            if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+            local ace = LootWishlist.Ace
+            if ace and ace.deferredRefresh then ace.deferredRefresh()
+            elseif ace and ace.refresh then ace.refresh() end
             if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
           end)
         end
@@ -370,7 +387,7 @@ SLASH_WISHLIST2 = "/lwl" -- short alias for Loot Wishlist
 SlashCmdList.WISHLIST = function(msg)
   msg = msg and msg:lower() or ""
   if msg == "show" then
-    if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() else print("Loot Wishlist: Ace3 is required for the UI.") end
+    if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() else print("Loot Wishlist: UI module not loaded.") end
   elseif msg == "hide" then
     if LootWishlist.Ace and LootWishlist.Ace.hide then LootWishlist.Ace.hide() end
   elseif msg == "debug" then
