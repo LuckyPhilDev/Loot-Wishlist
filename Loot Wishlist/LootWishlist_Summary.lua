@@ -1,4 +1,5 @@
 -- Loot Wishlist - Sticky Summary Window
+-- Uses LuckyUI for consistent dark/gold styling.
 
 LootWishlist = LootWishlist or {}
 LootWishlist.Summary = LootWishlist.Summary or {}
@@ -6,6 +7,9 @@ LootWishlist.Summary = LootWishlist.Summary or {}
 local Summary = LootWishlist.Summary
 local frame, textFS
 local isDragging = false
+
+local UI = LuckyUI
+local C  = UI.C
 
 local function ensureFrame()
   if frame then return frame end
@@ -25,25 +29,23 @@ local function ensureFrame()
       LootWishlistCharDB.summaryWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
     end
   end)
-  -- Transparent sticky note look
-  frame:SetBackdrop({
-    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 12,
-    insets = { left = 3, right = 3, top = 3, bottom = 3 }
-  })
-  frame:SetBackdropColor(0, 0, 0, 0.35)
-  frame:SetBackdropBorderColor(1, 1, 1, 0.35)
 
-  -- Non-closable; minimal header with Open button
-  textFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  -- LuckyUI backdrop: dark bg with gold-muted border (subtle for sticky note)
+  frame:SetBackdrop(UI.Backdrop)
+  frame:SetBackdropColor(C.bgDark[1], C.bgDark[2], C.bgDark[3], 0.80)
+  frame:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3], 0.6)
+
+  -- Text content
+  textFS = frame:CreateFontString(nil, "OVERLAY")
+  textFS:SetFont(UI.BODY_FONT, 11)
+  textFS:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
   textFS:SetJustifyH("LEFT")
   textFS:SetJustifyV("TOP")
   textFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -8)
   textFS:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
   textFS:SetText("")
 
-  -- Click anywhere to open full list; avoid triggering when dragging
+  -- Click anywhere to open full list
   frame:SetScript("OnMouseUp", function(self, button)
     if button == "LeftButton" and not isDragging then
       if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
@@ -51,6 +53,14 @@ local function ensureFrame()
   end)
   frame:HookScript("OnDragStart", function() isDragging = true end)
   frame:HookScript("OnDragStop", function() isDragging = false end)
+
+  -- Hover: brighten border
+  frame:SetScript("OnEnter", function(self)
+    self:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 0.8)
+  end)
+  frame:SetScript("OnLeave", function(self)
+    self:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3], 0.6)
+  end)
 
   -- Restore position if saved
   local w = LootWishlistCharDB and LootWishlistCharDB.summaryWindow
@@ -144,13 +154,13 @@ local function buildSummaryLines()
     return a.name < b.name
   end)
 
+  -- Use LuckyUI WoW color codes
+  local WC = UI.WC
   local lines = {}
   for _, entry in ipairs(ordered) do
     local g = entry.g
     if g.isRaid then
-      -- Raid header
-      table.insert(lines, string.format("|cffffd200%s|r", entry.name))
-      -- Boss list for raids (one per line under the raid header)
+      table.insert(lines, string.format("%s%s%s", WC.goldPrimary, entry.name, WC.reset))
       local bossGroups = {}
       for _, it in ipairs(g.items) do
         local bname = (it.info.boss and it.info.boss ~= "") and it.info.boss or "Unknown Boss"
@@ -176,18 +186,17 @@ local function buildSummaryLines()
           local tag = diffTag(it.info.difficultyName, it.info.difficultyID)
           if tag then diffs[tag] = true end
         end
-        local tagText = next(diffs) and (" [".. joinTags(diffs) .. "]") or ""
+        local tagText = next(diffs) and (" " .. WC.textMuted .. "[" .. joinTags(diffs) .. "]" .. WC.reset) or ""
         table.insert(lines, string.format("  - %s (%d)%s", b.name, #b.items, tagText))
       end
     else
-      -- Dungeon instances only (one per line)
       local diffs = {}
       for _, it in ipairs(g.items) do
         local tag = diffTag(it.info.difficultyName, it.info.difficultyID)
         if tag then diffs[tag] = true end
       end
-      local tagText = next(diffs) and (" [".. joinTags(diffs) .. "]") or ""
-      table.insert(lines, string.format("|cffffd200%s|r (%d)%s", entry.name, #g.items, tagText))
+      local tagText = next(diffs) and (" " .. WC.textMuted .. "[" .. joinTags(diffs) .. "]" .. WC.reset) or ""
+      table.insert(lines, string.format("%s%s%s (%d)%s", WC.goldPrimary, entry.name, WC.reset, #g.items, tagText))
     end
   end
   return lines
@@ -201,8 +210,7 @@ local function refresh()
   if not next(lines) then f:Hide(); return end
   local content = table.concat(lines, "\n")
   textFS:SetText(content)
-  -- Resize to fit content
-  local width = 300 -- slightly wider cap
+  local width = 300
   if textFS.GetStringWidth then width = math.max(200, math.min(300, textFS:GetStringWidth() + 24)) end
   frame:SetWidth(width)
   local height = 30 + (textFS.GetStringHeight and textFS:GetStringHeight() or 60)
@@ -212,7 +220,6 @@ end
 
 Summary.refresh = refresh
 
--- Public helper to force show when items exist
 function Summary.showIfNeeded()
   refresh()
 end

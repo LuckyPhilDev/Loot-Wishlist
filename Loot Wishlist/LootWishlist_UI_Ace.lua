@@ -1,7 +1,14 @@
 -- Loot Wishlist - UI (pure WoW API, no AceGUI)
+-- Uses LuckyUI for consistent dark/gold styling.
 
 LootWishlist = LootWishlist or {}
 LootWishlist.Ace = LootWishlist.Ace or {}
+
+------------------------------------------------------------------------
+-- LuckyUI references
+------------------------------------------------------------------------
+local UI = LuckyUI
+local C  = UI.C
 
 ------------------------------------------------------------------------
 -- Layout constants
@@ -18,15 +25,15 @@ local MIN_H          = 300
 ------------------------------------------------------------------------
 -- Module-level state
 ------------------------------------------------------------------------
-local mainFrame          -- the movable/resizable window
-local viewport           -- clipped content area
-local scrollBar          -- slider
+local mainFrame
+local viewport
+local scrollBar
 local scrollOffset    = 0
 local flatRows        = {}
 local totalHeight     = 0
 local rowPool         = {}
 local statusCountLabel
-local clearBtn
+local clearBtn, closeBtn2
 
 -- Player spec IDs computed once per refresh
 local renderPlayerSpecIDs   = {}
@@ -204,7 +211,7 @@ local function buildSpecText(info)
         if not specSet[sid] then allCovered = false; break end
       end
     end
-    if allCovered then return "|cffa0a0a0{any spec}|r" end
+    if allCovered then return "|cff8a7e6a{any spec}|r" end
   end
 
   if not next(specs) then return nil end
@@ -222,12 +229,12 @@ local function buildSpecText(info)
     info._specNamesForSpecs = specs
   end
   if info._specNamesStr and info._specNamesStr ~= "" then
-    return string.format("|cffa0a0a0{%s}|r", info._specNamesStr)
+    return string.format("|cff8a7e6a{%s}|r", info._specNamesStr)
   end
 end
 
 ------------------------------------------------------------------------
--- createPoolFrame: one reusable row (raw Button, no libraries)
+-- createPoolFrame: one reusable row
 ------------------------------------------------------------------------
 local function createPoolFrame(parent)
   local f = CreateFrame("Button", nil, parent)
@@ -238,15 +245,16 @@ local function createPoolFrame(parent)
   f.bg:SetAllPoints()
   f.bg:SetColorTexture(0, 0, 0, 0)
 
-  -- Bottom separator
+  -- Bottom separator (dark brown)
   f.sep = f:CreateTexture(nil, "BACKGROUND")
   f.sep:SetHeight(1)
   f.sep:SetPoint("BOTTOMLEFT",  0, 0)
   f.sep:SetPoint("BOTTOMRIGHT", 0, 0)
-  f.sep:SetColorTexture(1, 1, 1, 0.06)
+  f.sep:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.6)
 
   -- Heading text (instances + bosses)
-  f.headingLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  f.headingLabel = f:CreateFontString(nil, "OVERLAY")
+  f.headingLabel:SetFont(UI.TITLE_FONT, 13)
   f.headingLabel:SetPoint("LEFT",  10, 0)
   f.headingLabel:SetPoint("RIGHT", -10, 0)
   f.headingLabel:SetJustifyH("LEFT")
@@ -265,34 +273,47 @@ local function createPoolFrame(parent)
   f.qualityBar:Hide()
 
   -- Item name / link line
-  f.itemLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  f.itemLabel = f:CreateFontString(nil, "OVERLAY")
+  f.itemLabel:SetFont(UI.BODY_FONT, 12)
+  f.itemLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
   f.itemLabel:SetPoint("TOPLEFT", f.icon, "TOPRIGHT", 6, -2)
   f.itemLabel:SetPoint("RIGHT",   -30, 0)
   f.itemLabel:SetJustifyH("LEFT")
   f.itemLabel:SetWordWrap(false)
   f.itemLabel:Hide()
 
-  -- Sub-label (boss • instance)
-  f.subLabel = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  -- Sub-label (boss / instance)
+  f.subLabel = f:CreateFontString(nil, "OVERLAY")
+  f.subLabel:SetFont(UI.BODY_FONT, 10)
+  f.subLabel:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
   f.subLabel:SetPoint("BOTTOMLEFT", f.icon, "BOTTOMRIGHT", 6, 3)
   f.subLabel:SetPoint("RIGHT",      -30, 0)
   f.subLabel:SetJustifyH("LEFT")
   f.subLabel:SetWordWrap(false)
   f.subLabel:Hide()
 
-  -- Remove button
-  f.removeBtn = CreateFrame("Button", nil, f)
+  -- Remove button (small "x" in LuckyUI danger style)
+  f.removeBtn = CreateFrame("Button", nil, f, "BackdropTemplate")
   f.removeBtn:SetSize(20, 20)
   f.removeBtn:SetPoint("RIGHT", -4, 0)
-  f.removeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
-  f.removeBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
-  f.removeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
+  f.removeBtn:SetBackdrop(UI.Backdrop)
+  f.removeBtn:SetBackdropColor(0, 0, 0, 0)
+  f.removeBtn:SetBackdropBorderColor(0, 0, 0, 0)
+  local rmLabel = f.removeBtn:CreateFontString(nil, "OVERLAY")
+  rmLabel:SetFont(UI.BODY_FONT, 12, "OUTLINE")
+  rmLabel:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 0.6)
+  rmLabel:SetPoint("CENTER", 0, 1)
+  rmLabel:SetText("\195\151")
   f.removeBtn:SetScript("OnEnter", function(self)
+    rmLabel:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 1)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText("Remove from wishlist", 1, 1, 1)
     GameTooltip:Show()
   end)
-  f.removeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  f.removeBtn:SetScript("OnLeave", function()
+    rmLabel:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 0.6)
+    GameTooltip:Hide()
+  end)
   f.removeBtn:Hide()
 
   -- Tooltip on hover
@@ -303,7 +324,7 @@ local function createPoolFrame(parent)
       GameTooltip:Show()
     end
     if self.rowType == "item" then
-      self.bg:SetColorTexture(0.15, 0.13, 0.08, 0.6)
+      self.bg:SetColorTexture(C.highlight[1], C.highlight[2], C.highlight[3], C.highlight[4])
     end
   end)
   f:SetScript("OnLeave", function(self)
@@ -336,30 +357,38 @@ local function populatePoolFrame(f, row, rowIndex)
 
   if row.type == "instance" then
     f:SetHeight(INSTANCE_ROW_H)
-    local raidTag = row.isRaid and "  |cffff7f00[Raid]|r" or ""
-    f.headingLabel:SetFont("Fonts\\FRIZQT__.TTF", 13, "OUTLINE")
-    f.headingLabel:SetText(string.format("|cffffd200%s|r  (%d)%s", row.name, row.count, raidTag))
+    local raidTag = row.isRaid and ("  |cffff8000[Raid]|r") or ""
+    f.headingLabel:SetFont(UI.TITLE_FONT, 13, "OUTLINE")
+    f.headingLabel:SetText(string.format("|cffffd100%s|r  (%d)%s", row.name, row.count, raidTag))
     f.headingLabel:Show()
-    f.bg:SetColorTexture(0.10, 0.07, 0.02, 0.9)
-    f._bgR, f._bgG, f._bgB, f._bgA = 0.10, 0.07, 0.02, 0.9
-    f.sep:SetColorTexture(0.79, 0.66, 0.30, 0.4)
+    -- Dark warm background for instance headers
+    f.bg:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.6)
+    f._bgR, f._bgG, f._bgB, f._bgA = C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.6
+    -- Gold separator
+    f.sep:SetColorTexture(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 0.4)
 
   elseif row.type == "boss" then
     f:SetHeight(BOSS_ROW_H)
-    f.headingLabel:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
-    f.headingLabel:SetText(string.format("   |cffffbf00%s|r  (%d)", row.name, row.count))
+    f.headingLabel:SetFont(UI.TITLE_FONT, 11, "")
+    f.headingLabel:SetText(string.format("   |cffc9a84c%s|r  (%d)", row.name, row.count))
     f.headingLabel:Show()
-    f.bg:SetColorTexture(0.06, 0.04, 0.01, 0.7)
-    f._bgR, f._bgG, f._bgB, f._bgA = 0.06, 0.04, 0.01, 0.7
-    f.sep:SetColorTexture(1, 1, 1, 0.06)
+    f.bg:SetColorTexture(C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.5)
+    f._bgR, f._bgG, f._bgB, f._bgA = C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.5
+    f.sep:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.4)
 
   else -- "item"
     f:SetHeight(ITEM_ROW_H)
-    -- Subtle alternating row tint
-    local alt = (rowIndex % 2 == 0) and 0.04 or 0.02
-    f.bg:SetColorTexture(alt, alt * 0.8, alt * 0.4, 0.5)
-    f._bgR, f._bgG, f._bgB, f._bgA = alt, alt * 0.8, alt * 0.4, 0.5
-    f.sep:SetColorTexture(1, 1, 1, 0.06)
+    -- Subtle alternating row tint using bgDark/bgPanel
+    local isEven = (rowIndex % 2 == 0)
+    local r, g, b, a
+    if isEven then
+      r, g, b, a = C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.3
+    else
+      r, g, b, a = C.bgDark[1], C.bgDark[2], C.bgDark[3], 0.2
+    end
+    f.bg:SetColorTexture(r, g, b, a)
+    f._bgR, f._bgG, f._bgB, f._bgA = r, g, b, a
+    f.sep:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.3)
 
     local info   = row.info
     local itemID = row.id
@@ -376,7 +405,6 @@ local function populatePoolFrame(f, row, rowIndex)
       f.icon:SetTexture(iconTex)
     else
       f.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-      -- Request async load
       local ItemAPI = _G["Item"]
       if type(ItemAPI) == "table" and ItemAPI.CreateFromItemID then
         local obj = ItemAPI:CreateFromItemID(itemID)
@@ -404,9 +432,9 @@ local function populatePoolFrame(f, row, rowIndex)
       if quality then info.quality = quality end
     end
     if quality then
-      local r, g, b = GetItemQualityColor(quality)
-      if r then
-        f.qualityBar:SetColorTexture(r, g, b, 1)
+      local qr, qg, qb = GetItemQualityColor(quality)
+      if qr then
+        f.qualityBar:SetColorTexture(qr, qg, qb, 1)
         f.qualityBar:Show()
       end
     end
@@ -415,7 +443,7 @@ local function populatePoolFrame(f, row, rowIndex)
     local link = info.link or ("item:" .. tostring(itemID))
     local tag  = diffTag(info.difficultyID, info.difficultyName)
     local parts = { link }
-    if tag then table.insert(parts, string.format("|cffa0a0a0[%s]|r", tag)) end
+    if tag then table.insert(parts, string.format("|cff8a7e6a[%s]|r", tag)) end
     local specText = buildSpecText(info)
     if specText then table.insert(parts, specText) end
     f.itemLabel:SetText(table.concat(parts, "  "))
@@ -424,12 +452,12 @@ local function populatePoolFrame(f, row, rowIndex)
 
     -- Sub-label
     local meta = {}
-    if info.boss and info.boss ~= "" then table.insert(meta, "|cff888888" .. info.boss .. "|r") end
+    if info.boss and info.boss ~= "" then table.insert(meta, "|cff8a7e6a" .. info.boss .. "|r") end
     if info.dungeon and info.dungeon ~= "" and info.dungeon ~= info.boss then
-      table.insert(meta, "|cff666666" .. info.dungeon .. "|r")
+      table.insert(meta, "|cff8a7e6a" .. info.dungeon .. "|r")
     end
     if #meta > 0 then
-      f.subLabel:SetText(table.concat(meta, " • "))
+      f.subLabel:SetText(table.concat(meta, " \194\183 "))
       f.subLabel:Show()
     end
 
@@ -441,7 +469,7 @@ local function populatePoolFrame(f, row, rowIndex)
 end
 
 ------------------------------------------------------------------------
--- renderVisibleRows: virtual scroll — only creates frames for visible rows
+-- renderVisibleRows: virtual scroll
 ------------------------------------------------------------------------
 local function renderVisibleRows()
   if not viewport then return end
@@ -470,7 +498,6 @@ local function renderVisibleRows()
     y = y + h
     if y >= scrollOffset + viewH then break end
   end
-  -- Hide unused pool frames
   for i = poolIdx, #rowPool do rowPool[i]:Hide() end
 end
 
@@ -496,7 +523,6 @@ local function refresh()
   local refreshID = perfRefreshCount
   local t0 = debugprofilestop()
 
-  -- Compute player spec IDs once
   renderPlayerSpecIDs   = {}
   renderPlayerSpecCount = 0
   local numSpecs = _G.GetNumSpecializations and _G.GetNumSpecializations() or 0
@@ -510,25 +536,23 @@ local function refresh()
     end
   end
 
-  -- Rebuild flat row list
   flatRows    = buildFlatRows()
   totalHeight = 0
   for _, row in ipairs(flatRows) do totalHeight = totalHeight + getRowHeight(row) end
 
   updateScrollRange()
 
-  -- Status bar
   local count = 0
   if LootWishlist.GetTracked then
     for _ in pairs(LootWishlist.GetTracked()) do count = count + 1 end
   end
   if statusCountLabel then
     if count == 0 then
-      statusCountLabel:SetText("|cff888888No items in wishlist|r")
+      statusCountLabel:SetText("|cff8a7e6aNo items in wishlist|r")
     elseif count == 1 then
-      statusCountLabel:SetText("|cffffffff1 item|r in wishlist")
+      statusCountLabel:SetText("|cffe8dcc81 item|r in wishlist")
     else
-      statusCountLabel:SetText(string.format("|cffffffff%d items|r in wishlist", count))
+      statusCountLabel:SetText(string.format("|cffe8dcc8%d items|r in wishlist", count))
     end
   end
   if clearBtn then
@@ -545,7 +569,7 @@ local function refresh()
 end
 
 ------------------------------------------------------------------------
--- createMainFrame: builds the movable/resizable window once
+-- createMainFrame
 ------------------------------------------------------------------------
 local function createMainFrame()
   local f = CreateFrame("Frame", "LootWishlistMainFrame", UIParent, "BackdropTemplate")
@@ -562,44 +586,34 @@ local function createMainFrame()
   f:SetFrameStrata("MEDIUM")
   f:SetFrameLevel(10)
   f:EnableMouse(true)
-  f:SetBackdrop({
-    bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile     = true,
-    tileSize = 16,
-    edgeSize = 16,
-    insets   = { left = 4, right = 4, top = 4, bottom = 4 },
-  })
-  f:SetBackdropColor(0.1, 0.07, 0.04, 0.95)
-  f:SetBackdropBorderColor(0.79, 0.66, 0.30, 0.8)
 
-  -- Title bar (drag region)
-  local titleBar = CreateFrame("Frame", nil, f)
-  titleBar:SetHeight(28)
-  titleBar:SetPoint("TOPLEFT",  f, "TOPLEFT",  6, -4)
-  titleBar:SetPoint("TOPRIGHT", f, "TOPRIGHT", -28, -4)
-  titleBar:EnableMouse(true)
-  titleBar:RegisterForDrag("LeftButton")
-  titleBar:SetScript("OnDragStart", function() f:StartMoving() end)
-  titleBar:SetScript("OnDragStop", function()
+  -- LuckyUI solid backdrop with gold border
+  f:SetBackdrop(UI.Backdrop)
+  f:SetBackdropColor(C.bgDark[1], C.bgDark[2], C.bgDark[3], C.bgDark[4])
+  f:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
+
+  -- Header (using LuckyUI.CreateHeader)
+  local header = UI.CreateHeader(f, "Loot Wishlist")
+  -- Override close to track isOpen state
+  local closeBtn = header:GetChildren()
+  -- Find the close button (last child of header)
+  for _, child in ipairs({ header:GetChildren() }) do
+    if child:GetObjectType() == "Button" then
+      child:SetScript("OnClick", function() f:Hide(); LootWishlist.Ace.isOpen = false end)
+    end
+  end
+
+  -- Drag the header to move
+  header:EnableMouse(true)
+  header:RegisterForDrag("LeftButton")
+  header:SetScript("OnDragStart", function() f:StartMoving() end)
+  header:SetScript("OnDragStop", function()
     f:StopMovingOrSizing()
-    -- Save position
     local pos = LootWishlistCharDB.windowPos or {}
     pos.point, _, pos.relPoint, pos.x, pos.y = f:GetPoint(1)
     pos.w, pos.h = f:GetSize()
     LootWishlistCharDB.windowPos = pos
   end)
-
-  local titleText = titleBar:CreateFontString(nil, "OVERLAY")
-  titleText:SetFont("Fonts\\FRIZQT__.TTF", 14, "")
-  titleText:SetPoint("CENTER", titleBar, "CENTER")
-  titleText:SetTextColor(1, 0.82, 0)
-  titleText:SetText("Loot Wishlist")
-
-  -- Close button
-  local closeBtn = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-  closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -2)
-  closeBtn:SetScript("OnClick", function() f:Hide(); LootWishlist.Ace.isOpen = false end)
 
   -- Resize grip (bottom-right)
   local resizer = CreateFrame("Button", nil, f)
@@ -621,14 +635,14 @@ local function createMainFrame()
 
   -- Scroll viewport
   viewport = CreateFrame("Frame", nil, f)
-  viewport:SetPoint("TOPLEFT",     f, "TOPLEFT",     8,  -34)
-  viewport:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(8 + SCROLLBAR_W + 2), 40)
+  viewport:SetPoint("TOPLEFT",     f, "TOPLEFT",     2,  -34)
+  viewport:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(2 + SCROLLBAR_W + 2), 36)
   viewport:SetClipsChildren(true)
 
   -- Scrollbar
   scrollBar = CreateFrame("Slider", "LootWishlistScrollBar", f, "UIPanelScrollBarTemplate")
-  scrollBar:SetPoint("TOPRIGHT",    f, "TOPRIGHT",    -8,  -50)
-  scrollBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8,   56)
+  scrollBar:SetPoint("TOPRIGHT",    f, "TOPRIGHT",    -4,  -50)
+  scrollBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -4,   52)
   scrollBar:SetWidth(SCROLLBAR_W)
   scrollBar:SetMinMaxValues(0, 0)
   scrollBar:SetValue(0)
@@ -638,7 +652,7 @@ local function createMainFrame()
     renderVisibleRows()
   end)
 
-  -- Mouse wheel on viewport
+  -- Mouse wheel
   viewport:EnableMouseWheel(true)
   viewport:SetScript("OnMouseWheel", function(_, delta)
     local _, maxVal = scrollBar:GetMinMaxValues()
@@ -655,13 +669,19 @@ local function createMainFrame()
   -- Status bar
   local statusBar = CreateFrame("Frame", nil, f)
   statusBar:SetHeight(28)
-  statusBar:SetPoint("BOTTOMLEFT",  f, "BOTTOMLEFT",  8,  8)
-  statusBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, 8)
+  statusBar:SetPoint("BOTTOMLEFT",  f, "BOTTOMLEFT",  2,  4)
+  statusBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -2, 4)
 
-  clearBtn = CreateFrame("Button", nil, statusBar, "UIPanelButtonTemplate")
-  clearBtn:SetText("Clear All")
-  clearBtn:SetSize(100, 22)
-  clearBtn:SetPoint("LEFT", statusBar, "LEFT", 2, 0)
+  -- Gold divider above status bar
+  local statusLine = statusBar:CreateTexture(nil, "ARTWORK")
+  statusLine:SetHeight(1)
+  statusLine:SetPoint("TOPLEFT")
+  statusLine:SetPoint("TOPRIGHT")
+  statusLine:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3])
+
+  -- Clear All button (danger variant)
+  clearBtn = UI.CreateButton(statusBar, "Clear All", 100, 22, "danger")
+  clearBtn:SetPoint("LEFT", statusBar, "LEFT", 4, -2)
   clearBtn:SetScript("OnClick", function()
     StaticPopupDialogs["LOOTWISHLIST_CLEAR_ALL"] = {
       text = "This will remove ALL wishlist items for this character. Are you sure?",
@@ -674,16 +694,16 @@ local function createMainFrame()
     StaticPopup_Show("LOOTWISHLIST_CLEAR_ALL")
   end)
 
-  -- Close button (status bar)
-  local closeBtn2 = CreateFrame("Button", nil, statusBar, "UIPanelButtonTemplate")
-  closeBtn2:SetText("Close")
-  closeBtn2:SetSize(80, 22)
-  closeBtn2:SetPoint("RIGHT", statusBar, "RIGHT", -2, 0)
+  -- Close button (secondary)
+  closeBtn2 = UI.CreateButton(statusBar, "Close", 80, 22, "secondary")
+  closeBtn2:SetPoint("RIGHT", statusBar, "RIGHT", -4, -2)
   closeBtn2:SetScript("OnClick", function() f:Hide(); LootWishlist.Ace.isOpen = false end)
 
-  statusCountLabel = statusBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  -- Item count label
+  statusCountLabel = statusBar:CreateFontString(nil, "OVERLAY")
+  statusCountLabel:SetFont(UI.BODY_FONT, 11)
+  statusCountLabel:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
   statusCountLabel:SetPoint("CENTER", statusBar, "CENTER")
-  statusCountLabel:SetTextColor(0.8, 0.8, 0.8, 1)
 
   -- Restore saved position
   local pos = LootWishlistCharDB.windowPos

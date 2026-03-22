@@ -1,42 +1,34 @@
 -- Loot Wishlist - Options Panel
+-- Uses LuckyUI colors and fonts for consistent styling with Character Mount.
 
 LootWishlist = LootWishlist or {}
 LootWishlist.Options = LootWishlist.Options or {}
 
 local Options = LootWishlist.Options
+local C = LuckyUI.C
 local panel
-local settingsCategory -- DF Settings category object
+local settingsCategory
 
 local function GetSettings()
   if LootWishlist.GetSettings then return LootWishlist.GetSettings() end
-  -- Fallback if proxy not available yet: prefer account-wide, then per-character
   return (LootWishlistDB and LootWishlistDB.settings) or (LootWishlistCharDB and LootWishlistCharDB.settings)
 end
 
 local function CreateMultiLineEditBox(parent, label, width, height)
-  local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  local title = parent:CreateFontString(nil, "OVERLAY")
+  title:SetFont(LuckyUI.TITLE_FONT, 14)
+  title:SetTextColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
   title:SetText(label)
 
-  -- Backdrop container for clear visual separation
   local box = CreateFrame("Frame", nil, parent, "BackdropTemplate")
   box:SetSize(width, height)
-  box:SetBackdrop({
-    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 12,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 }
-  })
-  do
-    local C = LootWishlist.Const or {}
-    local bg = C.OPTIONS_EDITBOX_BG or {0,0,0,0.35}
-    local br = C.OPTIONS_EDITBOX_BORDER or {0.3, 0.6, 1.0, 0.9}
-    box:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
-    box:SetBackdropBorderColor(br[1], br[2], br[3], br[4])
-  end
+  box:SetBackdrop(LuckyUI.Backdrop)
+  box:SetBackdropColor(C.bgInput[1], C.bgInput[2], C.bgInput[3], C.bgInput[4])
+  box:SetBackdropBorderColor(C.borderDark[1], C.borderDark[2], C.borderDark[3])
 
   local scroll = CreateFrame("ScrollFrame", nil, box, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", box, "TOPLEFT", 6, -6)
-  scroll:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -26, 6) -- leave room for scrollbar
+  scroll:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -26, 6)
 
   local edit = CreateFrame("EditBox", nil, scroll)
   edit:SetMultiLine(true)
@@ -45,9 +37,14 @@ local function CreateMultiLineEditBox(parent, label, width, height)
   edit:SetWidth(width - 40)
   edit:SetHeight(height - 16)
   edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  edit:SetScript("OnEditFocusGained", function()
+    box:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3])
+  end)
+  edit:SetScript("OnEditFocusLost", function()
+    box:SetBackdropBorderColor(C.borderDark[1], C.borderDark[2], C.borderDark[3])
+  end)
   scroll:SetScrollChild(edit)
 
-  -- Return the container (with backdrop) so callers can position it
   return title, box, edit
 end
 
@@ -61,44 +58,75 @@ end
 local function CreateOptionsPanel()
   if panel then return panel end
   panel = CreateFrame("Frame")
+  panel:SetSize(600, 400)
+  panel:Hide()
   panel.name = "Loot Wishlist"
 
-  local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  -- Title
+  local title = panel:CreateFontString(nil, "OVERLAY")
+  title:SetFont(LuckyUI.TITLE_FONT, 16)
+  title:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
   title:SetPoint("TOPLEFT", 16, -16)
-  title:SetText("Loot Wishlist Settings")
+  title:SetText("Loot Wishlist")
 
-  local help = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  help:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-  help:SetJustifyH("LEFT")
-  help:SetWidth(560)
-  help:SetText("Use %item% and %looter% placeholders. Examples are sent when alerts trigger.")
+  -- Description
+  local desc = panel:CreateFontString(nil, "OVERLAY")
+  desc:SetFont(LuckyUI.BODY_FONT, 12)
+  desc:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+  desc:SetWidth(560)
+  desc:SetJustifyH("LEFT")
+  desc:SetText("Use %item% and %looter% placeholders in message templates.")
 
   local s = GetSettings() or {}
 
-  local wTitle, wScroll, wEdit = CreateMultiLineEditBox(panel, "Whisper message template:", 560, 80)
-  wTitle:SetPoint("TOPLEFT", help, "BOTTOMLEFT", 0, -10)
+  -- Message Templates heading
+  local templatesHeading = panel:CreateFontString(nil, "OVERLAY")
+  templatesHeading:SetFont(LuckyUI.TITLE_FONT, 14)
+  templatesHeading:SetTextColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
+  templatesHeading:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -20)
+  templatesHeading:SetText("Message Templates")
+
+  local wTitle, wScroll, wEdit = CreateMultiLineEditBox(panel, "Whisper message:", 560, 80)
+  wTitle:SetPoint("TOPLEFT", templatesHeading, "BOTTOMLEFT", 0, -10)
   wScroll:SetPoint("TOPLEFT", wTitle, "BOTTOMLEFT", 0, -6)
   wEdit:SetText(s.whisperTemplate or "")
 
-  local pTitle, pScroll, pEdit = CreateMultiLineEditBox(panel, "Party message template:", 560, 80)
-  pTitle:SetPoint("TOPLEFT", wScroll, "BOTTOMLEFT", 0, -20)
+  local pTitle, pScroll, pEdit = CreateMultiLineEditBox(panel, "Party message:", 560, 80)
+  pTitle:SetPoint("TOPLEFT", wScroll, "BOTTOMLEFT", 0, -16)
   pScroll:SetPoint("TOPLEFT", pTitle, "BOTTOMLEFT", 0, -6)
   pEdit:SetText(s.partyTemplate or "")
 
-  local example = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  example:SetPoint("TOPLEFT", pScroll, "BOTTOMLEFT", 0, -12)
+  -- Example text
+  local example = panel:CreateFontString(nil, "OVERLAY")
+  example:SetFont(LuckyUI.BODY_FONT, 11)
+  example:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  example:SetPoint("TOPLEFT", pScroll, "BOTTOMLEFT", 0, -8)
   example:SetWidth(560)
   example:SetJustifyH("LEFT")
   example:SetText("Example whisper: " .. applyPlaceholders(s.whisperTemplate or "", "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(s.partyTemplate or "", "[Example Item]"))
 
-  local rollCB = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
-  rollCB:SetPoint("TOPLEFT", example, "BOTTOMLEFT", 0, -12)
-  rollCB.Text:SetText("Enable raid roll alert")
+  -- Options heading
+  local optionsHeading = panel:CreateFontString(nil, "OVERLAY")
+  optionsHeading:SetFont(LuckyUI.TITLE_FONT, 14)
+  optionsHeading:SetTextColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
+  optionsHeading:SetPoint("TOPLEFT", example, "BOTTOMLEFT", 0, -20)
+  optionsHeading:SetText("Options")
+
+  -- Raid roll alert checkbox
+  local rollCB = LuckyUI.CreateCheckbox(panel, 16)
+  rollCB:SetPoint("TOPLEFT", optionsHeading, "BOTTOMLEFT", 0, -10)
   rollCB:SetChecked(s.enableRaidRollAlert ~= false)
 
-  local summaryCB = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
-  summaryCB:SetPoint("TOPLEFT", rollCB, "BOTTOMLEFT", 0, -6)
-  summaryCB.Text:SetText("Hide summary window")
+  local rollLabel = panel:CreateFontString(nil, "OVERLAY")
+  rollLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  rollLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  rollLabel:SetPoint("LEFT", rollCB, "RIGHT", 8, 0)
+  rollLabel:SetText("Enable raid roll alert")
+
+  -- Hide summary checkbox
+  local summaryCB = LuckyUI.CreateCheckbox(panel, 16)
+  summaryCB:SetPoint("TOPLEFT", rollCB, "BOTTOMLEFT", 0, -10)
   summaryCB:SetChecked(s.hideSummaryWindow == true)
   summaryCB:SetScript("OnClick", function(self)
     local val = self:GetChecked() and true or false
@@ -108,27 +136,43 @@ local function CreateOptionsPanel()
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   end)
 
-  local openSummaryBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  openSummaryBtn:SetSize(100, 22)
-  openSummaryBtn:SetPoint("LEFT", summaryCB.Text, "RIGHT", 12, 0)
-  openSummaryBtn:SetText("Open Wishlist")
-  openSummaryBtn:SetScript("OnClick", function()
+  local summaryLabel = panel:CreateFontString(nil, "OVERLAY")
+  summaryLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  summaryLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  summaryLabel:SetPoint("LEFT", summaryCB, "RIGHT", 8, 0)
+  summaryLabel:SetText("Hide summary window")
+
+  -- Open Wishlist button
+  local openBtn = LuckyUI.CreateButton(panel, "Open Wishlist", 110, 22, "secondary")
+  openBtn:SetPoint("LEFT", summaryLabel, "RIGHT", 12, 0)
+  openBtn:SetScript("OnClick", function()
     if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
   end)
 
-  local debugCB = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
-  debugCB:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -6)
-  debugCB.Text:SetText("Debug mode (show performance logs in chat)")
+  -- Debug mode checkbox
+  local debugCB = LuckyUI.CreateCheckbox(panel, 16)
+  debugCB:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -10)
   debugCB:SetChecked(s.debug == true)
   debugCB:SetScript("OnClick", function(self)
     local val = self:GetChecked() and true or false
     if LootWishlist.SetDebug then LootWishlist.SetDebug(val) end
   end)
 
-  local save = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  save:SetSize(120, 22)
-  save:SetPoint("TOPLEFT", debugCB, "BOTTOMLEFT", 0, -10)
-  save:SetText("Save")
+  local debugLabel = panel:CreateFontString(nil, "OVERLAY")
+  debugLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  debugLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  debugLabel:SetPoint("LEFT", debugCB, "RIGHT", 8, 0)
+  debugLabel:SetText("Debug mode")
+
+  local debugHint = panel:CreateFontString(nil, "OVERLAY")
+  debugHint:SetFont(LuckyUI.BODY_FONT, 11)
+  debugHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  debugHint:SetPoint("TOPLEFT", debugCB, "BOTTOMLEFT", 0, -2)
+  debugHint:SetText("Print performance logs and diagnostics to chat.")
+
+  -- Save button
+  local save = LuckyUI.CreateButton(panel, "Save", 120, 28, "primary")
+  save:SetPoint("TOPLEFT", debugHint, "BOTTOMLEFT", 0, -12)
   save:SetScript("OnClick", function()
     local st = GetSettings()
     if st then
@@ -140,6 +184,17 @@ local function CreateOptionsPanel()
       example:SetText("Example whisper: " .. applyPlaceholders(st.whisperTemplate or "", "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(st.partyTemplate or "", "[Example Item]"))
       if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
     end
+  end)
+
+  -- Refresh values when panel is shown
+  panel:SetScript("OnShow", function()
+    local st = GetSettings() or {}
+    wEdit:SetText(st.whisperTemplate or "")
+    pEdit:SetText(st.partyTemplate or "")
+    rollCB:SetChecked(st.enableRaidRollAlert ~= false)
+    summaryCB:SetChecked(st.hideSummaryWindow == true)
+    debugCB:SetChecked(st.debug == true)
+    example:SetText("Example whisper: " .. applyPlaceholders(st.whisperTemplate or "", "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(st.partyTemplate or "", "[Example Item]"))
   end)
 
   -- Register with game settings

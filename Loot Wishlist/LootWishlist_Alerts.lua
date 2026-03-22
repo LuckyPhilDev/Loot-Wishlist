@@ -128,14 +128,9 @@ local function ShowSpecReminder(lines)
     specReminderFrame:SetSize(520, 80)
     specReminderFrame:SetPoint("TOP", UIParent, "TOP", 0, -340)
     specReminderFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    specReminderFrame:SetBackdrop({
-      bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-      edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-      tile = true, tileSize = 16, edgeSize = 12,
-      insets = { left = 3, right = 3, top = 3, bottom = 3 }
-    })
-    specReminderFrame:SetBackdropColor(0, 0, 0, 0.85)
-    specReminderFrame:SetBackdropBorderColor(0.4, 1.0, 0.4, 0.95)
+    specReminderFrame:SetBackdrop(LuckyUI.Backdrop)
+    specReminderFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], 0.95)
+    specReminderFrame:SetBackdropBorderColor(LuckyUI.C.success[1], LuckyUI.C.success[2], LuckyUI.C.success[3], 0.9)
     specReminderFrame:EnableMouse(true)
     specReminderFrame:SetMovable(true)
     specReminderFrame:RegisterForDrag("LeftButton")
@@ -147,16 +142,14 @@ local function ShowSpecReminder(lines)
         LootWishlistCharDB.specReminderWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
       end
     end)
-    specReminderFS = specReminderFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    -- Anchor text near the top to make room for a Dismiss button at the bottom
+    specReminderFS = specReminderFrame:CreateFontString(nil, "OVERLAY")
+    specReminderFS:SetFont(LuckyUI.BODY_FONT, 13)
+    specReminderFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
     specReminderFS:SetPoint("TOP", 0, -8)
     specReminderFS:SetJustifyH("CENTER")
     specReminderFS:SetJustifyV("MIDDLE")
     specReminderFS:SetText("")
-    -- Add a Dismiss button
-    specDismissBtn = CreateFrame("Button", nil, specReminderFrame, "UIPanelButtonTemplate")
-    specDismissBtn:SetSize(100, 22)
-    specDismissBtn:SetText("Dismiss")
+    specDismissBtn = LuckyUI.CreateButton(specReminderFrame, "Dismiss", 100, 22, "secondary")
     specDismissBtn:SetPoint("BOTTOM", specReminderFrame, "BOTTOM", 0, 10)
     specDismissBtn:SetScript("OnClick", function()
       specReminderHideAt = nil
@@ -193,14 +186,9 @@ local function ensureAssistFrame()
   assistFrame:SetSize(520, 90)
   assistFrame:SetPoint("TOP", UIParent, "TOP", 0, -410)
   assistFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-  assistFrame:SetBackdrop({
-    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 12,
-    insets = { left = 3, right = 3, top = 3, bottom = 3 }
-  })
-  assistFrame:SetBackdropColor(0, 0, 0, 0.85)
-  assistFrame:SetBackdropBorderColor(0.4, 0.8, 1.0, 0.95)
+  assistFrame:SetBackdrop(LuckyUI.Backdrop)
+  assistFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], 0.95)
+  assistFrame:SetBackdropBorderColor(LuckyUI.C.info[1], LuckyUI.C.info[2], LuckyUI.C.info[3], 0.9)
   assistFrame:EnableMouse(true)
   assistFrame:SetMovable(true)
   assistFrame:RegisterForDrag("LeftButton")
@@ -212,21 +200,17 @@ local function ensureAssistFrame()
       LootWishlistCharDB.assistReminderWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
     end
   end)
-  assistFS = assistFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+  assistFS = assistFrame:CreateFontString(nil, "OVERLAY")
+  assistFS:SetFont(LuckyUI.BODY_FONT, 13)
+  assistFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
   assistFS:SetPoint("TOP", 0, -8)
   assistFS:SetJustifyH("CENTER")
   assistFS:SetJustifyV("MIDDLE")
   assistFS:SetText("")
 
-  assistBtnWhisper = CreateFrame("Button", nil, assistFrame, "UIPanelButtonTemplate")
-  assistBtnParty = CreateFrame("Button", nil, assistFrame, "UIPanelButtonTemplate")
-  assistBtnDismiss = CreateFrame("Button", nil, assistFrame, "UIPanelButtonTemplate")
-  assistBtnWhisper:SetSize(110, 22)
-  assistBtnParty:SetSize(110, 22)
-  assistBtnDismiss:SetSize(110, 22)
-  assistBtnWhisper:SetText("Whisper")
-  assistBtnParty:SetText("Party")
-  assistBtnDismiss:SetText("Dismiss")
+  assistBtnWhisper = LuckyUI.CreateButton(assistFrame, "Whisper", 110, 22, "primary")
+  assistBtnParty = LuckyUI.CreateButton(assistFrame, "Party", 110, 22, "secondary")
+  assistBtnDismiss = LuckyUI.CreateButton(assistFrame, "Dismiss", 110, 22, "secondary")
   assistBtnWhisper:SetPoint("BOTTOM", assistFrame, "BOTTOM", -120, 10)
   assistBtnParty:SetPoint("BOTTOM", assistFrame, "BOTTOM", 0, 10)
   assistBtnDismiss:SetPoint("BOTTOM", assistFrame, "BOTTOM", 120, 10)
@@ -618,14 +602,9 @@ local function ShowRaidDropAlert(itemLink)
     raidDropFrame:SetSize(420, 80)
     raidDropFrame:SetPoint("TOP", UIParent, "TOP", 0, -220)
     raidDropFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    raidDropFrame:SetBackdrop({
-      bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-      edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-      tile = true, tileSize = 16, edgeSize = 12,
-      insets = { left = 3, right = 3, top = 3, bottom = 3 }
-    })
-    raidDropFrame:SetBackdropColor(0, 0, 0, 0.8)
-    raidDropFrame:SetBackdropBorderColor(1, 0.8, 0.2, 0.95)
+    raidDropFrame:SetBackdrop(LuckyUI.Backdrop)
+    raidDropFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], 0.95)
+    raidDropFrame:SetBackdropBorderColor(LuckyUI.C.goldPrimary[1], LuckyUI.C.goldPrimary[2], LuckyUI.C.goldPrimary[3], 0.9)
     raidDropFrame:EnableMouse(true)
     raidDropFrame:SetMovable(true)
     raidDropFrame:RegisterForDrag("LeftButton")
@@ -637,16 +616,14 @@ local function ShowRaidDropAlert(itemLink)
         LootWishlistCharDB.raidDropWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
       end
     end)
-    raidDropFS = raidDropFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    -- Anchor text near the top to make room for a Dismiss button
+    raidDropFS = raidDropFrame:CreateFontString(nil, "OVERLAY")
+    raidDropFS:SetFont(LuckyUI.BODY_FONT, 13)
+    raidDropFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
     raidDropFS:SetPoint("TOP", 0, -8)
     raidDropFS:SetJustifyH("CENTER")
     raidDropFS:SetJustifyV("MIDDLE")
     raidDropFS:SetText("")
-    -- Add a Dismiss button
-    local raidDropBtnDismiss = CreateFrame("Button", nil, raidDropFrame, "UIPanelButtonTemplate")
-    raidDropBtnDismiss:SetSize(100, 22)
-    raidDropBtnDismiss:SetText("Dismiss")
+    local raidDropBtnDismiss = LuckyUI.CreateButton(raidDropFrame, "Dismiss", 100, 22, "secondary")
     raidDropBtnDismiss:SetPoint("BOTTOM", raidDropFrame, "BOTTOM", 0, 10)
     raidDropBtnDismiss:SetScript("OnClick", function()
       raidDropHideAt = nil
@@ -678,14 +655,9 @@ local function ShowRaidRollAlert(itemLink)
     rollAlertFrame:SetSize(420, 60)
     rollAlertFrame:SetPoint("TOP", UIParent, "TOP", 0, -280)
     rollAlertFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    rollAlertFrame:SetBackdrop({
-      bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-      edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-      tile = true, tileSize = 16, edgeSize = 12,
-      insets = { left = 3, right = 3, top = 3, bottom = 3 }
-    })
-    rollAlertFrame:SetBackdropColor(0, 0, 0, 0.8)
-    rollAlertFrame:SetBackdropBorderColor(0.3, 0.8, 1.0, 0.95)
+    rollAlertFrame:SetBackdrop(LuckyUI.Backdrop)
+    rollAlertFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], 0.95)
+    rollAlertFrame:SetBackdropBorderColor(LuckyUI.C.info[1], LuckyUI.C.info[2], LuckyUI.C.info[3], 0.9)
     rollAlertFrame:EnableMouse(true)
     rollAlertFrame:SetMovable(true)
     rollAlertFrame:RegisterForDrag("LeftButton")
@@ -697,16 +669,14 @@ local function ShowRaidRollAlert(itemLink)
         LootWishlistCharDB.raidRollWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
       end
     end)
-    rollAlertFS = rollAlertFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    -- Anchor text near the top to make room for a Dismiss button
+    rollAlertFS = rollAlertFrame:CreateFontString(nil, "OVERLAY")
+    rollAlertFS:SetFont(LuckyUI.BODY_FONT, 13)
+    rollAlertFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
     rollAlertFS:SetPoint("TOP", 0, -8)
     rollAlertFS:SetJustifyH("CENTER")
     rollAlertFS:SetJustifyV("MIDDLE")
     rollAlertFS:SetText("")
-    -- Add a Dismiss button
-    local rollBtnDismiss = CreateFrame("Button", nil, rollAlertFrame, "UIPanelButtonTemplate")
-    rollBtnDismiss:SetSize(100, 22)
-    rollBtnDismiss:SetText("Dismiss")
+    local rollBtnDismiss = LuckyUI.CreateButton(rollAlertFrame, "Dismiss", 100, 22, "secondary")
     rollBtnDismiss:SetPoint("BOTTOM", rollAlertFrame, "BOTTOM", 0, 10)
     rollBtnDismiss:SetScript("OnClick", function()
       rollHideAt = nil
@@ -758,15 +728,10 @@ local function ensureAlertFrame()
   alertFrame:SetSize(C.ALERT_FRAME_INITIAL_WIDTH or 480, C.ALERT_FRAME_INITIAL_HEIGHT or 110)
   alertFrame:SetPoint("TOP", UIParent, "TOP", 0, C.ALERT_TOP_OFFSET or -160)
   alertFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-  alertFrame:SetBackdrop({
-    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 12,
-    insets = { left = 3, right = 3, top = 3, bottom = 3 }
-  })
-  alertFrame:SetBackdropColor(0, 0, 0, (C.ALERT_BG_ALPHA or 0.7))
+  alertFrame:SetBackdrop(LuckyUI.Backdrop)
+  alertFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], C.ALERT_BG_ALPHA or 0.92)
   do
-    local b = C.ALERT_BORDER_COLOR_DEFAULT or {1,1,1,0.8}
+    local b = C.ALERT_BORDER_COLOR_DEFAULT or {0.788, 0.659, 0.298, 0.8}
     alertFrame:SetBackdropBorderColor(b[1], b[2], b[3], b[4])
   end
   alertFrame:EnableMouse(true)
@@ -791,24 +756,25 @@ local function ensureAlertFrame()
     if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
   end)
 
-  alertFS = alertFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+  alertFS = alertFrame:CreateFontString(nil, "OVERLAY")
+  alertFS:SetFont(LuckyUI.BODY_FONT, 13)
+  alertFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
   alertFS:SetPoint("TOP", 0, -12)
   alertFS:SetJustifyH("CENTER")
   alertFS:SetJustifyV("MIDDLE")
   alertFS:SetText("")
 
-  local function createButton(text)
-    local b = CreateFrame("Button", nil, alertFrame, "UIPanelButtonTemplate")
-    b:SetSize(110, 22)
+  local function createAlertButton(text, variant)
+    local b = LuckyUI.CreateButton(alertFrame, text, 110, 22, variant or "secondary")
     b:Hide()
     return b
   end
 
-  btnRemove = createButton("Remove")
-  btnKeep = createButton("Keep")
-  btnWhisper = createButton("Whisper")
-  btnParty = createButton("Party")
-  btnDismiss = createButton("Dismiss")
+  btnRemove = createAlertButton("Remove", "danger")
+  btnKeep = createAlertButton("Keep", "secondary")
+  btnWhisper = createAlertButton("Whisper", "primary")
+  btnParty = createAlertButton("Party", "secondary")
+  btnDismiss = createAlertButton("Dismiss", "secondary")
 
   -- Position buttons (centered row near bottom)
   btnRemove:SetPoint("BOTTOM", alertFrame, "BOTTOM", -115, 12)
@@ -840,7 +806,7 @@ local function ShowDropAlert(itemLink)
   local prefix = C.ALERT_TEXT_PREFIX_WISHLIST or "Wishlist item dropped:"
   alertFS:SetText(string.format("%s\n%s", prefix, itemLink or "[unknown]"))
 
-  f:SetBackdropBorderColor(0.2, 1.0, 0.2, 0.9)
+  f:SetBackdropBorderColor(LuckyUI.C.success[1], LuckyUI.C.success[2], LuckyUI.C.success[3], 0.9)
   -- Adjust width to content
   local width = (LootWishlist.Const and LootWishlist.Const.ALERT_FRAME_INITIAL_WIDTH) or 480
   if alertFS.GetStringWidth then

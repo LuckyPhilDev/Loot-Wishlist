@@ -1,5 +1,5 @@
 -- Loot Wishlist - UI Styles and Theming
--- Centralized styling system for consistent visual design
+-- Bridges to LuckyUI for consistent visual design across Lucky Phil's addons.
 
 LootWishlist = LootWishlist or {}
 LootWishlist.UI = LootWishlist.UI or {}
@@ -18,127 +18,86 @@ local function dprint(...)
 end
 
 -- ============================================================================
--- Color Palette
+-- Color Palette  (delegates to LuckyUI where possible)
 -- ============================================================================
 
+local C = LuckyUI and LuckyUI.C or {}
+
 Styles.Colors = {
-  -- Backgrounds
-  bg_primary = {0.05, 0.05, 0.08, 0.95},
-  bg_secondary = {0.08, 0.08, 0.12, 0.9},
-  bg_hover = {0.12, 0.15, 0.20, 0.95},
-  bg_selected = {0.15, 0.20, 0.30, 0.95},
-  
-  -- Accents
-  accent_primary = {0.3, 0.6, 1.0, 1.0},      -- Bright blue
-  accent_secondary = {0.8, 0.5, 0.2, 1.0},    -- Gold/orange
-  accent_tertiary = {0.6, 0.3, 0.9, 1.0},     -- Purple
-  
+  -- Backgrounds (from LuckyUI palette)
+  bg_primary   = C.bgDark   or { 0.102, 0.071, 0.035, 0.95 },
+  bg_secondary = C.bgPanel  or { 0.125, 0.102, 0.055, 0.95 },
+  bg_input     = C.bgInput  or { 0.051, 0.039, 0.020, 0.95 },
+  bg_hover     = C.highlight or { 0.788, 0.659, 0.298, 0.13 },
+  bg_selected  = { 0.15, 0.12, 0.06, 0.95 },
+
+  -- Accents (gold ramp)
+  accent_primary   = { C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3], 1.0 },
+  accent_secondary = { C.goldAccent[1],  C.goldAccent[2],  C.goldAccent[3],  1.0 },
+  accent_muted     = { C.goldMuted[1],   C.goldMuted[2],   C.goldMuted[3],   1.0 },
+
   -- Text
-  text_primary = {1.0, 1.0, 1.0, 1.0},        -- White
-  text_secondary = {0.7, 0.7, 0.7, 1.0},      -- Gray
-  text_muted = {0.5, 0.5, 0.5, 1.0},          -- Dim gray
-  text_disabled = {0.3, 0.3, 0.3, 1.0},       -- Very dim
-  
+  text_primary  = { C.textLight[1], C.textLight[2], C.textLight[3], 1.0 },
+  text_secondary = C.textMuted or { 0.541, 0.494, 0.416, 1.0 },
+  text_muted    = C.textMuted or { 0.541, 0.494, 0.416, 1.0 },
+  text_gold     = { C.textGold[1], C.textGold[2], C.textGold[3], 1.0 },
+  text_disabled = { 0.3, 0.3, 0.3, 1.0 },
+
   -- Status
-  success = {0.2, 0.8, 0.2, 1.0},             -- Green
-  warning = {1.0, 0.8, 0.0, 1.0},             -- Yellow
-  error = {1.0, 0.2, 0.2, 1.0},               -- Red
-  info = {0.3, 0.7, 1.0, 1.0},                -- Blue
-  
-  -- Quality colors (match WoW item quality)
-  quality_poor = {0.62, 0.62, 0.62, 1.0},     -- Gray
-  quality_common = {1.0, 1.0, 1.0, 1.0},      -- White
-  quality_uncommon = {0.12, 1.0, 0.0, 1.0},   -- Green
-  quality_rare = {0.0, 0.44, 0.87, 1.0},      -- Blue
-  quality_epic = {0.64, 0.21, 0.93, 1.0},     -- Purple
-  quality_legendary = {1.0, 0.5, 0.0, 1.0},   -- Orange
-  
+  success = { C.success[1], C.success[2], C.success[3], 1.0 },
+  warning = { C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3], 1.0 },
+  error   = { C.danger[1], C.danger[2], C.danger[3], 1.0 },
+  info    = { C.info[1], C.info[2], C.info[3], 1.0 },
+
+  -- Item quality colors (WoW canonical)
+  quality_poor      = { 0.62, 0.62, 0.62, 1.0 },
+  quality_common    = { 1.0, 1.0, 1.0, 1.0 },
+  quality_uncommon  = { 0.12, 1.0, 0.0, 1.0 },
+  quality_rare      = { 0.0, 0.44, 0.87, 1.0 },
+  quality_epic      = { 0.64, 0.21, 0.93, 1.0 },
+  quality_legendary = { 1.0, 0.5, 0.0, 1.0 },
+
   -- Borders
-  border_default = {0.4, 0.4, 0.4, 1.0},
-  border_hover = {0.6, 0.7, 0.9, 1.0},
-  border_active = {0.3, 0.6, 1.0, 1.0},
+  border_default = { C.borderDark[1], C.borderDark[2], C.borderDark[3], 1.0 },
+  border_gold    = { C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 1.0 },
+  border_hover   = { C.goldMuted[1],  C.goldMuted[2],  C.goldMuted[3],  1.0 },
+  border_active  = { C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3], 1.0 },
 }
 
 -- ============================================================================
--- Backdrop Templates
+-- Backdrop Templates  (use LuckyUI.Backdrop for 1px solid borders)
 -- ============================================================================
 
 Styles.Backdrops = {
-  -- Main window backdrop
-  window = {
-    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-    tile = true,
-    tileSize = 32,
-    edgeSize = 32,
-    insets = { left = 8, right = 8, top = 8, bottom = 8 }
-  },
-  
-  -- Content panel backdrop
-  panel = {
+  -- Shared 1px solid backdrop (from LuckyUI)
+  solid = LuckyUI.Backdrop,
+
+  -- Legacy tooltip-style backdrop (for alert frames that need higher alpha)
+  tooltip = {
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
     tile = true,
     tileSize = 16,
-    edgeSize = 16,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 }
-  },
-  
-  -- Toolbar backdrop
-  toolbar = {
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = nil,
-    tile = true,
-    tileSize = 16,
-    edgeSize = 0,
-    insets = { left = 0, right = 0, top = 0, bottom = 0 }
-  },
-  
-  -- Item row backdrop (hover)
-  row = {
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = nil,
-    tile = false,
-    tileSize = 0,
-    edgeSize = 0,
-    insets = { left = 0, right = 0, top = 0, bottom = 0 }
-  },
-  
-  -- Button backdrop
-  button = {
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Buttons\\UI-Panel-Button-Up",
-    tile = false,
-    tileSize = 0,
-    edgeSize = 16,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    edgeSize = 12,
+    insets = { left = 3, right = 3, top = 3, bottom = 3 }
   },
 }
 
 -- ============================================================================
--- Typography
+-- Typography  (use LuckyUI fonts - Friz Quadrata throughout)
 -- ============================================================================
 
 Styles.Fonts = {
-  -- Header fonts
-  header_large = "Fonts\\FRIZQT__.TTF",
-  header_size_large = 16,
-  
-  header_medium = "Fonts\\FRIZQT__.TTF",
-  header_size_medium = 14,
-  
-  header_small = "Fonts\\FRIZQT__.TTF",
-  header_size_small = 12,
-  
-  -- Body fonts
-  body_large = "Fonts\\ARIALN.TTF",
-  body_size_large = 14,
-  
-  body_medium = "Fonts\\ARIALN.TTF",
-  body_size_medium = 12,
-  
-  body_small = "Fonts\\ARIALN.TTF",
-  body_size_small = 10,
+  title   = LuckyUI.TITLE_FONT or "Fonts\\FRIZQT__.TTF",
+  body    = LuckyUI.BODY_FONT  or "Fonts\\FRIZQT__.TTF",
+
+  -- Sizes
+  size_title      = 16,
+  size_heading    = 14,
+  size_subheading = 12,
+  size_body       = 13,
+  size_small      = 11,
+  size_hint       = 10,
 }
 
 -- ============================================================================
@@ -147,33 +106,32 @@ Styles.Fonts = {
 
 Styles.Layout = {
   -- Spacing
-  padding_small = 4,
+  padding_small  = 4,
   padding_medium = 8,
-  padding_large = 12,
+  padding_large  = 12,
   padding_xlarge = 16,
-  
+
   -- Item row dimensions
-  row_height = 50,
+  row_height    = 50,
   row_icon_size = 40,
-  row_spacing = 2,
-  
+  row_spacing   = 2,
+
   -- Window sizes
-  window_min_width = 400,
-  window_min_height = 300,
-  window_default_width = 600,
+  window_min_width      = 400,
+  window_min_height     = 300,
+  window_default_width  = 600,
   window_default_height = 500,
-  window_max_width = 900,
-  window_max_height = 800,
-  
+  window_max_width      = 900,
+  window_max_height     = 800,
+
   -- Toolbar
   toolbar_height = 40,
-  
+
   -- Status bar
   statusbar_height = 24,
-  
+
   -- Borders
-  border_width = 2,
-  border_radius = 8, -- For custom rounded corners
+  border_width  = 1,
 }
 
 -- ============================================================================
@@ -181,22 +139,17 @@ Styles.Layout = {
 -- ============================================================================
 
 Styles.Animation = {
-  -- Durations (seconds)
   duration_instant = 0,
-  duration_fast = 0.1,
-  duration_normal = 0.2,
-  duration_slow = 0.3,
-  
-  -- Easing (for custom animations)
+  duration_fast    = 0.1,
+  duration_normal  = 0.2,
+  duration_slow    = 0.3,
+
   ease_linear = function(t) return t end,
-  ease_in = function(t) return t * t end,
-  ease_out = function(t) return t * (2 - t) end,
+  ease_in     = function(t) return t * t end,
+  ease_out    = function(t) return t * (2 - t) end,
   ease_in_out = function(t)
-    if t < 0.5 then
-      return 2 * t * t
-    else
-      return -1 + (4 - 2 * t) * t
-    end
+    if t < 0.5 then return 2 * t * t
+    else return -1 + (4 - 2 * t) * t end
   end,
 }
 
@@ -205,143 +158,113 @@ Styles.Animation = {
 -- ============================================================================
 
 Styles.Icons = {
-  -- UI Icons
-  search = "Interface\\Common\\UI-SearchBox-Icon",
-  filter = "Interface\\ChatFrame\\ChatFrameExpandArrow",
-  sort = "Interface\\Buttons\\UI-SortArrow",
-  settings = "Interface\\Buttons\\UI-OptionsButton",
-  stats = "Interface\\Icons\\INV_Misc_Note_01",
-  help = "Interface\\Common\\help-i",
-  close = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up",
-  
-  -- Action Icons  
-  remove = "Interface\\Buttons\\UI-GroupLoot-Pass-Up",
-  priority_star = "Interface\\Buttons\\UI-GroupLoot-Coin-Up",
-  menu = "Interface\\Buttons\\UI-GuildButton-PublicNote-Up",
-  check = "Interface\\Buttons\\UI-CheckBox-Check",
-  
-  -- Placeholder icons
+  search           = "Interface\\Common\\UI-SearchBox-Icon",
+  filter           = "Interface\\ChatFrame\\ChatFrameExpandArrow",
+  sort             = "Interface\\Buttons\\UI-SortArrow",
+  settings         = "Interface\\Buttons\\UI-OptionsButton",
+  stats            = "Interface\\Icons\\INV_Misc_Note_01",
+  help             = "Interface\\Common\\help-i",
+  close            = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up",
+  remove           = "Interface\\Buttons\\UI-GroupLoot-Pass-Up",
+  priority_star    = "Interface\\Buttons\\UI-GroupLoot-Coin-Up",
+  menu             = "Interface\\Buttons\\UI-GuildButton-PublicNote-Up",
+  check            = "Interface\\Buttons\\UI-CheckBox-Check",
   item_placeholder = "Interface\\Icons\\INV_Misc_QuestionMark",
-  boss_placeholder = "Interface\\Icons\\Achievement_Boss_Archimonde",
-  dungeon_placeholder = "Interface\\Icons\\Achievement_Dungeon_GloryoftheRaider",
 }
 
 -- ============================================================================
 -- Helper Functions
 -- ============================================================================
 
--- Apply a backdrop to a frame with optional color override
+--- Apply the LuckyUI solid backdrop with optional color overrides.
 function Styles.ApplyBackdrop(frame, backdropKey, bgColor, borderColor)
-  if not frame or not backdropKey then return end
-  
-  local backdrop = Styles.Backdrops[backdropKey]
-  if not backdrop then
-    dprint("Unknown backdrop key:", backdropKey)
-    return
-  end
-  
-  frame:SetBackdrop(backdrop)
-  
-  -- Apply colors
+  if not frame then return end
+  local bd = Styles.Backdrops[backdropKey or "solid"] or LuckyUI.Backdrop
+  frame:SetBackdrop(bd)
+
   if bgColor then
     frame:SetBackdropColor(unpack(bgColor))
   else
-    -- Default background
     frame:SetBackdropColor(unpack(Styles.Colors.bg_primary))
   end
-  
+
   if borderColor then
     frame:SetBackdropBorderColor(unpack(borderColor))
   else
-    -- Default border
-    frame:SetBackdropBorderColor(unpack(Styles.Colors.border_default))
+    frame:SetBackdropBorderColor(unpack(Styles.Colors.border_gold))
   end
 end
 
--- Create a FontString with specified style
+--- Create a FontString using LuckyUI font stack.
 function Styles.CreateFontString(parent, layer, style, color)
   local fs = parent:CreateFontString(nil, layer or "OVERLAY")
-  
-  -- Apply font based on style
-  local fontPath, fontSize
-  if style == "header_large" then
-    fontPath, fontSize = Styles.Fonts.header_large, Styles.Fonts.header_size_large
-  elseif style == "header_medium" then
-    fontPath, fontSize = Styles.Fonts.header_medium, Styles.Fonts.header_size_medium
-  elseif style == "header_small" then
-    fontPath, fontSize = Styles.Fonts.header_small, Styles.Fonts.header_size_small
-  elseif style == "body_large" then
-    fontPath, fontSize = Styles.Fonts.body_large, Styles.Fonts.body_size_large
-  elseif style == "body_small" then
-    fontPath, fontSize = Styles.Fonts.body_small, Styles.Fonts.body_size_small
-  else -- Default to body_medium
-    fontPath, fontSize = Styles.Fonts.body_medium, Styles.Fonts.body_size_medium
+
+  local fontPath = Styles.Fonts.body
+  local fontSize = Styles.Fonts.size_body
+
+  if style == "title" then
+    fontPath, fontSize = Styles.Fonts.title, Styles.Fonts.size_title
+  elseif style == "heading" then
+    fontPath, fontSize = Styles.Fonts.title, Styles.Fonts.size_heading
+  elseif style == "subheading" then
+    fontPath, fontSize = Styles.Fonts.title, Styles.Fonts.size_subheading
+  elseif style == "small" then
+    fontPath, fontSize = Styles.Fonts.body, Styles.Fonts.size_small
+  elseif style == "hint" then
+    fontPath, fontSize = Styles.Fonts.body, Styles.Fonts.size_hint
   end
-  
+
   fs:SetFont(fontPath, fontSize)
-  
-  -- Apply color
+
   if color then
     fs:SetTextColor(unpack(color))
   else
     fs:SetTextColor(unpack(Styles.Colors.text_primary))
   end
-  
-  -- Add shadow for better readability
+
   fs:SetShadowColor(0, 0, 0, 0.8)
   fs:SetShadowOffset(1, -1)
-  
+
   return fs
 end
 
--- Fade a frame in or out
+--- Fade a frame in or out.
 function Styles.FadeFrame(frame, fadeIn, duration, onComplete)
   if not frame then return end
-  
   duration = duration or Styles.Animation.duration_normal
-  
   if fadeIn then
     UIFrameFadeIn(frame, duration, frame:GetAlpha(), 1.0)
   else
     UIFrameFadeOut(frame, duration, frame:GetAlpha(), 0.0)
   end
-  
-  -- Call completion callback if provided
   if onComplete and C_Timer then
     C_Timer.After(duration, onComplete)
   end
 end
 
--- Apply hover effect to a frame
+--- Apply hover effect to a frame.
 function Styles.ApplyHoverEffect(frame, bgColor, hoverBgColor, borderColor, hoverBorderColor)
   if not frame then return end
-  
-  -- Store original colors
-  frame.originalBgColor = bgColor or Styles.Colors.bg_secondary
-  frame.hoverBgColor = hoverBgColor or Styles.Colors.bg_hover
-  frame.originalBorderColor = borderColor or Styles.Colors.border_default
-  frame.hoverBorderColor = hoverBorderColor or Styles.Colors.border_hover
-  
+  frame.originalBgColor    = bgColor      or Styles.Colors.bg_secondary
+  frame.hoverBgColor       = hoverBgColor or Styles.Colors.bg_hover
+  frame.originalBorderColor = borderColor  or Styles.Colors.border_default
+  frame.hoverBorderColor   = hoverBorderColor or Styles.Colors.border_hover
+
   frame:SetScript("OnEnter", function(self)
     if self:GetBackdrop() then
       self:SetBackdropColor(unpack(self.hoverBgColor))
-      if self.hoverBorderColor then
-        self:SetBackdropBorderColor(unpack(self.hoverBorderColor))
-      end
+      if self.hoverBorderColor then self:SetBackdropBorderColor(unpack(self.hoverBorderColor)) end
     end
   end)
-  
   frame:SetScript("OnLeave", function(self)
     if self:GetBackdrop() then
       self:SetBackdropColor(unpack(self.originalBgColor))
-      if self.originalBorderColor then
-        self:SetBackdropBorderColor(unpack(self.originalBorderColor))
-      end
+      if self.originalBorderColor then self:SetBackdropBorderColor(unpack(self.originalBorderColor)) end
     end
   end)
 end
 
--- Get item quality color
+--- Get item quality color.
 function Styles.GetQualityColor(quality)
   if quality == 0 then return Styles.Colors.quality_poor
   elseif quality == 1 then return Styles.Colors.quality_common
@@ -349,19 +272,16 @@ function Styles.GetQualityColor(quality)
   elseif quality == 3 then return Styles.Colors.quality_rare
   elseif quality == 4 then return Styles.Colors.quality_epic
   elseif quality == 5 then return Styles.Colors.quality_legendary
-  else return Styles.Colors.text_primary
-  end
+  else return Styles.Colors.text_primary end
 end
 
 -- ============================================================================
 -- Settings Integration
 -- ============================================================================
 
--- Get current UI settings
 function Styles.GetSettings()
   local settings = LootWishlistDB and LootWishlistDB.settings and LootWishlistDB.settings.ui
   if not settings then
-    -- Return defaults
     return {
       modernStyle = true,
       showIcons = true,
@@ -378,13 +298,11 @@ function Styles.GetSettings()
   return settings
 end
 
--- Check if modern styling is enabled
 function Styles.IsModernStyleEnabled()
   local settings = Styles.GetSettings()
-  return settings.modernStyle ~= false -- Default to true
+  return settings.modernStyle ~= false
 end
 
--- Check if animations are enabled (and not in combat if that setting is on)
 function Styles.AreAnimationsEnabled()
   local settings = Styles.GetSettings()
   if not settings.enableAnimations then return false end
@@ -393,4 +311,3 @@ function Styles.AreAnimationsEnabled()
 end
 
 dprint("UI Styles module loaded")
-

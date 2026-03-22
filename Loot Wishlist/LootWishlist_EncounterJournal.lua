@@ -124,32 +124,41 @@ end
 
 local function AddTrackButtonToLootButton(lootButton)
   if not lootButton then return end
-  -- Determine if this row represents a real loot item (not headers like 'Bonus Loot')
   local itemID = ExtractItemID(lootButton)
 
-  -- Create button if missing
   local btn = lootButton.LootWishlistTrackButton
   if not btn then
-    btn = CreateFrame("Button", nil, lootButton)
-    btn:SetSize(50, 20)
-    btn:SetText("Wishlist")
-    btn:SetNormalFontObject("GameFontNormalSmall")
+    local UI = LuckyUI
+    local Cl = UI.C
+    btn = CreateFrame("Button", nil, lootButton, "BackdropTemplate")
+    btn:SetSize(54, 20)
     btn:SetPoint("TOPRIGHT", lootButton, "TOPRIGHT", -4, -5)
     btn:SetFrameLevel(lootButton:GetFrameLevel() + 5)
     btn:SetFrameStrata("HIGH")
 
-    local bg = btn:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+    -- LuckyUI backdrop with gold styling
+    btn:SetBackdrop(UI.Backdrop)
+    btn:SetBackdropColor(Cl.bgDark[1], Cl.bgDark[2], Cl.bgDark[3], 0.9)
+    btn:SetBackdropBorderColor(Cl.goldMuted[1], Cl.goldMuted[2], Cl.goldMuted[3])
+
+    local lbl = btn:CreateFontString(nil, "OVERLAY")
+    lbl:SetFont(UI.BODY_FONT, 10)
+    lbl:SetTextColor(Cl.goldAccent[1], Cl.goldAccent[2], Cl.goldAccent[3])
+    lbl:SetPoint("CENTER")
+    lbl:SetText("Wishlist")
 
     btn:SetScript("OnEnter", function(self)
-      bg:SetColorTexture(0.3, 0.3, 0.3, 0.8)
+      self:SetBackdropColor(Cl.bgPanel[1], Cl.bgPanel[2], Cl.bgPanel[3], 0.95)
+      self:SetBackdropBorderColor(Cl.goldAccent[1], Cl.goldAccent[2], Cl.goldAccent[3])
+      lbl:SetTextColor(Cl.goldPrimary[1], Cl.goldPrimary[2], Cl.goldPrimary[3])
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       GameTooltip:SetText("Track this item")
       GameTooltip:Show()
     end)
-    btn:SetScript("OnLeave", function()
-      bg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+    btn:SetScript("OnLeave", function(self)
+      self:SetBackdropColor(Cl.bgDark[1], Cl.bgDark[2], Cl.bgDark[3], 0.9)
+      self:SetBackdropBorderColor(Cl.goldMuted[1], Cl.goldMuted[2], Cl.goldMuted[3])
+      lbl:SetTextColor(Cl.goldAccent[1], Cl.goldAccent[2], Cl.goldAccent[3])
       GameTooltip:Hide()
     end)
 
