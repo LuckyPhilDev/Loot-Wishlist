@@ -142,38 +142,14 @@ local function CreateOptionsPanel()
     end
   end)
 
-  -- Prefer Dragonflight Settings API; fallback to legacy Interface Options
-  local SettingsTbl = rawget(_G, "Settings")
-  if SettingsTbl and SettingsTbl.RegisterCanvasLayoutCategory and SettingsTbl.RegisterAddOnCategory then
-    settingsCategory = SettingsTbl.RegisterCanvasLayoutCategory(panel, panel.name)
-    if settingsCategory then
-      SettingsTbl.RegisterAddOnCategory(settingsCategory)
-    end
-  else
-    local IO_Add = rawget(_G, "InterfaceOptions_AddCategory")
-    if IO_Add then IO_Add(panel) end
-  end
+  -- Register with game settings
+  settingsCategory = LuckySettings:Register(panel, panel.name)
   return panel
 end
 
 function Options.Open()
-  local p = CreateOptionsPanel()
-  local SettingsTbl = rawget(_G, "Settings")
-  if p and SettingsTbl and SettingsTbl.OpenToCategory then
-    -- Dragonflight+ Settings UI
-    if settingsCategory then
-      SettingsTbl.OpenToCategory(settingsCategory:GetID())
-    else
-      SettingsTbl.OpenToCategory(p.name)
-    end
-  else
-    -- Fallback to legacy Interface Options
-    local OpenLegacy = rawget(_G, "InterfaceOptionsFrame_OpenToCategory")
-    if OpenLegacy then
-      OpenLegacy(p)
-      OpenLegacy(p)
-    end
-  end
+  CreateOptionsPanel()
+  LuckySettings:Open(settingsCategory)
 end
 
 -- Ensure panel is created on login
