@@ -116,9 +116,18 @@ local function CreateOptionsPanel()
     if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
   end)
 
+  local debugCB = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
+  debugCB:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -6)
+  debugCB.Text:SetText("Debug mode (show performance logs in chat)")
+  debugCB:SetChecked(s.debug == true)
+  debugCB:SetScript("OnClick", function(self)
+    local val = self:GetChecked() and true or false
+    if LootWishlist.SetDebug then LootWishlist.SetDebug(val) end
+  end)
+
   local save = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
   save:SetSize(120, 22)
-  save:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -10)
+  save:SetPoint("TOPLEFT", debugCB, "BOTTOMLEFT", 0, -10)
   save:SetText("Save")
   save:SetScript("OnClick", function()
     local st = GetSettings()
@@ -127,6 +136,7 @@ local function CreateOptionsPanel()
       st.partyTemplate = pEdit:GetText() or st.partyTemplate
       st.enableRaidRollAlert = rollCB:GetChecked() and true or false
       st.hideSummaryWindow = summaryCB:GetChecked() and true or false
+      if LootWishlist.SetDebug then LootWishlist.SetDebug(debugCB:GetChecked() and true or false) end
       example:SetText("Example whisper: " .. applyPlaceholders(st.whisperTemplate or "", "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(st.partyTemplate or "", "[Example Item]"))
       if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
     end
@@ -152,7 +162,7 @@ function Options.Open()
   if p and SettingsTbl and SettingsTbl.OpenToCategory then
     -- Dragonflight+ Settings UI
     if settingsCategory then
-      SettingsTbl.OpenToCategory(settingsCategory)
+      SettingsTbl.OpenToCategory(settingsCategory:GetID())
     else
       SettingsTbl.OpenToCategory(p.name)
     end

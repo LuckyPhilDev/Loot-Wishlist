@@ -35,12 +35,8 @@ local renderPlayerSpecCount = 0
 ------------------------------------------------------------------------
 -- Performance logging
 ------------------------------------------------------------------------
-local PERF_LOG_ENABLED = true
 local perfRefreshCount = 0
-
-local function perfLog(...)
-  if PERF_LOG_ENABLED then print("|cffff8800[LWL-perf]|r", ...) end
-end
+local PerfLog = LuckyLog:New("|cffff8800[LWL-perf]|r", function() return LootWishlist.IsDebug and LootWishlist.IsDebug() end)
 
 ------------------------------------------------------------------------
 -- diffTag
@@ -542,7 +538,7 @@ local function refresh()
   renderVisibleRows()
 
   local tEnd = debugprofilestop()
-  perfLog(string.format(
+  PerfLog(string.format(
     "refresh #%d | %d items | %d flatRows | %d poolFrames | total=%.1fms",
     refreshID, count, #flatRows, #rowPool, tEnd - t0
   ))

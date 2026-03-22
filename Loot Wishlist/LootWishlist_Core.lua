@@ -12,7 +12,8 @@ LootWishlistDB = LootWishlistDB or {}
 local DEBUG = false
 
 -- Dev logging via LuckyLog
-local DevLog = LuckyLog:New("[Lwl][debug]", function() return DEBUG end)
+local DevLog  = LuckyLog:New("[Lwl][debug]", function() return DEBUG end)
+local PerfLog = LuckyLog:New("|cffff8800[LWL-perf]|r", function() return DEBUG end)
 
 -- Public API table
 LootWishlist = {
@@ -177,7 +178,7 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
   end
   local count = 0
   for _ in pairs(trackedItems) do count = count + 1 end
-  print("|cffff8800[LWL-perf]|r AddTrackedItem START id=" .. tostring(itemID) .. " key=" .. key .. " existing=" .. count)
+  PerfLog("AddTrackedItem START id=" .. tostring(itemID) .. " key=" .. key .. " existing=" .. count)
   trackedItems[key] = {
     id = itemID,
     boss = bossName,
@@ -196,7 +197,7 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
   computeItemSpecs(itemID, itemLink, function(specs)
     local entry = trackedItems[key]
     if entry then entry.specs = specs or {} end
-    print("|cffff8800[LWL-perf]|r computeItemSpecs CALLBACK for id=" .. tostring(itemID))
+    PerfLog("computeItemSpecs CALLBACK for id=" .. tostring(itemID))
     local ace = LootWishlist.Ace
     if ace and ace.deferredRefresh then ace.deferredRefresh()
     elseif ace and ace.refresh then ace.refresh() end
@@ -206,12 +207,12 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
   local tBeforeOpen = debugprofilestop()
   if LootWishlist.Ace and LootWishlist.Ace.open then
     LootWishlist.Ace.open()
-    print("|cffff8800[LWL-perf]|r Ace.open() took " .. string.format("%.1f", debugprofilestop() - tBeforeOpen) .. "ms")
+    PerfLog("open() took " .. string.format("%.1f", debugprofilestop() - tBeforeOpen) .. "ms")
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   else
     print("Loot Wishlist: UI module not loaded. Item tracked.")
   end
-  print("|cffff8800[LWL-perf]|r AddTrackedItem END total=" .. string.format("%.1f", debugprofilestop() - t0) .. "ms")
+  PerfLog("AddTrackedItem END total=" .. string.format("%.1f", debugprofilestop() - t0) .. "ms")
 end
 
 -- Remove one or more tracked entries.
@@ -453,6 +454,6 @@ SlashCmdList.WISHLIST = function(msg)
     if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end
     print("Loot Wishlist: cleared all tracked items")
   else
-    print("/wishlist commands: show | hide | remove <ID> | list | clear | debug | reset-spec")
+    print("/wishlist commands: show | hide | settings | remove <ID> | list | clear | debug | reset-spec")
   end
 end
