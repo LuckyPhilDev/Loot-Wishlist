@@ -3,6 +3,9 @@ package-as: Loot Wishlist
 move-folders:
   Loot Wishlist/Loot Wishlist: Loot Wishlist
 
+externals:
+  Loot Wishlist/Luckys_Utils: https://github.com/LuckyPhilDev/LuckyUtils
+
 manual-changelog:
   filename: CHANGELOG.md
   markup-type: markdown

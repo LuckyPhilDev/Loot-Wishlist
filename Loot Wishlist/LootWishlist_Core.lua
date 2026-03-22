@@ -11,6 +11,9 @@ LootWishlistDB = LootWishlistDB or {}
 
 local DEBUG = false
 
+-- Dev logging via LuckyLog
+local DevLog = LuckyLog:New("[Lwl][debug]", function() return DEBUG end)
+
 -- Public API table
 LootWishlist = {
   DEBUG = function() return DEBUG end,
@@ -180,9 +183,7 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
     difficultyName = difficultyName,
     specs = nil,
   }
-  if LootWishlist.IsDebug and LootWishlist.IsDebug() then
-    print("[LootWishlist][debug] AddTrackedItem id=", itemID, "key=", key, "diffID=", tostring(difficultyID or "nil"), "boss=", tostring(bossName or ""), "instance=", tostring(instanceName or ""))
-  end
+  DevLog("AddTrackedItem id=", itemID, "key=", key, "diffID=", tostring(difficultyID or "nil"), "boss=", tostring(bossName or ""), "instance=", tostring(instanceName or ""))
   -- Compute and attach spec list asynchronously
   computeItemSpecs(itemID, itemLink, function(specs)
     local entry = trackedItems[key]
@@ -207,9 +208,7 @@ end
 function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
   -- Treat 0 as no difficulty filter (happens outside instances)
   if type(difficultyID) == "number" and difficultyID <= 0 then difficultyID = nil end
-  if LootWishlist.IsDebug and LootWishlist.IsDebug() then
-    print("[LootWishlist][debug] RemoveTrackedItem arg=", tostring(keyOrID), "diffID=", tostring(difficultyID or "nil"))
-  end
+  DevLog("RemoveTrackedItem arg=", tostring(keyOrID), "diffID=", tostring(difficultyID or "nil"))
   local removed = false
   local removedKeys = {}
   local function parseKeyParts(k)
@@ -231,9 +230,7 @@ function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
         vid, vdiff = parseKeyParts(k)
       end
       local match = (vid == keyOrID and (difficultyID == nil or vdiff == difficultyID or vdiff == nil))
-      if LootWishlist.IsDebug and LootWishlist.IsDebug() then
-        print("[LootWishlist][debug] consider key=", tostring(k), "vid=", tostring(vid), "vdiff=", tostring(vdiff), "match=", tostring(match))
-      end
+      DevLog("consider key=", tostring(k), "vid=", tostring(vid), "vdiff=", tostring(vdiff), "match=", tostring(match))
       if match then
         trackedItems[k] = nil
         removed = true
@@ -242,17 +239,15 @@ function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
     end
   end
   if removed then
-    if LootWishlist.IsDebug and LootWishlist.IsDebug() then
+    if DEBUG then
       local cnt = 0
       for _ in pairs(trackedItems) do cnt = cnt + 1 end
-      print("[LootWishlist][debug] removed keys:", table.concat(removedKeys, ", "), "remaining=", cnt)
+      DevLog("removed keys:", table.concat(removedKeys, ", "), "remaining=", cnt)
     end
     if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   else
-    if LootWishlist.IsDebug and LootWishlist.IsDebug() then
-      print("[LootWishlist][debug] RemoveTrackedItem: no matching entries removed")
-    end
+    DevLog("RemoveTrackedItem: no matching entries removed")
   end
 end
 
