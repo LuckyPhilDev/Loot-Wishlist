@@ -2,6 +2,17 @@
 
 All notable changes to Loot Wishlist will be documented in this file.
 
+## [1.5.0] - 2026-03-23
+
+### Improved
+- Completely redesigned interface with a fresh look that matches the Lucky Phil addon suite
+- Wishlist now scrolls much more smoothly, especially with lots of tracked items
+- Faster UI updates when adding or removing items
+- Consistent button sizes and styling across the whole addon
+
+### Added
+- Debug mode toggle in settings for troubleshooting performance issues
+
 ## [1.4.2] - 2026-03-10
 
 ### Added
