@@ -17,7 +17,7 @@ jobs:
       - name: Update version in .toc file
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          sed -i "s/^## Version:.*/## Version: $VERSION/" "Loot Wishlist/Loot Wishlist.toc"
+          sed -i "s/^## Version:.*/## Version: $VERSION/" "Luckys_Loot_Wishlist/Luckys_Loot_Wishlist.toc"
           echo "Updated .toc version to $VERSION"
 
       - name: Package and upload
