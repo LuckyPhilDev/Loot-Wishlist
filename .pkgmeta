@@ -1,10 +1,10 @@
-package-as: Loot Wishlist
-
-move-folders:
-  Loot Wishlist/Loot Wishlist: Loot Wishlist
+package-as: Luckys_Loot_Wishlist
 
 externals:
-  Loot Wishlist/Luckys_Utils: https://github.com/LuckyPhilDev/LuckyUtils
+  Luckys_Loot_Wishlist/Luckys_Utils: https://github.com/LuckyPhilDev/LuckyUtils
+
+move-folders:
+  Luckys_Loot_Wishlist/Luckys_Loot_Wishlist: Luckys_Loot_Wishlist
 
 manual-changelog:
   filename: CHANGELOG.md
