@@ -2,6 +2,20 @@
 
 All notable changes to Loot Wishlist will be documented in this file.
 
+## [1.5.1] - 2026-03-24
+
+### Fixed
+- Fixed "table index is secret" errors when targeting bosses in raids (Midnight taint changes)
+
+### Improved
+- Spec reminders in raids now trigger automatically based on which bosses are still alive, instead of requiring you to target them
+- After a boss kill, the next spec reminder is delayed so it doesn't compete with loot rolls
+- Non-linear raid layouts are now supported — the addon knows which bosses are available based on what you've already killed
+
+### Added
+- Minimap button — left-click to toggle the wishlist, right-click for settings, middle-click for dev mode
+- Configurable delay (0–30 seconds) for how long to wait after a boss kill before showing the next spec reminder
+
 ## [1.5.0] - 2026-03-23
 
 ### Improved
