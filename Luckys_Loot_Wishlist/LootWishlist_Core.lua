@@ -344,6 +344,40 @@ f:SetScript("OnEvent", function(self, event, ...)
     end
   elseif event == "PLAYER_LOGIN" then
     print("Loot Wishlist loaded. Track loot from the Adventure Guide! Use /wishlist for help.")
+    -- Minimap button
+    if LuckyMinimap and LootWishlistDB then
+      LootWishlist.minimapButton = LuckyMinimap:Create({
+        name    = "LootWishlistMinimapButton",
+        icon    = "Interface\\Icons\\INV_Misc_Spyglass_03",
+        dbKey   = "minimap",
+        db      = LootWishlistDB,
+        onClick = function(_, mouseBtn)
+          if mouseBtn == "LeftButton" then
+            if LootWishlist.Ace and LootWishlist.Ace.open then
+              if LootWishlist.Ace.isOpen then
+                LootWishlist.Ace.hide()
+              else
+                LootWishlist.Ace.open()
+              end
+            end
+          elseif mouseBtn == "RightButton" then
+            if LootWishlist.Options and LootWishlist.Options.Open then
+              LootWishlist.Options.Open()
+            end
+          elseif mouseBtn == "MiddleButton" then
+            LootWishlist.SetDebug(not LootWishlist.IsDebug())
+          end
+        end,
+        tooltip = function(tt)
+          tt:AddLine("|cffffd100Lucky's Loot Wishlist|r")
+          tt:AddLine(" ")
+          tt:AddLine("Left-click: Toggle wishlist", 0.91, 0.86, 0.78)
+          tt:AddLine("Right-click: Open settings", 0.91, 0.86, 0.78)
+          tt:AddLine("Middle-click: Toggle dev mode", 0.54, 0.49, 0.42)
+          tt:AddLine("Shift+drag: Move button", 0.54, 0.49, 0.42)
+        end,
+      })
+    end
     local isLoaded = false
     if C_AddOns and C_AddOns.IsAddOnLoaded then
       isLoaded = C_AddOns.IsAddOnLoaded("Blizzard_EncounterJournal")
