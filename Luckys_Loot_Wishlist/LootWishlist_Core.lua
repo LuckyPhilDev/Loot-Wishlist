@@ -450,10 +450,113 @@ SlashCmdList.WISHLIST = function(msg)
     else
       print("/wishlist testdrop-other <itemID|itemLink> [looterName]")
     end
+  elseif msg == "raidinfo" then
+    local P = "|cffC9A84CLoot Wishlist|r: "
+    -- Combat status
+    print(P .. "In combat: " .. tostring(InCombatLockdown()))
+
+    -- Instance info
+    local name, instType, diffID, diffName, maxPlayers, dynDiff, isDynamic, instID, instGroupSize =
+      GetInstanceInfo()
+    local inInstance, iType = IsInInstance()
+    print(P .. "IsInInstance: " .. tostring(inInstance) .. "  type: " .. tostring(iType))
+    print(P .. "Instance: " .. tostring(name) .. "  (ID " .. tostring(instID) .. ")")
+    print(P .. "Difficulty: " .. tostring(diffName) .. "  (ID " .. tostring(diffID) .. ", max " .. tostring(maxPlayers) .. ")")
+
+    if not (inInstance and (iType == "raid" or iType == "party")) then
+      print(P .. "Not in a raid/dungeon instance.")
+    else
+      -- Current map bosses
+      local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+      print(P .. "Player mapID: " .. tostring(mapID))
+
+      -- Method 1: GetBossInfo (built-in boss frames, 1-indexed)
+      print(P .. "--- GetBossInfo (boss frames) ---")
+      local foundBossFrame = false
+      for i = 1, 10 do
+        local uid = "boss" .. i
+        if UnitExists(uid) then
+          foundBossFrame = true
+          local bName = UnitName(uid)
+          local bHP = UnitHealth(uid)
+          local bMaxHP = UnitHealthMax(uid)
+          print(P .. "  boss" .. i .. ": " .. tostring(bName)
+            .. "  HP: " .. tostring(bHP) .. "/" .. tostring(bMaxHP))
+        end
+      end
+      if not foundBossFrame then print(P .. "  (no boss frames active)") end
+
+      -- Method 2: Saved lockout encounters (shows kill status per boss)
+      print(P .. "--- Saved lockout encounters ---")
+      local numSaved = GetNumSavedInstances()
+      local foundLockout = false
+      for i = 1, numSaved do
+        local iName, iID, iReset, iDiff, iLocked, iExtended, iInstIDontUse,
+              iIsRaid, iMaxPlayers, iDiffName = GetSavedInstanceInfo(i)
+        if iName == name then
+          foundLockout = true
+          print(P .. "  Lockout: " .. tostring(iName) .. " " .. tostring(iDiffName)
+            .. " (locked=" .. tostring(iLocked) .. ")")
+          -- Probe how many encounters by iterating until name is nil
+          local ok2, err2 = pcall(function()
+            for j = 1, 20 do
+              local bName, _, isKilled = GetSavedInstanceEncounterInfo(i, j)
+              if not bName then break end
+              local status = isKilled and "|cff69db7cKilled|r" or "|cffff6b6bAlive|r"
+              print(P .. "    " .. tostring(j) .. ". " .. tostring(bName) .. ": " .. status)
+            end
+          end)
+          if not ok2 then
+            print(P .. "    GetSavedInstanceEncounterInfo error: " .. tostring(err2))
+          end
+        end
+      end
+      if not foundLockout then print(P .. "  (no matching lockout found)") end
+
+      -- Method 3: EJ instance bosses (all bosses in the journal for this instance)
+      print(P .. "--- EJ instance bosses ---")
+      -- Try to find the EJ instanceID for the current raid
+      local ejInstID = nil
+      if EJ_GetCurrentInstance then
+        ejInstID = EJ_GetCurrentInstance()
+        print(P .. "  EJ_GetCurrentInstance: " .. tostring(ejInstID))
+      end
+      if (not ejInstID or ejInstID == 0) and EJ_GetInstanceForMap then
+        ejInstID = EJ_GetInstanceForMap(mapID or 0)
+        print(P .. "  EJ_GetInstanceForMap(" .. tostring(mapID) .. "): " .. tostring(ejInstID))
+      end
+      if ejInstID and ejInstID > 0 then
+        EJ_SelectInstance(ejInstID)
+        local i = 1
+        while true do
+          local eName, eDesc, eEncID, eRootSectionID, eLink = EJ_GetEncounterInfoByIndex(i, ejInstID)
+          if not eName then break end
+          print(P .. "  " .. i .. ". " .. tostring(eName) .. " (encounterID " .. tostring(eEncID) .. ")")
+          i = i + 1
+        end
+        if i == 1 then print(P .. "  (no EJ encounters found)") end
+      else
+        print(P .. "  (could not determine EJ instanceID)")
+      end
+
+      -- Method 4: Encounters on current map
+      print(P .. "--- Encounters on current map ---")
+      if mapID and C_EncounterJournal and C_EncounterJournal.GetEncountersOnMap then
+        local encounters = C_EncounterJournal.GetEncountersOnMap(mapID)
+        if encounters and #encounters > 0 then
+          for _, enc in ipairs(encounters) do
+            local ejName = EJ_GetEncounterInfo and EJ_GetEncounterInfo(enc.encounterID) or "?"
+            print(P .. "  " .. tostring(enc.encounterID) .. " - " .. tostring(ejName))
+          end
+        else
+          print(P .. "  (none on this map)")
+        end
+      end
+    end
   elseif msg == "clear" then
     if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end
     print("Loot Wishlist: cleared all tracked items")
   else
-    print("/wishlist commands: show | hide | settings | remove <ID> | list | clear | debug | reset-spec")
+    print("/wishlist commands: show | hide | settings | remove <ID> | list | clear | debug | reset-spec | raidinfo")
   end
 end
