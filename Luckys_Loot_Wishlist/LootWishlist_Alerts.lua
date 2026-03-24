@@ -1243,11 +1243,10 @@ local function runRaidSpecCheck()
   end
 end
 
-local function scheduleRaidSpecCheck()
+local function scheduleRaidSpecCheck(delay)
   if not raidCheckPending then
     raidCheckPending = true
-    -- Short delay to let lockout data settle after zone load / boss kill
-    C_Timer.After(1.0, runRaidSpecCheck)
+    C_Timer.After(delay or 1.0, runRaidSpecCheck)
   end
 end
 
@@ -1435,8 +1434,10 @@ ef:SetScript("OnEvent", function(_, event, ...)
     -- Reset the raid dedupe so the next set of available bosses can trigger a reminder
     local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or ""
     bossReminded[instName .. "|raid"] = nil
-    -- Re-check after a delay to let lockout data update
-    scheduleRaidSpecCheck()
+    -- Re-check after a configurable delay so the reminder doesn't compete with loot rolls
+    local st = LootWishlist.GetSettings and LootWishlist.GetSettings() or (LootWishlistDB and LootWishlistDB.settings) or {}
+    local delay = st.bossKillReminderDelay or 10
+    scheduleRaidSpecCheck(delay)
   elseif event == "ENCOUNTER_END" then
     local encounterID, encounterName, difficultyID, groupSize, success = ...
     dprint("event: ENCOUNTER_END  encounterID=", encounterID, "name=", encounterName,

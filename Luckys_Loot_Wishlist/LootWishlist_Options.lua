@@ -171,9 +171,47 @@ local function CreateOptionsPanel()
   debugHint:SetPoint("TOPLEFT", debugCB, "BOTTOMLEFT", 0, -2)
   debugHint:SetText("Print performance logs and diagnostics to chat.")
 
+  -- Boss kill reminder delay slider
+  local delayLabel = panel:CreateFontString(nil, "OVERLAY")
+  delayLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  delayLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  delayLabel:SetPoint("TOPLEFT", debugHint, "BOTTOMLEFT", 0, -16)
+  delayLabel:SetText("Spec reminder delay after boss kill")
+
+  local delayValue = panel:CreateFontString(nil, "OVERLAY")
+  delayValue:SetFont(LuckyUI.BODY_FONT, 13)
+  delayValue:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
+
+  local delaySlider = CreateFrame("Slider", "LootWishlistDelaySlider", panel, "OptionsSliderTemplate")
+  delaySlider:SetPoint("TOPLEFT", delayLabel, "BOTTOMLEFT", 0, -12)
+  delaySlider:SetSize(240, 16)
+  delaySlider:SetMinMaxValues(0, 30)
+  delaySlider:SetValueStep(1)
+  delaySlider:SetObeyStepOnDrag(true)
+  delaySlider:SetValue(s.bossKillReminderDelay or 10)
+  delaySlider.Low:SetText("0s")
+  delaySlider.High:SetText("30s")
+  delaySlider.Text:SetText("")
+
+  delayValue:SetPoint("LEFT", delaySlider, "RIGHT", 10, 0)
+  delayValue:SetText(tostring(math.floor(delaySlider:GetValue())) .. "s")
+
+  delaySlider:SetScript("OnValueChanged", function(self, value)
+    value = math.floor(value + 0.5)
+    delayValue:SetText(tostring(value) .. "s")
+    local st = GetSettings()
+    if st then st.bossKillReminderDelay = value end
+  end)
+
+  local delayHint = panel:CreateFontString(nil, "OVERLAY")
+  delayHint:SetFont(LuckyUI.BODY_FONT, 11)
+  delayHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  delayHint:SetPoint("TOPLEFT", delaySlider, "BOTTOMLEFT", 0, -4)
+  delayHint:SetText("How long to wait after a boss dies before showing the next spec reminder.")
+
   -- Save button
   local save = LuckyUI.CreateButton(panel, "Save", 120, 28, "primary")
-  save:SetPoint("TOPLEFT", debugHint, "BOTTOMLEFT", 0, -12)
+  save:SetPoint("TOPLEFT", delayHint, "BOTTOMLEFT", 0, -12)
   save:SetScript("OnClick", function()
     local st = GetSettings()
     if st then
@@ -195,6 +233,8 @@ local function CreateOptionsPanel()
     rollCB:SetChecked(st.enableRaidRollAlert ~= false)
     summaryCB:SetChecked(st.hideSummaryWindow == true)
     debugCB:SetChecked(st.debug == true)
+    delaySlider:SetValue(st.bossKillReminderDelay or 10)
+    delayValue:SetText(tostring(math.floor(delaySlider:GetValue())) .. "s")
     example:SetText("Example whisper: " .. applyPlaceholders(st.whisperTemplate or "", "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(st.partyTemplate or "", "[Example Item]"))
   end)
 
