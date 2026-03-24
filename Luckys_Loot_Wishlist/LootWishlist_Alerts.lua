@@ -1226,6 +1226,31 @@ local function isTracked(itemID)
   return false
 end
 
+-- Run raid spec suggestions using lockout data (no targeting needed).
+-- Called on zone entry and after boss kills.
+local raidCheckPending = false
+local function runRaidSpecCheck()
+  raidCheckPending = false
+  dprint("runRaidSpecCheck: running")
+  local ok, lines = pcall(collectRaidSpecSuggestions)
+  if not ok then
+    dprint("runRaidSpecCheck: errored:", lines)
+  elseif not lines then
+    dprint("runRaidSpecCheck: no suggestions")
+  else
+    dprint("runRaidSpecCheck: showing spec reminder,", #lines, "lines")
+    ShowSpecReminder(lines)
+  end
+end
+
+local function scheduleRaidSpecCheck()
+  if not raidCheckPending then
+    raidCheckPending = true
+    -- Short delay to let lockout data settle after zone load / boss kill
+    C_Timer.After(1.0, runRaidSpecCheck)
+  end
+end
+
 -- Event handling
 local ef = CreateFrame("Frame")
 ef:RegisterEvent("CHAT_MSG_LOOT")
@@ -1235,7 +1260,8 @@ ef:RegisterEvent("BAG_UPDATE_DELAYED")
 ef:RegisterEvent("PLAYER_LOGIN")
 ef:RegisterEvent("PLAYER_ENTERING_WORLD")
 ef:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-ef:RegisterEvent("PLAYER_TARGET_CHANGED")
+ef:RegisterEvent("BOSS_KILL")
+ef:RegisterEvent("ENCOUNTER_END")
 ef:SetScript("OnEvent", function(_, event, ...)
   if event == "CHAT_MSG_LOOT" then
     local msg = ...
@@ -1385,6 +1411,11 @@ ef:SetScript("OnEvent", function(_, event, ...)
         end)
       end
     end
+    -- Raid spec suggestions (lockout-based, no targeting needed)
+    local _, raidType = IsInInstance()
+    if raidType == "raid" then
+      scheduleRaidSpecCheck()
+    end
     -- Assist suggestions for dungeon context
     do
       local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or nil
@@ -1398,11 +1429,18 @@ ef:SetScript("OnEvent", function(_, event, ...)
         end
       end
     end
-  elseif event == "PLAYER_TARGET_CHANGED" then
-    dprint("event: PLAYER_TARGET_CHANGED")
-    local lines = collectRaidTargetSpecSuggestions()
-    if lines then ShowSpecReminder(lines) end
-    -- Intentionally do NOT show assist suggestions in raids
+  elseif event == "BOSS_KILL" then
+    local encounterID, encounterName = ...
+    dprint("event: BOSS_KILL  encounterID=", encounterID, "name=", encounterName)
+    -- Reset the raid dedupe so the next set of available bosses can trigger a reminder
+    local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or ""
+    bossReminded[instName .. "|raid"] = nil
+    -- Re-check after a delay to let lockout data update
+    scheduleRaidSpecCheck()
+  elseif event == "ENCOUNTER_END" then
+    local encounterID, encounterName, difficultyID, groupSize, success = ...
+    dprint("event: ENCOUNTER_END  encounterID=", encounterID, "name=", encounterName,
+           "diff=", difficultyID, "size=", groupSize, "success=", success)
   end
 end)
 
