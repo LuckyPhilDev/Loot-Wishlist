@@ -22,6 +22,7 @@ local function CreateMultiLineEditBox(parent, label, width, height)
 
   local box = CreateFrame("Frame", nil, parent, "BackdropTemplate")
   box:SetSize(width, height)
+  box:EnableMouse(false)
   box:SetBackdrop(LuckyUI.Backdrop)
   box:SetBackdropColor(C.bgInput[1], C.bgInput[2], C.bgInput[3], C.bgInput[4])
   box:SetBackdropBorderColor(C.borderDark[1], C.borderDark[2], C.borderDark[3])
