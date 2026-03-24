@@ -483,84 +483,216 @@ local function collectDungeonSpecSuggestions()
   return lines
 end
 
-local function collectRaidTargetSpecSuggestions()
+-- Raid layout graphs: maps EJ instanceID → { [encounterID] = { prereqs } }
+-- prereqs = {} means the boss is available from the start.
+-- prereqs = {id1, id2} means ALL listed bosses must be dead first.
+-- If a raid has no entry here, all alive bosses are treated as available.
+local raidLayouts = {
+  -- Aberrus, the Shadowed Crucible (EJ 1208)
+  [1208] = {
+    [2522] = {},                  -- Kazzara: entrance boss
+    [2529] = {2522},              -- Amalgamation Chamber: after Kazzara
+    [2530] = {2529},              -- Forgotten Experiments: after Amalgamation Chamber
+    [2524] = {2522},              -- Assault of the Zaqali: after Kazzara
+    [2525] = {2524},              -- Rashok: after Assault of the Zaqali
+    [2532] = {2525, 2530},        -- Zskarn: after Rashok + Forgotten Experiments
+    [2527] = {2532},              -- Magmorax: after Zskarn
+    [2523] = {2527},              -- Echo of Neltharion: after Magmorax
+    [2520] = {2523},              -- Sarkareth: after Echo
+  },
+  -- Add more raids here as needed. Format:
+  -- [ejInstanceID] = {
+  --   [encounterID] = { prereqEncounterID1, prereqEncounterID2, ... },
+  -- },
+}
+
+-- Given a raid's EJ instanceID and the current difficulty, return a set of
+-- boss names that are alive and whose prerequisites are all dead.
+-- Returns: { ["Boss Name"] = encounterID, ... } or nil
+local function getAvailableRaidBosses()
   local inInstance, instType = IsInInstance()
-  dprint("collectRaidTargetSpecSuggestions inInstance=", inInstance, "type=", instType)
   if not inInstance or instType ~= "raid" then return nil end
-  if not UnitExists("target") then dprint("no target"); return nil end
-  local targetName = UnitName("target")
-  if not targetName then return nil end
+
+  local instName, _, diffID = GetInstanceInfo()
+  local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+  if not mapID then return nil end
+
+  -- Get EJ instance ID
+  local ejInstID
+  if EJ_GetInstanceForMap then
+    local ok, ej = pcall(EJ_GetInstanceForMap, mapID)
+    if ok and type(ej) == "number" and ej > 0 then ejInstID = ej end
+  end
+  if not ejInstID then return nil end
+
+  -- Build full boss list from EJ
+  EJ_SelectInstance(ejInstID)
+  local ejBosses = {} -- ordered list of { encounterID, name }
+  local i = 1
+  while true do
+    local eName, _, eEncID = EJ_GetEncounterInfoByIndex(i, ejInstID)
+    if not eName then break end
+    table.insert(ejBosses, { encounterID = eEncID, name = eName })
+    i = i + 1
+  end
+  if #ejBosses == 0 then return nil end
+
+  -- Build killed set from saved lockout matching this instance + difficulty
+  local killedIDs = {}  -- encounterID → true (we map by name since lockout uses names)
+  local killedNames = {} -- name → true
+  local numSaved = GetNumSavedInstances()
+  for si = 1, numSaved do
+    local iName, _, _, iDiff = GetSavedInstanceInfo(si)
+    if iName == instName and iDiff == diffID then
+      for j = 1, 20 do
+        local bName, _, isKilled = GetSavedInstanceEncounterInfo(si, j)
+        if not bName then break end
+        if isKilled then
+          killedNames[bName] = true
+        end
+      end
+    end
+  end
+
+  -- Map killed names to encounter IDs
+  for _, boss in ipairs(ejBosses) do
+    if killedNames[boss.name] then
+      killedIDs[boss.encounterID] = true
+    end
+  end
+
+  dprint("getAvailableRaidBosses: ejInstID=", ejInstID, "diffID=", diffID,
+         "totalBosses=", #ejBosses, "killed=", (function()
+           local n = 0; for _ in pairs(killedIDs) do n = n + 1 end; return n end)())
+
+  -- Determine available bosses
+  local layout = raidLayouts[ejInstID]
+  local available = {} -- { ["Boss Name"] = encounterID }
+
+  for _, boss in ipairs(ejBosses) do
+    if not killedIDs[boss.encounterID] then
+      -- Boss is alive; check prerequisites
+      local prereqs = layout and layout[boss.encounterID]
+      if prereqs then
+        local allMet = true
+        for _, reqID in ipairs(prereqs) do
+          if not killedIDs[reqID] then
+            allMet = false
+            break
+          end
+        end
+        if allMet then
+          available[boss.name] = boss.encounterID
+          dprint("  available:", boss.name, "(prereqs met)")
+        else
+          dprint("  locked:", boss.name, "(prereqs not met)")
+        end
+      else
+        -- No layout or no entry for this boss: treat as available
+        available[boss.name] = boss.encounterID
+        dprint("  available:", boss.name, "(no prereqs defined)")
+      end
+    else
+      dprint("  killed:", boss.name)
+    end
+  end
+
+  return available
+end
+
+-- Collect spec suggestions for all available (upcoming) raid bosses.
+-- Returns a lines table for ShowSpecReminder, or nil if nothing to show.
+local function collectRaidSpecSuggestions()
+  local inInstance, instType = IsInInstance()
+  dprint("collectRaidSpecSuggestions inInstance=", inInstance, "type=", instType)
+  if not inInstance or instType ~= "raid" then return nil end
+
   local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or ""
-  local key = instName .. "|" .. targetName
-  if bossReminded[key] then dprint("already reminded for", key); return nil end
+  local dedupeKey = instName .. "|raid"
+  if bossReminded[dedupeKey] then dprint("already reminded for", dedupeKey); return nil end
+
+  local available = getAvailableRaidBosses()
+  if not available or not next(available) then dprint("no available bosses"); return nil end
+
   local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
   if not tracked or not next(tracked) then return nil end
-  local bySpec = {}
-  local haveAny = false
+
+  -- Group items by boss, then by spec within each boss
+  -- Structure: perBoss[bossName] = { bySpec={specKey={items}}, stayStrict={items}, stayAny={items} }
+  local perBoss = {}
   local lsid = getLootSpecID()
-  local stayStrictItems, stayAnyItems = {}, {}
+  local haveAny = false
+
   for _, v in pairs(tracked) do
-    if type(v) == "table" and v.isRaid and (v.boss == targetName) then
+    if type(v) == "table" and v.isRaid and v.boss and available[v.boss] then
+      local bossName = v.boss
+      if not perBoss[bossName] then
+        perBoss[bossName] = { bySpec = {}, stayStrict = {}, stayAny = {} }
+      end
+      local pb = perBoss[bossName]
+
       local specs = v.specs
       if type(specs) == "table" and next(specs) then
-        dprint("boss item", v.id, "specs:", table.concat((function() local tmp={} for _,sid in ipairs(specs) do table.insert(tmp, tostring(sid)) end return tmp end)(), ","), "lootSpec=", tostring(lsid or "nil"))
         if not playerLootSpecMatches(specs) then
-          -- Build spec name from all valid specs
           local specNames = {}
           for _, sid in ipairs(specs) do
-            local name = getSpecNameByID(sid)
-            if name and name ~= "" then
-              table.insert(specNames, name)
-            end
+            local sname = getSpecNameByID(sid)
+            if sname and sname ~= "" then table.insert(specNames, sname) end
           end
           if #specNames == 0 then
-            -- Fallback to non-array iteration
             for _, sid in pairs(specs) do
               if type(sid) == "number" then
-                local name = getSpecNameByID(sid)
-                if name and name ~= "" then
-                  table.insert(specNames, name)
-                end
+                local sname = getSpecNameByID(sid)
+                if sname and sname ~= "" then table.insert(specNames, sname) end
               end
             end
           end
           local specKey = #specNames > 0 and table.concat(specNames, " or ") or "appropriate spec"
-          bySpec[specKey] = bySpec[specKey] or {}
-          table.insert(bySpec[specKey], v.link or ("item:"..tostring(v.id)))
+          pb.bySpec[specKey] = pb.bySpec[specKey] or {}
+          table.insert(pb.bySpec[specKey], v.link or ("item:" .. tostring(v.id)))
           haveAny = true
         else
-          local link = v.link or ("item:"..tostring(v.id))
+          local link = v.link or ("item:" .. tostring(v.id))
           if isAnySpecForPlayer(specs) then
-            table.insert(stayAnyItems, link)
+            table.insert(pb.stayAny, link)
           else
-            table.insert(stayStrictItems, link)
+            table.insert(pb.stayStrict, link)
           end
         end
       else
-        dprint("no specific specs (any spec) for", v.id)
-        local link = v.link or ("item:"..tostring(v.id))
-        table.insert(stayAnyItems, link)
+        local link = v.link or ("item:" .. tostring(v.id))
+        table.insert(pb.stayAny, link)
       end
     end
   end
+
   if not haveAny then return nil end
-  local lines = { "Wrong loot spec for wishlist items:" }
-  for specName, items in pairs(bySpec) do
-    table.sort(items)
-    table.insert(lines, string.format("- Switch %s for %s", specName, table.concat(items, ", ")))
+
+  local lines = { "Wrong loot spec for upcoming bosses:" }
+  for bossName, pb in pairs(perBoss) do
+    if next(pb.bySpec) then
+      for specName, items in pairs(pb.bySpec) do
+        table.sort(items)
+        table.insert(lines, string.format("- %s: switch %s for %s", bossName, specName, table.concat(items, ", ")))
+      end
+    end
+    if lsid and #pb.stayStrict > 0 then
+      table.sort(pb.stayStrict)
+      local curName = getSpecNameByID(lsid) or "current spec"
+      table.insert(lines, string.format("- %s: stay %s for %s", bossName, curName, table.concat(pb.stayStrict, ", ")))
+    end
+    if #pb.stayAny > 0 then
+      table.sort(pb.stayAny)
+      table.insert(lines, string.format("- %s: OK in any spec: %s", bossName, table.concat(pb.stayAny, ", ")))
+    end
   end
-  if lsid and #stayStrictItems > 0 then
-    table.sort(stayStrictItems)
-    local curName = getSpecNameByID(lsid) or "current spec"
-    table.insert(lines, string.format("- Stay %s for %s", curName, table.concat(stayStrictItems, ", ")))
-  end
-  if #stayAnyItems > 0 then
-    table.sort(stayAnyItems)
-    table.insert(lines, string.format("- OK in any spec: %s", table.concat(stayAnyItems, ", ")))
-  end
-  bossReminded[key] = true
+
+  bossReminded[dedupeKey] = true
   return lines
 end
+
+-- Keep the old function name as an alias for any external callers
+local collectRaidTargetSpecSuggestions = collectRaidSpecSuggestions
 
 -- Get the number of a given itemID in the player's bags (excluding bank)
 local function getInventoryCount(itemID)
