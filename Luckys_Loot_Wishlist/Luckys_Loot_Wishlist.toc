@@ -7,6 +7,8 @@
 ## SavedVariables: LootWishlistDB, RemindMeDB, RemindMeCharDB
 ## X-Curse-Project-ID: 1353310
 
+Luckys_Utils\embeds.xml
+
 LootWishlist_Constants.lua
 LootWishlist_Core.lua
 LootWishlist_Options.lua
