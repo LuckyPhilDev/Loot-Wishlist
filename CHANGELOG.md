@@ -2,6 +2,11 @@
 
 All notable changes to Loot Wishlist will be documented in this file.
 
+## [1.5.4] - 2026-04-02
+
+### Fixed
+- Switching gear sets no longer triggers a false loot alert for wishlisted items that were equipped
+
 ## [1.5.1] - 2026-03-24
 
 ### Fixed
