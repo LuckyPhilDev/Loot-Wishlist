@@ -694,7 +694,7 @@ end
 -- Keep the old function name as an alias for any external callers
 local collectRaidTargetSpecSuggestions = collectRaidSpecSuggestions
 
--- Get the number of a given itemID in the player's bags (excluding bank)
+-- Get the number of a given itemID on the player (bags + equipped, excluding bank)
 local function getInventoryCount(itemID)
   if not itemID then return 0 end
   local total = 0
@@ -717,6 +717,12 @@ local function getInventoryCount(itemID)
         if info and info.itemID == itemID then
           total = total + (info.stackCount or 1)
         end
+      end
+    end
+    -- Count equipped items so gear set swaps don't trigger false alerts
+    for equipSlot = 1, 19 do
+      if GetInventoryItemID("player", equipSlot) == itemID then
+        total = total + 1
       end
     end
     return total
