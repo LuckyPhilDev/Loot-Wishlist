@@ -114,9 +114,26 @@ local function CreateOptionsPanel()
   optionsHeading:SetPoint("TOPLEFT", example, "BOTTOMLEFT", 0, -20)
   optionsHeading:SetText("Options")
 
+  -- Minimap button checkbox
+  local minimapState = (LootWishlistDB and LootWishlistDB.minimap) or {}
+  local minimapCB = LuckyUI.CreateCheckbox(panel, 16)
+  minimapCB:SetPoint("TOPLEFT", optionsHeading, "BOTTOMLEFT", 0, -10)
+  minimapCB:SetChecked(not minimapState.hide)
+  minimapCB:SetScript("OnClick", function(self)
+    if LootWishlist.minimapButton then
+      LootWishlist.minimapButton:SetShown_Persisted(self:GetChecked())
+    end
+  end)
+
+  local minimapLabel = panel:CreateFontString(nil, "OVERLAY")
+  minimapLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  minimapLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  minimapLabel:SetPoint("LEFT", minimapCB, "RIGHT", 8, 0)
+  minimapLabel:SetText("Minimap button")
+
   -- Raid roll alert checkbox
   local rollCB = LuckyUI.CreateCheckbox(panel, 16)
-  rollCB:SetPoint("TOPLEFT", optionsHeading, "BOTTOMLEFT", 0, -10)
+  rollCB:SetPoint("TOPLEFT", minimapCB, "BOTTOMLEFT", 0, -10)
   rollCB:SetChecked(s.enableRaidRollAlert ~= false)
 
   local rollLabel = panel:CreateFontString(nil, "OVERLAY")
@@ -257,6 +274,8 @@ local function CreateOptionsPanel()
     local st = GetSettings() or {}
     wEdit:SetText(st.whisperTemplate or GetDefaultWhisper())
     pEdit:SetText(st.partyTemplate or GetDefaultParty())
+    local ms = (LootWishlistDB and LootWishlistDB.minimap) or {}
+    minimapCB:SetChecked(not ms.hide)
     rollCB:SetChecked(st.enableRaidRollAlert ~= false)
     summaryCB:SetChecked(st.hideSummaryWindow == true)
     debugCB:SetChecked(st.debug == true)

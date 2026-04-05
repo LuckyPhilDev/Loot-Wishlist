@@ -345,7 +345,9 @@ f:SetScript("OnEvent", function(self, event, ...)
   elseif event == "PLAYER_LOGIN" then
     print("Loot Wishlist loaded. Track loot from the Adventure Guide! Use /wishlist for help.")
     -- Minimap button
-    if LuckyMinimap and LootWishlistDB then
+    local function CreateMinimapButton()
+      if LootWishlist.minimapButton then return end
+      if not LuckyMinimap or not LootWishlistDB then return end
       LootWishlist.minimapButton = LuckyMinimap:Create({
         name    = "LootWishlistMinimapButton",
         icon    = "Interface\\Icons\\INV_Misc_Spyglass_03",
@@ -377,6 +379,11 @@ f:SetScript("OnEvent", function(self, event, ...)
           tt:AddLine("Shift+drag: Move button", 0.54, 0.49, 0.42)
         end,
       })
+    end
+    CreateMinimapButton()
+    -- Retry after a short delay in case LuckyMinimap wasn't ready yet
+    if not LootWishlist.minimapButton then
+      C_Timer.After(1, CreateMinimapButton)
     end
     local isLoaded = false
     if C_AddOns and C_AddOns.IsAddOnLoaded then
