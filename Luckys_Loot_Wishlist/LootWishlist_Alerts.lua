@@ -7,8 +7,8 @@ local Alerts = LootWishlist.Alerts
 local alertFrame, alertFS, alertHideAt
 local raidDropFrame, raidDropFS, raidDropHideAt
 local rollAlertFrame, rollAlertFS, rollHideAt
-local specReminderFrame, specReminderFS, specReminderHideAt, specDismissBtn
-local assistFrame, assistFS, assistHideAt, assistBtnWhisper, assistBtnParty, assistBtnDismiss
+local dungeonReminderFrame, drSpecFS, drAssistFS, drDivider, drHideAt
+local drBtnWhisper, drBtnParty, drBtnDismiss
 local lastAssistTargetName, lastAssistMessageWhisper, lastAssistMessageParty
 local dungeonReminded = {}
 local bossReminded = {}
@@ -120,103 +120,59 @@ local function getCurrentEJInstanceID()
   return nil
 end
 
--- Spec reminder UI ----------------------------------------------------------
-local function ShowSpecReminder(lines)
-  if not lines or #lines == 0 then return end
-  if not specReminderFrame then
-    specReminderFrame = CreateFrame("Frame", "LootWishlistSpecReminder", UIParent, "BackdropTemplate")
-    specReminderFrame:SetSize(520, 80)
-    specReminderFrame:SetPoint("TOP", UIParent, "TOP", 0, -340)
-    specReminderFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    specReminderFrame:SetBackdrop(LuckyUI.Backdrop)
-    specReminderFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], 0.95)
-    specReminderFrame:SetBackdropBorderColor(LuckyUI.C.success[1], LuckyUI.C.success[2], LuckyUI.C.success[3], 0.9)
-    specReminderFrame:EnableMouse(true)
-    specReminderFrame:SetMovable(true)
-    specReminderFrame:RegisterForDrag("LeftButton")
-    specReminderFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
-    specReminderFrame:SetScript("OnDragStop", function(self)
-      self:StopMovingOrSizing()
-      if LootWishlistCharDB and self:GetPoint(1) then
-        local p, rel, rp, x, y = self:GetPoint(1)
-        LootWishlistCharDB.specReminderWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
-      end
-    end)
-    specReminderFS = specReminderFrame:CreateFontString(nil, "OVERLAY")
-    specReminderFS:SetFont(LuckyUI.BODY_FONT, 13)
-    specReminderFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
-    specReminderFS:SetPoint("TOP", 0, -8)
-    specReminderFS:SetJustifyH("CENTER")
-    specReminderFS:SetJustifyV("MIDDLE")
-    specReminderFS:SetText("")
-    specDismissBtn = LuckyUI.CreateButton(specReminderFrame, "Dismiss", 100, 22, "secondary")
-    specDismissBtn:SetPoint("BOTTOM", specReminderFrame, "BOTTOM", 0, 10)
-    specDismissBtn:SetScript("OnClick", function()
-      specReminderHideAt = nil
-      specReminderFrame:Hide()
-    end)
-    local w = LootWishlistCharDB and LootWishlistCharDB.specReminderWindow
-    if w and w.point then
-      specReminderFrame:ClearAllPoints()
-      specReminderFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
-    end
-    specReminderFrame:Hide()
-    specReminderFrame:SetScript("OnUpdate", function(_, _elapsed)
-      if specReminderHideAt and GetTime() >= specReminderHideAt then
-        specReminderFrame:Hide()
-        specReminderHideAt = nil
-      end
-    end)
-  end
-  local text = table.concat(lines, "\n")
-  specReminderFS:SetText(text)
-  if specReminderFS.SetWidth and specReminderFrame.GetWidth then
-    specReminderFS:SetWidth(specReminderFrame:GetWidth() - 20)
-  end
-  local desiredH = (specReminderFS.GetStringHeight and (specReminderFS:GetStringHeight() + 40)) or 90
-  specReminderFrame:SetHeight(math.max(80, math.min(240, desiredH)))
-  specReminderFrame:Show()
-  specReminderHideAt = GetTime() + 10
-end
-
--- Assist reminder UI --------------------------------------------------------
-local function ensureAssistFrame()
-  if assistFrame then return assistFrame end
-  assistFrame = CreateFrame("Frame", "LootWishlistAssistReminder", UIParent, "BackdropTemplate")
-  assistFrame:SetSize(520, 90)
-  assistFrame:SetPoint("TOP", UIParent, "TOP", 0, -410)
-  assistFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-  assistFrame:SetBackdrop(LuckyUI.Backdrop)
-  assistFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], 0.95)
-  assistFrame:SetBackdropBorderColor(LuckyUI.C.info[1], LuckyUI.C.info[2], LuckyUI.C.info[3], 0.9)
-  assistFrame:EnableMouse(true)
-  assistFrame:SetMovable(true)
-  assistFrame:RegisterForDrag("LeftButton")
-  assistFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
-  assistFrame:SetScript("OnDragStop", function(self)
+-- Dungeon reminder UI (combined spec + assist) -----------------------------
+local function ensureDungeonReminderFrame()
+  if dungeonReminderFrame then return dungeonReminderFrame end
+  dungeonReminderFrame = CreateFrame("Frame", "LootWishlistDungeonReminder", UIParent, "BackdropTemplate")
+  dungeonReminderFrame:SetSize(520, 80)
+  dungeonReminderFrame:SetPoint("TOP", UIParent, "TOP", 0, -340)
+  dungeonReminderFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+  dungeonReminderFrame:SetBackdrop(LuckyUI.Backdrop)
+  dungeonReminderFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], 0.95)
+  dungeonReminderFrame:EnableMouse(true)
+  dungeonReminderFrame:SetMovable(true)
+  dungeonReminderFrame:RegisterForDrag("LeftButton")
+  dungeonReminderFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+  dungeonReminderFrame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
     if LootWishlistCharDB and self:GetPoint(1) then
       local p, rel, rp, x, y = self:GetPoint(1)
-      LootWishlistCharDB.assistReminderWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
+      LootWishlistCharDB.dungeonReminderWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
     end
   end)
-  assistFS = assistFrame:CreateFontString(nil, "OVERLAY")
-  assistFS:SetFont(LuckyUI.BODY_FONT, 13)
-  assistFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
-  assistFS:SetPoint("TOP", 0, -8)
-  assistFS:SetJustifyH("CENTER")
-  assistFS:SetJustifyV("MIDDLE")
-  assistFS:SetText("")
 
-  assistBtnWhisper = LuckyUI.CreateButton(assistFrame, "Whisper", 110, 22, "primary")
-  assistBtnParty = LuckyUI.CreateButton(assistFrame, "Party", 110, 22, "secondary")
-  assistBtnDismiss = LuckyUI.CreateButton(assistFrame, "Dismiss", 110, 22, "secondary")
-  assistBtnWhisper:SetPoint("BOTTOM", assistFrame, "BOTTOM", -120, 10)
-  assistBtnParty:SetPoint("BOTTOM", assistFrame, "BOTTOM", 0, 10)
-  assistBtnDismiss:SetPoint("BOTTOM", assistFrame, "BOTTOM", 120, 10)
+  -- Spec section font string
+  drSpecFS = dungeonReminderFrame:CreateFontString(nil, "OVERLAY")
+  drSpecFS:SetFont(LuckyUI.BODY_FONT, 13)
+  drSpecFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
+  drSpecFS:SetPoint("TOP", 0, -8)
+  drSpecFS:SetJustifyH("CENTER")
+  drSpecFS:SetJustifyV("TOP")
+  drSpecFS:SetText("")
 
-  assistBtnWhisper:SetScript("OnClick", function()
-    if not lastAssistTargetName or not lastAssistMessageWhisper then assistFrame:Hide(); return end
+  -- Divider between sections
+  drDivider = dungeonReminderFrame:CreateTexture(nil, "ARTWORK")
+  drDivider:SetColorTexture(0.23, 0.18, 0.10, 0.8)
+  drDivider:SetHeight(1)
+  drDivider:SetPoint("LEFT", 12, 0)
+  drDivider:SetPoint("RIGHT", -12, 0)
+  drDivider:Hide()
+
+  -- Assist section font string
+  drAssistFS = dungeonReminderFrame:CreateFontString(nil, "OVERLAY")
+  drAssistFS:SetFont(LuckyUI.BODY_FONT, 13)
+  drAssistFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
+  drAssistFS:SetJustifyH("CENTER")
+  drAssistFS:SetJustifyV("TOP")
+  drAssistFS:SetText("")
+
+  -- Buttons
+  drBtnWhisper = LuckyUI.CreateButton(dungeonReminderFrame, "Whisper", 110, 22, "primary")
+  drBtnParty = LuckyUI.CreateButton(dungeonReminderFrame, "Party", 110, 22, "secondary")
+  drBtnDismiss = LuckyUI.CreateButton(dungeonReminderFrame, "Dismiss", 110, 22, "secondary")
+
+  drBtnWhisper:SetScript("OnClick", function()
+    if not lastAssistTargetName or not lastAssistMessageWhisper then dungeonReminderFrame:Hide(); return end
     if ChatEdit_ChooseBoxForSend and ChatEdit_SendText and ChatEdit_ActivateChat then
       local eb = ChatEdit_ChooseBoxForSend()
       if eb then
@@ -228,11 +184,10 @@ local function ensureAssistFrame()
         if not prevShown then eb:Hide() end
       end
     end
-    assistFrame:Hide()
+    dungeonReminderFrame:Hide()
   end)
-  assistBtnParty:SetScript("OnClick", function()
-    if not lastAssistMessageParty then assistFrame:Hide(); return end
-    -- Compute group chat prefix locally to avoid dependency order issues
+  drBtnParty:SetScript("OnClick", function()
+    if not lastAssistMessageParty then dungeonReminderFrame:Hide(); return end
     local prefix = "/s"
     if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then prefix = "/i"
     elseif IsInRaid() then prefix = "/raid"
@@ -248,40 +203,102 @@ local function ensureAssistFrame()
         if not prevShown then eb:Hide() end
       end
     end
-    assistFrame:Hide()
+    dungeonReminderFrame:Hide()
+  end)
+  drBtnDismiss:SetScript("OnClick", function()
+    drHideAt = nil
+    dungeonReminderFrame:Hide()
   end)
 
-  assistBtnDismiss:SetScript("OnClick", function()
-    assistHideAt = nil
-    assistFrame:Hide()
-  end)
-
-  local w = LootWishlistCharDB and LootWishlistCharDB.assistReminderWindow
+  -- Restore saved position (migrate from old keys if needed)
+  local w = LootWishlistCharDB and (LootWishlistCharDB.dungeonReminderWindow or LootWishlistCharDB.specReminderWindow)
   if w and w.point then
-    assistFrame:ClearAllPoints()
-    assistFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
+    dungeonReminderFrame:ClearAllPoints()
+    dungeonReminderFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
   end
-  assistFrame:Hide()
-  assistFrame:SetScript("OnUpdate", function()
-    if assistHideAt and GetTime() >= assistHideAt then
-      assistFrame:Hide()
-      assistHideAt = nil
+  dungeonReminderFrame:Hide()
+  dungeonReminderFrame:SetScript("OnUpdate", function(_, _elapsed)
+    if drHideAt and GetTime() >= drHideAt then
+      dungeonReminderFrame:Hide()
+      drHideAt = nil
     end
   end)
-  return assistFrame
+  return dungeonReminderFrame
 end
 
-local function ShowAssistReminder(lines, firstTargetName, firstSpecName, itemsList)
-  if not lines or #lines == 0 then return end
-  local f = ensureAssistFrame()
-  local text = table.concat(lines, "\n")
-  assistFS:SetText(text)
-  if assistFS.SetWidth and f.GetWidth then
-    assistFS:SetWidth(f:GetWidth() - 20)
+local function ShowDungeonReminder(specLines, assistLines, firstTargetName, firstSpecName, itemsList)
+  local hasSpec = specLines and #specLines > 0
+  local hasAssist = assistLines and #assistLines > 0
+  if not hasSpec and not hasAssist then return end
+
+  local f = ensureDungeonReminderFrame()
+  local fw = f:GetWidth() - 20
+
+  -- Border color: green for spec-only, blue for assist-only, gold for both
+  if hasSpec and hasAssist then
+    f:SetBackdropBorderColor(LuckyUI.C.goldAccent[1], LuckyUI.C.goldAccent[2], LuckyUI.C.goldAccent[3], 0.9)
+  elseif hasSpec then
+    f:SetBackdropBorderColor(LuckyUI.C.success[1], LuckyUI.C.success[2], LuckyUI.C.success[3], 0.9)
+  else
+    f:SetBackdropBorderColor(LuckyUI.C.info[1], LuckyUI.C.info[2], LuckyUI.C.info[3], 0.9)
   end
-  local desiredH = (assistFS.GetStringHeight and (assistFS:GetStringHeight() + 40)) or 90
-  f:SetHeight(math.max(80, math.min(240, desiredH)))
-  -- Prepare default messages targeting the first suggestion
+
+  -- Layout spec section
+  local contentH = 0
+  if hasSpec then
+    drSpecFS:SetWidth(fw)
+    drSpecFS:SetText(table.concat(specLines, "\n"))
+    drSpecFS:Show()
+    contentH = contentH + drSpecFS:GetStringHeight()
+  else
+    drSpecFS:SetText("")
+    drSpecFS:Hide()
+  end
+
+  -- Divider and assist section
+  if hasSpec and hasAssist then
+    drDivider:ClearAllPoints()
+    drDivider:SetPoint("TOP", drSpecFS, "BOTTOM", 0, -6)
+    drDivider:Show()
+    drAssistFS:ClearAllPoints()
+    drAssistFS:SetPoint("TOP", drDivider, "BOTTOM", 0, -6)
+    contentH = contentH + 12 -- divider + gaps
+  elseif hasAssist then
+    drDivider:Hide()
+    drAssistFS:ClearAllPoints()
+    drAssistFS:SetPoint("TOP", f, "TOP", 0, -8)
+  else
+    drDivider:Hide()
+  end
+
+  if hasAssist then
+    drAssistFS:SetWidth(fw)
+    drAssistFS:SetText(table.concat(assistLines, "\n"))
+    drAssistFS:Show()
+    contentH = contentH + drAssistFS:GetStringHeight()
+  else
+    drAssistFS:SetText("")
+    drAssistFS:Hide()
+  end
+
+  -- Button layout: show Whisper/Party only when assist data is present
+  if hasAssist then
+    drBtnWhisper:ClearAllPoints()
+    drBtnParty:ClearAllPoints()
+    drBtnDismiss:ClearAllPoints()
+    drBtnWhisper:SetPoint("BOTTOM", f, "BOTTOM", -120, 10)
+    drBtnParty:SetPoint("BOTTOM", f, "BOTTOM", 0, 10)
+    drBtnDismiss:SetPoint("BOTTOM", f, "BOTTOM", 120, 10)
+    drBtnWhisper:Show()
+    drBtnParty:Show()
+  else
+    drBtnDismiss:ClearAllPoints()
+    drBtnDismiss:SetPoint("BOTTOM", f, "BOTTOM", 0, 10)
+    drBtnWhisper:Hide()
+    drBtnParty:Hide()
+  end
+
+  -- Prepare assist messages
   lastAssistTargetName = firstTargetName
   if firstTargetName and firstSpecName and itemsList then
     lastAssistMessageWhisper = string.format("Hey %s, could you set your loot spec to %s for %s? It's on my wishlist.", firstTargetName, firstSpecName, itemsList)
@@ -289,8 +306,17 @@ local function ShowAssistReminder(lines, firstTargetName, firstSpecName, itemsLi
   else
     lastAssistMessageWhisper, lastAssistMessageParty = nil, nil
   end
+
+  -- Size frame to content: top padding + content + gap + buttons + bottom padding
+  local desiredH = 8 + contentH + 10 + 22 + 10
+  f:SetHeight(math.max(80, math.min(320, desiredH)))
   f:Show()
-  assistHideAt = GetTime() + 12
+  drHideAt = GetTime() + 12
+end
+
+-- Convenience wrapper for callers that only have spec lines (e.g. raid spec check)
+local function ShowSpecReminder(lines)
+  ShowDungeonReminder(lines, nil, nil, nil, nil)
 end
 
 -- Group assist suggestion builder ------------------------------------------
@@ -1399,38 +1425,49 @@ ef:SetScript("OnEvent", function(_, event, ...)
         if wipe then
           wipe(dungeonReminded)
           wipe(bossReminded)
+          wipe(assistDungeonReminded)
         else
           dungeonReminded = {}
           bossReminded = {}
+          assistDungeonReminded = {}
         end
       end
       lastInInstance, lastInstanceType = nowIn, nowType
-    end
-    local lines = collectDungeonSpecSuggestions()
-    if lines then ShowSpecReminder(lines) else
-      -- Slight delay retry to allow instance info to settle
-      if C_Timer and C_Timer.After then
-        C_Timer.After(1.0, function()
-          local l2 = collectDungeonSpecSuggestions()
-          if l2 then ShowSpecReminder(l2) end
-        end)
-      end
     end
     -- Raid spec suggestions (lockout-based, no targeting needed)
     local _, raidType = IsInInstance()
     if raidType == "raid" then
       scheduleRaidSpecCheck()
     end
-    -- Assist suggestions for dungeon context
+    -- Combined dungeon spec + assist reminder
     do
-      local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or nil
-      local ejID = getCurrentEJInstanceID()
-      local key = ejID or instName
-      if key and not assistDungeonReminded[key] then
-        local lines2, tName, tSpec, tItems = collectAssistForContext(false, nil, instName, ejID)
-        if lines2 then
-          ShowAssistReminder(lines2, tName, tSpec, tItems)
-          assistDungeonReminded[key] = true
+      local cachedSpecLines, cachedAssistLines
+      local cachedTName, cachedTSpec, cachedTItems
+      local function tryDungeonReminders()
+        if not cachedSpecLines then
+          cachedSpecLines = collectDungeonSpecSuggestions()
+        end
+        if not cachedAssistLines then
+          local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or nil
+          local ejID = getCurrentEJInstanceID()
+          local key = ejID or instName
+          if key and not assistDungeonReminded[key] then
+            cachedAssistLines, cachedTName, cachedTSpec, cachedTItems = collectAssistForContext(false, nil, instName, ejID)
+            if cachedAssistLines then
+              assistDungeonReminded[key] = true
+            end
+          end
+        end
+        if cachedSpecLines or cachedAssistLines then
+          ShowDungeonReminder(cachedSpecLines, cachedAssistLines, cachedTName, cachedTSpec, cachedTItems)
+          return true
+        end
+        return false
+      end
+      if not tryDungeonReminders() then
+        -- Retry after a short delay to allow instance info and party roster to settle
+        if C_Timer and C_Timer.After then
+          C_Timer.After(1.0, tryDungeonReminders)
         end
       end
     end

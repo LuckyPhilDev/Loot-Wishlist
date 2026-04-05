@@ -8,6 +8,9 @@ local Options = LootWishlist.Options
 local C = LuckyUI.C
 local panel
 local settingsCategory
+local DevLog = LuckyLog:New("[Lwl-Opts][debug]", function()
+  return LootWishlist.DEBUG and LootWishlist.DEBUG()
+end)
 
 local function GetSettings()
   if LootWishlist.GetSettings then return LootWishlist.GetSettings() end
@@ -22,21 +25,17 @@ local function CreateMultiLineEditBox(parent, label, width, height)
 
   local box = CreateFrame("Frame", nil, parent, "BackdropTemplate")
   box:SetSize(width, height)
-  box:EnableMouse(false)
   box:SetBackdrop(LuckyUI.Backdrop)
   box:SetBackdropColor(C.bgInput[1], C.bgInput[2], C.bgInput[3], C.bgInput[4])
   box:SetBackdropBorderColor(C.borderDark[1], C.borderDark[2], C.borderDark[3])
 
-  local scroll = CreateFrame("ScrollFrame", nil, box, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", box, "TOPLEFT", 6, -6)
-  scroll:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -26, 6)
-
-  local edit = CreateFrame("EditBox", nil, scroll)
+  local edit = CreateFrame("EditBox", nil, box)
   edit:SetMultiLine(true)
   edit:SetAutoFocus(false)
-  edit:SetFontObject(ChatFontNormal)
-  edit:SetWidth(width - 40)
-  edit:SetHeight(height - 16)
+  edit:SetFont(LuckyUI.BODY_FONT, 13, "")
+  edit:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  edit:SetPoint("TOPLEFT", 8, -6)
+  edit:SetPoint("BOTTOMRIGHT", -8, 6)
   edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   edit:SetScript("OnEditFocusGained", function()
     box:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3])
@@ -44,7 +43,6 @@ local function CreateMultiLineEditBox(parent, label, width, height)
   edit:SetScript("OnEditFocusLost", function()
     box:SetBackdropBorderColor(C.borderDark[1], C.borderDark[2], C.borderDark[3])
   end)
-  scroll:SetScrollChild(edit)
 
   return title, box, edit
 end
@@ -80,6 +78,8 @@ local function CreateOptionsPanel()
   desc:SetText("Use %item% and %looter% placeholders in message templates.")
 
   local s = GetSettings() or {}
+  local function GetDefaultWhisper() return (LootWishlist.Const and LootWishlist.Const.DEFAULT_WHISPER_TEMPLATE) or "" end
+  local function GetDefaultParty()  return (LootWishlist.Const and LootWishlist.Const.DEFAULT_PARTY_TEMPLATE)  or "" end
 
   -- Message Templates heading
   local templatesHeading = panel:CreateFontString(nil, "OVERLAY")
@@ -88,24 +88,24 @@ local function CreateOptionsPanel()
   templatesHeading:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -20)
   templatesHeading:SetText("Message Templates")
 
-  local wTitle, wScroll, wEdit = CreateMultiLineEditBox(panel, "Whisper message:", 560, 80)
+  local wTitle, wBox, wEdit = CreateMultiLineEditBox(panel, "Whisper message:", 560, 80)
   wTitle:SetPoint("TOPLEFT", templatesHeading, "BOTTOMLEFT", 0, -10)
-  wScroll:SetPoint("TOPLEFT", wTitle, "BOTTOMLEFT", 0, -6)
-  wEdit:SetText(s.whisperTemplate or "")
+  wBox:SetPoint("TOPLEFT", wTitle, "BOTTOMLEFT", 0, -6)
+  wEdit:SetText(s.whisperTemplate or GetDefaultWhisper())
 
-  local pTitle, pScroll, pEdit = CreateMultiLineEditBox(panel, "Party message:", 560, 80)
-  pTitle:SetPoint("TOPLEFT", wScroll, "BOTTOMLEFT", 0, -16)
-  pScroll:SetPoint("TOPLEFT", pTitle, "BOTTOMLEFT", 0, -6)
-  pEdit:SetText(s.partyTemplate or "")
+  local pTitle, pBox, pEdit = CreateMultiLineEditBox(panel, "Party message:", 560, 80)
+  pTitle:SetPoint("TOPLEFT", wBox, "BOTTOMLEFT", 0, -16)
+  pBox:SetPoint("TOPLEFT", pTitle, "BOTTOMLEFT", 0, -6)
+  pEdit:SetText(s.partyTemplate or GetDefaultParty())
 
   -- Example text
   local example = panel:CreateFontString(nil, "OVERLAY")
   example:SetFont(LuckyUI.BODY_FONT, 11)
   example:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  example:SetPoint("TOPLEFT", pScroll, "BOTTOMLEFT", 0, -8)
+  example:SetPoint("TOPLEFT", pBox, "BOTTOMLEFT", 0, -8)
   example:SetWidth(560)
   example:SetJustifyH("LEFT")
-  example:SetText("Example whisper: " .. applyPlaceholders(s.whisperTemplate or "", "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(s.partyTemplate or "", "[Example Item]"))
+  example:SetText("Example whisper: " .. applyPlaceholders(s.whisperTemplate or GetDefaultWhisper(), "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(s.partyTemplate or GetDefaultParty(), "[Example Item]"))
 
   -- Options heading
   local optionsHeading = panel:CreateFontString(nil, "OVERLAY")
@@ -209,33 +209,60 @@ local function CreateOptionsPanel()
   delayHint:SetPoint("TOPLEFT", delaySlider, "BOTTOMLEFT", 0, -4)
   delayHint:SetText("How long to wait after a boss dies before showing the next spec reminder.")
 
+  local function updateExample()
+    local wText = wEdit:GetText()
+    local pText = pEdit:GetText()
+    if wText == "" then wText = GetDefaultWhisper() end
+    if pText == "" then pText = GetDefaultParty() end
+    example:SetText("Example whisper: " .. applyPlaceholders(wText, "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(pText, "[Example Item]"))
+  end
+
   -- Save button
   local save = LuckyUI.CreateButton(panel, "Save", 120, 28, "primary")
   save:SetPoint("TOPLEFT", delayHint, "BOTTOMLEFT", 0, -12)
   save:SetScript("OnClick", function()
     local st = GetSettings()
     if st then
-      st.whisperTemplate = wEdit:GetText() or st.whisperTemplate
-      st.partyTemplate = pEdit:GetText() or st.partyTemplate
+      local wText = wEdit:GetText()
+      local pText = pEdit:GetText()
+      st.whisperTemplate = (wText ~= "") and wText or GetDefaultWhisper()
+      st.partyTemplate = (pText ~= "") and pText or GetDefaultParty()
       st.enableRaidRollAlert = rollCB:GetChecked() and true or false
       st.hideSummaryWindow = summaryCB:GetChecked() and true or false
       if LootWishlist.SetDebug then LootWishlist.SetDebug(debugCB:GetChecked() and true or false) end
-      example:SetText("Example whisper: " .. applyPlaceholders(st.whisperTemplate or "", "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(st.partyTemplate or "", "[Example Item]"))
+      updateExample()
       if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
     end
+  end)
+
+  -- Reset to Defaults button
+  local resetBtn = LuckyUI.CreateButton(panel, "Reset to Defaults", 140, 28, "secondary")
+  resetBtn:SetPoint("LEFT", save, "RIGHT", 10, 0)
+  resetBtn:SetScript("OnClick", function()
+    local defWhisper = GetDefaultWhisper()
+    local defParty = GetDefaultParty()
+    DevLog("Reset: Const=", tostring(LootWishlist.Const ~= nil), "whisper=", defWhisper, "party=", defParty)
+    wEdit:SetText(defWhisper)
+    pEdit:SetText(defParty)
+    local st = GetSettings()
+    if st then
+      st.whisperTemplate = defWhisper
+      st.partyTemplate = defParty
+    end
+    updateExample()
   end)
 
   -- Refresh values when panel is shown
   panel:SetScript("OnShow", function()
     local st = GetSettings() or {}
-    wEdit:SetText(st.whisperTemplate or "")
-    pEdit:SetText(st.partyTemplate or "")
+    wEdit:SetText(st.whisperTemplate or GetDefaultWhisper())
+    pEdit:SetText(st.partyTemplate or GetDefaultParty())
     rollCB:SetChecked(st.enableRaidRollAlert ~= false)
     summaryCB:SetChecked(st.hideSummaryWindow == true)
     debugCB:SetChecked(st.debug == true)
     delaySlider:SetValue(st.bossKillReminderDelay or 10)
     delayValue:SetText(tostring(math.floor(delaySlider:GetValue())) .. "s")
-    example:SetText("Example whisper: " .. applyPlaceholders(st.whisperTemplate or "", "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(st.partyTemplate or "", "[Example Item]"))
+    updateExample()
   end)
 
   -- Register with game settings

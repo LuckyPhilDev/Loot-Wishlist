@@ -15,10 +15,9 @@ local DEBUG = false
 local DevLog  = LuckyLog:New("[Lwl][debug]", function() return DEBUG end)
 local PerfLog = LuckyLog:New("|cffff8800[LWL-perf]|r", function() return DEBUG end)
 
--- Public API table
-LootWishlist = {
-  DEBUG = function() return DEBUG end,
-}
+-- Public API table (preserve fields set by earlier files, e.g. Const)
+LootWishlist = LootWishlist or {}
+LootWishlist.DEBUG = function() return DEBUG end
 
 -- Local state
 local trackedItems -- assigned after DB init; may use string keys for difficulty variants
