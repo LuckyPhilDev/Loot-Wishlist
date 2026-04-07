@@ -54,12 +54,17 @@ local function ensureFrame()
   frame:HookScript("OnDragStart", function() isDragging = true end)
   frame:HookScript("OnDragStop", function() isDragging = false end)
 
-  -- Hover: brighten border
+  -- Hover: brighten border, restore full alpha
   frame:SetScript("OnEnter", function(self)
     self:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 0.8)
+    self:SetAlpha(1.0)
   end)
   frame:SetScript("OnLeave", function(self)
     self:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3], 0.6)
+    local settings = LootWishlistDB and LootWishlistDB.settings
+    local a = settings and settings.summaryUnhoveredAlpha
+    if a == nil then a = 1.0 end
+    self:SetAlpha(a)
   end)
 
   -- Restore position if saved
@@ -215,6 +220,14 @@ local function refresh()
   frame:SetWidth(width)
   local height = 30 + (textFS.GetStringHeight and textFS:GetStringHeight() or 60)
   frame:SetHeight(height)
+  -- Apply unhovered alpha (unless mouse is currently over the frame)
+  local a = settings and settings.summaryUnhoveredAlpha
+  if a == nil then a = 1.0 end
+  if frame:IsMouseOver() then
+    frame:SetAlpha(1.0)
+  else
+    frame:SetAlpha(a)
+  end
   f:Show()
 end
 

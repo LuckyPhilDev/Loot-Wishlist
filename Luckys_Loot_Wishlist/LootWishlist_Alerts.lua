@@ -509,28 +509,7 @@ local function collectDungeonSpecSuggestions()
   return lines
 end
 
--- Raid layout graphs: maps EJ instanceID → { [encounterID] = { prereqs } }
--- prereqs = {} means the boss is available from the start.
--- prereqs = {id1, id2} means ALL listed bosses must be dead first.
--- If a raid has no entry here, all alive bosses are treated as available.
-local raidLayouts = {
-  -- Aberrus, the Shadowed Crucible (EJ 1208)
-  [1208] = {
-    [2522] = {},                  -- Kazzara: entrance boss
-    [2529] = {2522},              -- Amalgamation Chamber: after Kazzara
-    [2530] = {2529},              -- Forgotten Experiments: after Amalgamation Chamber
-    [2524] = {2522},              -- Assault of the Zaqali: after Kazzara
-    [2525] = {2524},              -- Rashok: after Assault of the Zaqali
-    [2532] = {2525, 2530},        -- Zskarn: after Rashok + Forgotten Experiments
-    [2527] = {2532},              -- Magmorax: after Zskarn
-    [2523] = {2527},              -- Echo of Neltharion: after Magmorax
-    [2520] = {2523},              -- Sarkareth: after Echo
-  },
-  -- Add more raids here as needed. Format:
-  -- [ejInstanceID] = {
-  --   [encounterID] = { prereqEncounterID1, prereqEncounterID2, ... },
-  -- },
-}
+local raidLayouts = LootWishlist.Const.RAID_LAYOUTS
 
 -- Given a raid's EJ instanceID and the current difficulty, return a set of
 -- boss names that are alive and whose prerequisites are all dead.

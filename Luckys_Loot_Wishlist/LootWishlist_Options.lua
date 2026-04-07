@@ -57,9 +57,25 @@ end
 local function CreateOptionsPanel()
   if panel then return panel end
   panel = CreateFrame("Frame")
-  panel:SetSize(600, 400)
+  panel:SetSize(600, 500)
   panel:Hide()
   panel.name = "Loot Wishlist"
+
+  -- Scrollable content area so the settings work on smaller panels
+  local scrollFrame = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+  scrollFrame:SetPoint("TOPLEFT", 0, 0)
+  scrollFrame:SetPoint("BOTTOMRIGHT", -26, 0)
+  local content = CreateFrame("Frame", nil, scrollFrame)
+  content:SetSize(570, 760)
+  scrollFrame:SetScrollChild(content)
+  scrollFrame:HookScript("OnSizeChanged", function(self, width)
+    content:SetWidth(width)
+  end)
+
+  -- Shadow `panel` within this function so all children parent to the scroll content.
+  -- The outer panel (registered with the settings API) is kept as `outerPanel`.
+  local outerPanel = panel
+  local panel = content
 
   -- Title
   local title = panel:CreateFontString(nil, "OVERLAY")
@@ -226,6 +242,45 @@ local function CreateOptionsPanel()
   delayHint:SetPoint("TOPLEFT", delaySlider, "BOTTOMLEFT", 0, -4)
   delayHint:SetText("How long to wait after a boss dies before showing the next spec reminder.")
 
+  -- Summary window unhovered alpha slider
+  local alphaLabel = panel:CreateFontString(nil, "OVERLAY")
+  alphaLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  alphaLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  alphaLabel:SetPoint("TOPLEFT", delayHint, "BOTTOMLEFT", 0, -16)
+  alphaLabel:SetText("Summary window opacity when not hovered")
+
+  local alphaValue = panel:CreateFontString(nil, "OVERLAY")
+  alphaValue:SetFont(LuckyUI.BODY_FONT, 13)
+  alphaValue:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
+
+  local alphaSlider = CreateFrame("Slider", "LootWishlistAlphaSlider", panel, "OptionsSliderTemplate")
+  alphaSlider:SetPoint("TOPLEFT", alphaLabel, "BOTTOMLEFT", 0, -12)
+  alphaSlider:SetSize(240, 16)
+  alphaSlider:SetMinMaxValues(0, 100)
+  alphaSlider:SetValueStep(5)
+  alphaSlider:SetObeyStepOnDrag(true)
+  alphaSlider:SetValue(math.floor(((s.summaryUnhoveredAlpha ~= nil) and s.summaryUnhoveredAlpha or 1.0) * 100 + 0.5))
+  alphaSlider.Low:SetText("0%")
+  alphaSlider.High:SetText("100%")
+  alphaSlider.Text:SetText("")
+
+  alphaValue:SetPoint("LEFT", alphaSlider, "RIGHT", 10, 0)
+  alphaValue:SetText(tostring(math.floor(alphaSlider:GetValue())) .. "%")
+
+  alphaSlider:SetScript("OnValueChanged", function(self, value)
+    value = math.floor(value + 0.5)
+    alphaValue:SetText(tostring(value) .. "%")
+    local st = GetSettings()
+    if st then st.summaryUnhoveredAlpha = value / 100 end
+    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+  end)
+
+  local alphaHint = panel:CreateFontString(nil, "OVERLAY")
+  alphaHint:SetFont(LuckyUI.BODY_FONT, 11)
+  alphaHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  alphaHint:SetPoint("TOPLEFT", alphaSlider, "BOTTOMLEFT", 0, -4)
+  alphaHint:SetText("The summary window fades to this opacity when your mouse is not over it.")
+
   local function updateExample()
     local wText = wEdit:GetText()
     local pText = pEdit:GetText()
@@ -236,7 +291,7 @@ local function CreateOptionsPanel()
 
   -- Save button
   local save = LuckyUI.CreateButton(panel, "Save", 120, 28, "primary")
-  save:SetPoint("TOPLEFT", delayHint, "BOTTOMLEFT", 0, -12)
+  save:SetPoint("TOPLEFT", alphaHint, "BOTTOMLEFT", 0, -12)
   save:SetScript("OnClick", function()
     local st = GetSettings()
     if st then
@@ -270,7 +325,7 @@ local function CreateOptionsPanel()
   end)
 
   -- Refresh values when panel is shown
-  panel:SetScript("OnShow", function()
+  outerPanel:SetScript("OnShow", function()
     local st = GetSettings() or {}
     wEdit:SetText(st.whisperTemplate or GetDefaultWhisper())
     pEdit:SetText(st.partyTemplate or GetDefaultParty())
@@ -281,12 +336,15 @@ local function CreateOptionsPanel()
     debugCB:SetChecked(st.debug == true)
     delaySlider:SetValue(st.bossKillReminderDelay or 10)
     delayValue:SetText(tostring(math.floor(delaySlider:GetValue())) .. "s")
+    local a = (st.summaryUnhoveredAlpha ~= nil) and st.summaryUnhoveredAlpha or 1.0
+    alphaSlider:SetValue(math.floor(a * 100 + 0.5))
+    alphaValue:SetText(tostring(math.floor(alphaSlider:GetValue())) .. "%")
     updateExample()
   end)
 
   -- Register with game settings
-  settingsCategory = LuckySettings:Register(panel, panel.name)
-  return panel
+  settingsCategory = LuckySettings:Register(outerPanel, outerPanel.name)
+  return outerPanel
 end
 
 function Options.Open()

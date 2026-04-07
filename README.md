@@ -59,8 +59,11 @@ Install from [CurseForge](https://www.curseforge.com/wow/addons/luckys-loot-wish
 
 Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishlist**.
 
+- Toggle the minimap button
 - Toggle the sticky summary window
+- Adjust summary window opacity when your mouse isn't hovering over it
 - Toggle raid roll reminder alerts
+- Configure the delay before spec reminders show after a boss kill
 - Enable debug mode for troubleshooting
 - Customise Whisper and Party message templates (`%item%`, `%looter%`)
 

@@ -2,6 +2,16 @@
 
 All notable changes to Loot Wishlist will be documented in this file.
 
+## [1.5.5] - 2026-04-07
+
+### Added
+- Minimap button toggle in the settings panel — show or hide the minimap button without reloading
+- Adjustable opacity for the summary window when your mouse isn't over it, so it can fade into the background
+- Spec reminder support for the three Midnight raids: The Voidspire, The Dreamrift, and March on Quel'Danas
+
+### Improved
+- Minimap button initialization is now more resilient to addon load order timing
+
 ## [1.5.4] - 2026-04-02
 
 ### Fixed
