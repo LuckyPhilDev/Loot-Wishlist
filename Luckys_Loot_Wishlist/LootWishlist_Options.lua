@@ -176,16 +176,39 @@ local function CreateOptionsPanel()
   summaryLabel:SetPoint("LEFT", summaryCB, "RIGHT", 8, 0)
   summaryLabel:SetText("Hide summary window")
 
+  -- Track higher difficulties checkbox
+  local higherDiffCB = LuckyUI.CreateCheckbox(panel, 16)
+  higherDiffCB:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -10)
+  higherDiffCB:SetChecked(s.addHigherDifficulties ~= false)
+  higherDiffCB:SetScript("OnClick", function(self)
+    local val = self:GetChecked() and true or false
+    if LootWishlistDB and LootWishlistDB.settings then
+      LootWishlistDB.settings.addHigherDifficulties = val
+    end
+  end)
+
+  local higherDiffLabel = panel:CreateFontString(nil, "OVERLAY")
+  higherDiffLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  higherDiffLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  higherDiffLabel:SetPoint("LEFT", higherDiffCB, "RIGHT", 8, 0)
+  higherDiffLabel:SetText("Also track higher difficulties when adding an item")
+
+  local higherDiffHint = panel:CreateFontString(nil, "OVERLAY")
+  higherDiffHint:SetFont(LuckyUI.BODY_FONT, 11)
+  higherDiffHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  higherDiffHint:SetPoint("TOPLEFT", higherDiffCB, "BOTTOMLEFT", 0, -2)
+  higherDiffHint:SetText("e.g. adding on Normal also adds Heroic and Mythic.")
+
   -- Open Wishlist button
   local openBtn = LuckyUI.CreateButton(panel, "Open Wishlist", 110, 22, "secondary")
-  openBtn:SetPoint("LEFT", summaryLabel, "RIGHT", 12, 0)
+  openBtn:SetPoint("LEFT", higherDiffLabel, "RIGHT", 12, 0)
   openBtn:SetScript("OnClick", function()
     if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
   end)
 
   -- Debug mode checkbox
   local debugCB = LuckyUI.CreateCheckbox(panel, 16)
-  debugCB:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -10)
+  debugCB:SetPoint("TOPLEFT", higherDiffHint, "BOTTOMLEFT", 0, -10)
   debugCB:SetChecked(s.debug == true)
   debugCB:SetScript("OnClick", function(self)
     local val = self:GetChecked() and true or false
@@ -301,6 +324,7 @@ local function CreateOptionsPanel()
       st.partyTemplate = (pText ~= "") and pText or GetDefaultParty()
       st.enableRaidRollAlert = rollCB:GetChecked() and true or false
       st.hideSummaryWindow = summaryCB:GetChecked() and true or false
+      st.addHigherDifficulties = higherDiffCB:GetChecked() and true or false
       if LootWishlist.SetDebug then LootWishlist.SetDebug(debugCB:GetChecked() and true or false) end
       updateExample()
       if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
@@ -333,6 +357,7 @@ local function CreateOptionsPanel()
     minimapCB:SetChecked(not ms.hide)
     rollCB:SetChecked(st.enableRaidRollAlert ~= false)
     summaryCB:SetChecked(st.hideSummaryWindow == true)
+    higherDiffCB:SetChecked(st.addHigherDifficulties ~= false)
     debugCB:SetChecked(st.debug == true)
     delaySlider:SetValue(st.bossKillReminderDelay or 10)
     delayValue:SetText(tostring(math.floor(delaySlider:GetValue())) .. "s")

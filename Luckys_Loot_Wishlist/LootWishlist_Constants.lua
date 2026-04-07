@@ -23,6 +23,23 @@ LootWishlist.Const = {
   ALERT_MIN_WIDTH_OTHER = 540,
   ALERT_HEIGHT_WITH_BUTTONS = 130,
 
+  -- Difficulty chains: ordered lowest → highest for raids and dungeons.
+  -- Used to determine which difficulties to add when "track higher" is enabled.
+  DIFFICULTY_CHAINS = {
+    raid    = {17, 14, 15, 16},  -- LFR, Normal, Heroic, Mythic
+    dungeon = {1, 2, 8},         -- Normal, Heroic, Mythic+
+  },
+  -- Canonical display names for difficulty IDs (used when auto-adding extra difficulties).
+  DIFFICULTY_NAMES = {
+    [1]  = "Normal",      -- dungeon
+    [2]  = "Heroic",      -- dungeon
+    [8]  = "Mythic+",     -- Mythic+
+    [14] = "Normal",      -- raid
+    [15] = "Heroic",      -- raid
+    [16] = "Mythic",      -- raid
+    [17] = "Raid Finder", -- LFR
+  },
+
   -- Raid layout graphs: maps EJ instanceID → { [encounterID] = { prereqs } }
   -- prereqs = {} means the boss is available from the start.
   -- prereqs = {id1, id2} means ALL listed bosses must be dead first.

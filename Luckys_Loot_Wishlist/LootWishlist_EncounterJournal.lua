@@ -174,7 +174,25 @@ local function AddTrackButtonToLootButton(lootButton)
       end
       local isRaid, bossName, instanceName, encounterID, instanceID, diffID, diffName = DetermineEJContext(lootButton)
       if idNow then
-        LootWishlist.AddTrackedItem(idNow, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, diffID, diffName)
+        local settings = LootWishlistDB and LootWishlistDB.settings
+        local addHigher = settings == nil or settings.addHigherDifficulties ~= false
+        local added = false
+        if addHigher and diffID then
+          local C = LootWishlist.Const
+          local chain = isRaid and C.DIFFICULTY_CHAINS.raid or C.DIFFICULTY_CHAINS.dungeon
+          local inChain = false
+          for _, cid in ipairs(chain) do
+            if cid == diffID then inChain = true end
+            if inChain then
+              local cname = C.DIFFICULTY_NAMES[cid] or diffName
+              LootWishlist.AddTrackedItem(idNow, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, cid, cname)
+              added = true
+            end
+          end
+        end
+        if not added then
+          LootWishlist.AddTrackedItem(idNow, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, diffID, diffName)
+        end
         if LootWishlist.IsDebug and LootWishlist.IsDebug() then print("Loot Wishlist: Tracked", idNow, isRaid and ("boss="..tostring(bossName)) or "") end
       else
         print("Loot Wishlist: Could not find item ID for this item")

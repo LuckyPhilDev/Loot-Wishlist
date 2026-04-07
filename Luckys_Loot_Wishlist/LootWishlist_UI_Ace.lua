@@ -128,13 +128,51 @@ local function groupItemsByInstance()
 end
 
 ------------------------------------------------------------------------
+-- Difficulty sort order (shared between mergeItemsByID and display)
+------------------------------------------------------------------------
+local DIFF_ORDER = { LFR=1, N=2, H=3, ["+"]=4, M=5 }
+
+------------------------------------------------------------------------
+-- mergeItemsByID: collapse same-itemID entries into one row with a
+-- sorted diffs array. Input is an ordered list of {key,id,info} items.
+------------------------------------------------------------------------
+local function mergeItemsByID(items)
+  local merged = {}
+  local byID   = {}
+  for _, it in ipairs(items) do
+    local id = it.id
+    if not byID[id] then
+      byID[id] = { id = id, info = it.info, diffs = {} }
+      table.insert(merged, byID[id])
+    end
+    local tag = diffTag(it.info.difficultyID, it.info.difficultyName)
+    table.insert(byID[id].diffs, { diffID = it.info.difficultyID, diffName = it.info.difficultyName, tag = tag })
+  end
+  for _, m in ipairs(merged) do
+    table.sort(m.diffs, function(a, b)
+      return (DIFF_ORDER[a.tag] or 99) < (DIFF_ORDER[b.tag] or 99)
+    end)
+  end
+  return merged
+end
+
+------------------------------------------------------------------------
 -- buildFlatRows
 ------------------------------------------------------------------------
 local function buildFlatRows()
   local rows = {}
+  local function uniqueItemCount(items)
+    local seen = {}
+    local n = 0
+    for _, it in ipairs(items) do
+      if not seen[it.id] then seen[it.id] = true; n = n + 1 end
+    end
+    return n
+  end
+
   for _, entry in ipairs(groupItemsByInstance()) do
     local g = entry.g
-    table.insert(rows, { type = "instance", name = entry.name, count = #g.items, isRaid = g.isRaid })
+    table.insert(rows, { type = "instance", name = entry.name, count = uniqueItemCount(g.items), isRaid = g.isRaid })
 
     if g.isRaid then
       local bossGroups = {}
@@ -162,13 +200,14 @@ local function buildFlatRows()
         return a.name < b.name
       end)
       for _, boss in ipairs(bossOrdered) do
-        table.insert(rows, { type = "boss", name = boss.name, count = #boss.items })
         table.sort(boss.items, function(a, b)
           if a.id ~= b.id then return a.id < b.id end
           return ((a.info and a.info.difficultyID) or 0) < ((b.info and b.info.difficultyID) or 0)
         end)
-        for _, it in ipairs(boss.items) do
-          table.insert(rows, { type = "item", key = it.key, id = it.id, info = it.info, indent = true })
+        local merged = mergeItemsByID(boss.items)
+        table.insert(rows, { type = "boss", name = boss.name, count = #merged })
+        for _, m in ipairs(merged) do
+          table.insert(rows, { type = "item", id = m.id, info = m.info, diffs = m.diffs, indent = true })
         end
       end
     else
@@ -178,8 +217,9 @@ local function buildFlatRows()
         if a.id ~= b.id then return a.id < b.id end
         return ((a.info and a.info.difficultyID) or 0) < ((b.info and b.info.difficultyID) or 0)
       end)
-      for _, it in ipairs(g.items) do
-        table.insert(rows, { type = "item", key = it.key, id = it.id, info = it.info, indent = false })
+      local merged = mergeItemsByID(g.items)
+      for _, m in ipairs(merged) do
+        table.insert(rows, { type = "item", id = m.id, info = m.info, diffs = m.diffs, indent = false })
       end
     end
   end
@@ -433,9 +473,16 @@ local function populatePoolFrame(f, row, rowIndex)
 
     -- Item label
     local link = info.link or ("item:" .. tostring(itemID))
-    local tag  = diffTag(info.difficultyID, info.difficultyName)
     local parts = { link }
-    if tag then table.insert(parts, string.format("|cff8a7e6a[%s]|r", tag)) end
+    if row.diffs and #row.diffs > 0 then
+      local tags = {}
+      for _, d in ipairs(row.diffs) do
+        if d.tag then table.insert(tags, d.tag) end
+      end
+      if #tags > 0 then
+        table.insert(parts, string.format("|cff8a7e6a[%s]|r", table.concat(tags, "\194\183")))
+      end
+    end
     local specText = buildSpecText(info)
     if specText then table.insert(parts, specText) end
     f.itemLabel:SetText(table.concat(parts, "  "))
@@ -453,9 +500,9 @@ local function populatePoolFrame(f, row, rowIndex)
       f.subLabel:Show()
     end
 
-    -- Remove button
-    local rowKey = row.key
-    f.removeBtn:SetScript("OnClick", function() LootWishlist.RemoveTrackedItem(rowKey) end)
+    -- Remove button — removes all difficulties for this item in one call
+    local itemIDForRemove = row.id
+    f.removeBtn:SetScript("OnClick", function() LootWishlist.RemoveTrackedItem(itemIDForRemove) end)
     f.removeBtn:Show()
   end
 end

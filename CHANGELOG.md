@@ -2,6 +2,15 @@
 
 All notable changes to Loot Wishlist will be documented in this file.
 
+## [1.6.0] - 2026-04-07
+
+### Added
+- When you add an item from Normal difficulty, Heroic and Mythic are automatically tracked too — so your wishlist stays complete without clicking each difficulty separately. Can be turned off in settings.
+
+### Improved
+- Items tracked across multiple difficulties now appear as a single row in your wishlist with combined difficulty tags (e.g. `[N·H·M]`), keeping the list clean and easy to scan
+- Settings panel is now scrollable, so all options are accessible regardless of screen size
+
 ## [1.5.5] - 2026-04-07
 
 ### Added
