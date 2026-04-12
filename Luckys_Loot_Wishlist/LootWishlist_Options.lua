@@ -17,6 +17,13 @@ local function GetSettings()
   return (LootWishlistDB and LootWishlistDB.settings) or (LootWishlistCharDB and LootWishlistCharDB.settings)
 end
 
+-- Wrap %variable% placeholders in color escapes for display
+local VARIABLE_COLOR = "4fc3f7" -- info blue
+local function ColorizeVariables(text)
+  if not text then return "" end
+  return text:gsub("(%%[%w_]+%%)", "|cff" .. VARIABLE_COLOR .. "%1|r")
+end
+
 local function CreateMultiLineEditBox(parent, label, width, height)
   local title = parent:CreateFontString(nil, "OVERLAY")
   title:SetFont(LuckyUI.TITLE_FONT, 14)
@@ -36,12 +43,43 @@ local function CreateMultiLineEditBox(parent, label, width, height)
   edit:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
   edit:SetPoint("TOPLEFT", 8, -6)
   edit:SetPoint("BOTTOMRIGHT", -8, 6)
+
+  -- Colored overlay — shows variables highlighted when not editing
+  local overlay = box:CreateFontString(nil, "OVERLAY")
+  overlay:SetFont(LuckyUI.BODY_FONT, 13, "")
+  overlay:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  overlay:SetPoint("TOPLEFT", edit, "TOPLEFT", 0, 0)
+  overlay:SetPoint("BOTTOMRIGHT", edit, "BOTTOMRIGHT", 0, 0)
+  overlay:SetJustifyH("LEFT")
+  overlay:SetJustifyV("TOP")
+
+  local function ShowOverlay()
+    overlay:SetText(ColorizeVariables(edit:GetText()))
+    overlay:Show()
+    edit:SetAlpha(0)
+  end
+
+  local function HideOverlay()
+    overlay:Hide()
+    edit:SetAlpha(1)
+  end
+
+  -- Start with overlay visible
+  ShowOverlay()
+
   edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   edit:SetScript("OnEditFocusGained", function()
     box:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3])
+    HideOverlay()
   end)
   edit:SetScript("OnEditFocusLost", function()
     box:SetBackdropBorderColor(C.borderDark[1], C.borderDark[2], C.borderDark[3])
+    ShowOverlay()
+  end)
+
+  -- Keep overlay in sync when text is set programmatically
+  hooksecurefunc(edit, "SetText", function()
+    if not edit:HasFocus() then ShowOverlay() end
   end)
 
   return title, box, edit
@@ -59,7 +97,7 @@ local function CreateOptionsPanel()
   panel = CreateFrame("Frame")
   panel:SetSize(600, 500)
   panel:Hide()
-  panel.name = "Loot Wishlist"
+  panel.name = "Lucky's Loot Wishlist"
 
   -- Scrollable content area so the settings work on smaller panels
   local scrollFrame = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
@@ -82,7 +120,7 @@ local function CreateOptionsPanel()
   title:SetFont(LuckyUI.TITLE_FONT, 16)
   title:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
   title:SetPoint("TOPLEFT", 16, -16)
-  title:SetText("Loot Wishlist")
+  title:SetText("Lucky's Loot Wishlist")
 
   -- Description
   local desc = panel:CreateFontString(nil, "OVERLAY")
