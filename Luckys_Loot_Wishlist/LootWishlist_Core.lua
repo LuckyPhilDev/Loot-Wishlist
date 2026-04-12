@@ -109,6 +109,7 @@ local function InitializeDB()
   if acctS.bossKillReminderDelay == nil then acctS.bossKillReminderDelay = 10 end
   if acctS.summaryUnhoveredAlpha == nil then acctS.summaryUnhoveredAlpha = 1.0 end
   if acctS.addHigherDifficulties == nil then acctS.addHigherDifficulties = true end
+  if acctS.enableVaultOverlay == nil then acctS.enableVaultOverlay = true end
 
   -- Restore window position is handled by Ace frame status table
 

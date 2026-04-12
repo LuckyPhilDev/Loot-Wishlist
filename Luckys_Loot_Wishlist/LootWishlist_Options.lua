@@ -237,6 +237,23 @@ local function CreateOptionsPanel()
   higherDiffHint:SetPoint("TOPLEFT", higherDiffCB, "BOTTOMLEFT", 0, -2)
   higherDiffHint:SetText("e.g. adding on Normal also adds Heroic and Mythic.")
 
+  -- Great Vault overlay checkbox
+  local vaultCB = LuckyUI.CreateCheckbox(panel, 16)
+  vaultCB:SetPoint("TOPLEFT", higherDiffHint, "BOTTOMLEFT", 0, -10)
+  vaultCB:SetChecked(s.enableVaultOverlay ~= false)
+  vaultCB:SetScript("OnClick", function(self)
+    local val = self:GetChecked() and true or false
+    if LootWishlistDB and LootWishlistDB.settings then
+      LootWishlistDB.settings.enableVaultOverlay = val
+    end
+  end)
+
+  local vaultLabel = panel:CreateFontString(nil, "OVERLAY")
+  vaultLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  vaultLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  vaultLabel:SetPoint("LEFT", vaultCB, "RIGHT", 8, 0)
+  vaultLabel:SetText("Highlight wishlist items in the Great Vault")
+
   -- Open Wishlist button
   local openBtn = LuckyUI.CreateButton(panel, "Open Wishlist", 110, 22, "secondary")
   openBtn:SetPoint("LEFT", higherDiffLabel, "RIGHT", 12, 0)
@@ -246,7 +263,7 @@ local function CreateOptionsPanel()
 
   -- Debug mode checkbox
   local debugCB = LuckyUI.CreateCheckbox(panel, 16)
-  debugCB:SetPoint("TOPLEFT", higherDiffHint, "BOTTOMLEFT", 0, -10)
+  debugCB:SetPoint("TOPLEFT", vaultCB, "BOTTOMLEFT", 0, -10)
   debugCB:SetChecked(s.debug == true)
   debugCB:SetScript("OnClick", function(self)
     local val = self:GetChecked() and true or false
@@ -363,6 +380,7 @@ local function CreateOptionsPanel()
       st.enableRaidRollAlert = rollCB:GetChecked() and true or false
       st.hideSummaryWindow = summaryCB:GetChecked() and true or false
       st.addHigherDifficulties = higherDiffCB:GetChecked() and true or false
+      st.enableVaultOverlay = vaultCB:GetChecked() and true or false
       if LootWishlist.SetDebug then LootWishlist.SetDebug(debugCB:GetChecked() and true or false) end
       updateExample()
       if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
@@ -396,6 +414,7 @@ local function CreateOptionsPanel()
     rollCB:SetChecked(st.enableRaidRollAlert ~= false)
     summaryCB:SetChecked(st.hideSummaryWindow == true)
     higherDiffCB:SetChecked(st.addHigherDifficulties ~= false)
+    vaultCB:SetChecked(st.enableVaultOverlay ~= false)
     debugCB:SetChecked(st.debug == true)
     delaySlider:SetValue(st.bossKillReminderDelay or 10)
     delayValue:SetText(tostring(math.floor(delaySlider:GetValue())) .. "s")
