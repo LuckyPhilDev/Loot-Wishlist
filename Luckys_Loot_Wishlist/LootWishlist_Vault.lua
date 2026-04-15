@@ -1,18 +1,104 @@
 -- Loot Wishlist - Great Vault Awareness
 -- Overlays wishlist badges on Great Vault reward choices.
 
+print("|cffffd100[LWL-Vault]|r file loaded")
+
 LootWishlist = LootWishlist or {}
 LootWishlist.Vault = LootWishlist.Vault or {}
 
 local Vault = LootWishlist.Vault
-local UI = LuckyUI
-local C  = UI.C
-
-local DevLog = LuckyLog:New("[Lwl-Vault][debug]", function()
-  return LootWishlist.DEBUG and LootWishlist.DEBUG()
-end)
-
 local hooked = false
+
+-- Register Diagnose EARLY so it survives any later load-time errors.
+function Vault.Diagnose()
+  local function p(...) print("|cffffd100[LWL-Vault]|r", ...) end
+  local vaultFrame = _G["WeeklyRewardsFrame"]
+  if not vaultFrame then
+    p("WeeklyRewardsFrame not loaded. Open the vault first.")
+    return
+  end
+  p("vaultFrame shown:", tostring(vaultFrame:IsShown()), "hooked:", tostring(hooked))
+
+  local activities = C_WeeklyRewards and C_WeeklyRewards.GetActivities()
+  p("GetActivities count:", activities and #activities or "nil")
+  if activities then
+    for i, a in ipairs(activities) do
+      p(string.format("  act[%d] id=%s type=%s index=%s threshold=%s progress=%s rewards=%d",
+        i, tostring(a.id), tostring(a.type), tostring(a.index),
+        tostring(a.threshold), tostring(a.progress), a.rewards and #a.rewards or 0))
+    end
+  end
+
+  p("vaultFrame.Activities type:", type(vaultFrame.Activities),
+    "count:", type(vaultFrame.Activities) == "table" and #vaultFrame.Activities or "n/a")
+
+  local children = {vaultFrame:GetChildren()}
+  p("direct children:", #children)
+  for i, c in ipairs(children) do
+    local name = c.GetName and c:GetName() or "unnamed"
+    local hasInfo = c.info ~= nil
+    local hasItemFrame = c.ItemFrame ~= nil
+    if hasInfo or hasItemFrame then
+      p(string.format("  child[%d] %s info=%s itemFrame=%s",
+        i, tostring(name), tostring(hasInfo), tostring(hasItemFrame)))
+    end
+  end
+
+  local sample
+  if type(vaultFrame.Activities) == "table" and vaultFrame.Activities[1] then
+    sample = vaultFrame.Activities[1]
+  else
+    for _, c in ipairs(children) do if c.ItemFrame then sample = c; break end end
+  end
+  if sample then
+    local f = sample.ItemFrame
+    p("sample activity: info=", tostring(sample.info ~= nil))
+    if f then
+      p(string.format("  ItemFrame fields: displayedItemDBID=%s displayedItemLink=%s displayedItemID=%s",
+        tostring(f.displayedItemDBID), tostring(f.displayedItemLink), tostring(f.displayedItemID)))
+    end
+  end
+
+  -- Sample each activity frame's ItemFrame to see which fields are populated
+  if type(vaultFrame.Activities) == "table" then
+    for i, af in ipairs(vaultFrame.Activities) do
+      local f = af.ItemFrame
+      if f then
+        p(string.format("  Activities[%d].ItemFrame: dbid=%s link=%s id=%s",
+          i, tostring(f.displayedItemDBID), tostring(f.displayedItemLink), tostring(f.displayedItemID)))
+      end
+    end
+  end
+
+  -- Force a scan
+  if Vault.Hook then Vault.Hook() end
+  if Vault.Scan then
+    p("running scan...")
+    Vault.Scan()
+  end
+
+  -- Show tracked wishlist item IDs for comparison
+  if LootWishlist.GetTracked then
+    local tracked = LootWishlist.GetTracked() or {}
+    local ids = {}
+    for _, v in pairs(tracked) do
+      if type(v) == "table" and v.id then table.insert(ids, tostring(v.id)) end
+    end
+    p("tracked item IDs (" .. #ids .. "):", table.concat(ids, ", "))
+  end
+end
+
+local UI = LuckyUI
+local C  = UI and UI.C
+
+local DevLog
+if LuckyLog and LuckyLog.New then
+  DevLog = LuckyLog:New("[Lwl-Vault][debug]", function()
+    return LootWishlist.DEBUG and LootWishlist.DEBUG()
+  end)
+else
+  DevLog = function() end
+end
 
 -- Difficulty tag helpers (mirrors Summary.lua logic) --------------------------
 
@@ -62,7 +148,7 @@ local function ensureBadge(parent)
   if parent.LootWishlistVaultBadge then return parent.LootWishlistVaultBadge end
 
   local badge = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-  badge:SetSize(22, 22)
+  badge:SetSize(32, 32)
   badge:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -2, -2)
   badge:SetFrameStrata("FULLSCREEN_DIALOG")
   badge:SetFrameLevel((parent:GetFrameLevel() or 5) + 10)
@@ -70,11 +156,10 @@ local function ensureBadge(parent)
   badge:SetBackdropColor(C.bgDark[1], C.bgDark[2], C.bgDark[3], 0.92)
   badge:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 1)
 
-  local text = badge:CreateFontString(nil, "OVERLAY")
-  text:SetFont(UI.BODY_FONT, 10, "OUTLINE")
-  text:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
-  text:SetPoint("CENTER", 0, 0)
-  text:SetText("WL")
+  local star = badge:CreateTexture(nil, "OVERLAY")
+  star:SetTexture("Interface\\COMMON\\FavoritesIcon")
+  star:SetSize(32, 32)
+  star:SetPoint("CENTER", 0, 0)
 
   badge:Hide()
   parent.LootWishlistVaultBadge = badge
@@ -83,15 +168,21 @@ end
 
 -- Tooltip enhancement ---------------------------------------------------------
 
-local function onRewardEnter(frame)
-  local badge = frame.LootWishlistVaultBadge
-  if not badge or not badge:IsShown() then return end
-  local matches = badge.wishlistMatches
-  if not matches or #matches == 0 then return end
+-- Walk up an owner chain looking for an activity frame that carries our badge.
+local function findBadgeOwner(frame)
+  local f = frame
+  local hops = 0
+  while f and hops < 6 do
+    if f.LootWishlistVaultBadge then return f end
+    f = f.GetParent and f:GetParent() or nil
+    hops = hops + 1
+  end
+  return nil
+end
 
-  GameTooltip:AddLine(" ")
-  GameTooltip:AddLine("On your Wishlist:", C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
-  -- Group matches by dungeon/boss
+local function appendWishlistLines(tooltip, matches)
+  tooltip:AddLine(" ")
+  tooltip:AddLine("On your Wishlist:", C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
   local seen = {}
   for _, m in ipairs(matches) do
     local boss = m.boss or "Unknown"
@@ -105,10 +196,29 @@ local function onRewardEnter(frame)
   end
   for _, info in pairs(seen) do
     local tagStr = next(info.diffs) and (" [" .. joinTags(info.diffs) .. "]") or ""
-    GameTooltip:AddLine("  " .. info.boss .. " - " .. info.dungeon .. tagStr,
+    tooltip:AddLine("  " .. info.boss .. " - " .. info.dungeon .. tagStr,
       C.textLight[1], C.textLight[2], C.textLight[3])
   end
-  GameTooltip:Show()
+  tooltip:Show()
+end
+
+-- Modern tooltip hook: post-call runs after Blizzard has populated the tooltip.
+if TooltipDataProcessor and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
+  TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip)
+    if tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip
+       and tooltip ~= EmbeddedItemTooltip and tooltip ~= GameTooltip.ItemTooltip then
+      return
+    end
+    local owner = tooltip.GetOwner and tooltip:GetOwner()
+    if not owner then return end
+    local activity = findBadgeOwner(owner)
+    if not activity then return end
+    local badge = activity.LootWishlistVaultBadge
+    if not badge or not badge:IsShown() then return end
+    local matches = badge.wishlistMatches
+    if not matches or #matches == 0 then return end
+    appendWishlistLines(tooltip, matches)
+  end)
 end
 
 -- Scan and annotate vault items -----------------------------------------------
@@ -128,44 +238,82 @@ local function scanAndAnnotate()
 
   DevLog("scanAndAnnotate: scanning vault choices")
 
-  -- The Blizzard vault frame uses Activities which contain ItemFrame children.
-  -- Each activity has .ItemFrame with .displayedItemDBID or we can get links
-  -- via C_WeeklyRewards.GetExampleRewardItemHyperlinks.
   local activities = C_WeeklyRewards and C_WeeklyRewards.GetActivities()
   if not activities then return end
 
-  -- Build a map of activityID → item frames from the vault UI
-  -- Iterate child frames to find reward elements
+  -- Collect activity frames. Blizzard stores them in WeeklyRewardsFrame.Activities
+  -- (a plain Lua table) and also as direct children of the vault frame. Prefer the
+  -- table since children include many non-activity frames (headers, close button,
+  -- overlay, etc.) and mixin field names have shifted across patches.
+  local activityFrames = {}
+  if type(vaultFrame.Activities) == "table" then
+    for _, f in ipairs(vaultFrame.Activities) do
+      table.insert(activityFrames, f)
+    end
+  end
+  if #activityFrames == 0 then
+    for _, child in pairs({vaultFrame:GetChildren()}) do
+      if child.info or child.ItemFrame then
+        table.insert(activityFrames, child)
+      end
+    end
+  end
+
+  DevLog("scanAndAnnotate: found", #activityFrames, "activity frames,", #activities, "activities")
+
+  -- Build activityID → frame map. Match on info.id, falling back to (type,index) pair.
   local rewardElements = {}
-  for _, child in pairs({vaultFrame:GetChildren()}) do
-    -- Blizzard WeeklyRewardActivity frames have .info with .id
-    if child.info and child.info.id then
-      rewardElements[child.info.id] = child
+  for _, frame in ipairs(activityFrames) do
+    local info = frame.info or frame.activityInfo
+    if info then
+      if info.id then
+        rewardElements[info.id] = frame
+      end
+      if info.type and info.index then
+        rewardElements[info.type .. ":" .. info.index] = frame
+      end
     end
   end
 
   for _, activity in ipairs(activities) do
     local element = rewardElements[activity.id]
+      or (activity.type and activity.index and rewardElements[activity.type .. ":" .. activity.index])
     if element then
       local badge = ensureBadge(element)
       badge.wishlistMatches = nil
       badge:Hide()
 
-      -- Try to get the item from the element's displayed item
+      -- Try to get the item from the element's displayed item.
+      -- Note: displayedItemDBID is a weekly-reward DB row id, NOT an itemID.
+      -- Convert via C_WeeklyRewards.GetItemHyperlink, or use displayedItemLink directly.
       local itemID
       local itemFrame = element.ItemFrame
       if itemFrame then
-        -- Try common fields
-        itemID = itemFrame.displayedItemDBID or itemFrame.itemID
-        if not itemID and itemFrame.hyperlink then
-          itemID = extractItemID(itemFrame.hyperlink)
+        if itemFrame.displayedItemLink then
+          itemID = extractItemID(itemFrame.displayedItemLink)
         end
-        if not itemID and itemFrame.itemLink then
-          itemID = extractItemID(itemFrame.itemLink)
+        if not itemID and itemFrame.displayedItemDBID and C_WeeklyRewards.GetItemHyperlink then
+          local ok, link = pcall(C_WeeklyRewards.GetItemHyperlink, itemFrame.displayedItemDBID)
+          if ok and link then
+            itemID = extractItemID(link)
+          end
         end
       end
 
-      -- Fallback: try the API
+      -- Fallback: convert rewards from the activity info itself
+      if not itemID and activity.rewards and C_WeeklyRewards.GetItemHyperlink then
+        for _, reward in ipairs(activity.rewards) do
+          if reward.id or reward.itemDBID then
+            local ok, link = pcall(C_WeeklyRewards.GetItemHyperlink, reward.id or reward.itemDBID)
+            if ok and link then
+              local id = extractItemID(link)
+              if id then itemID = id; break end
+            end
+          end
+        end
+      end
+
+      -- Last resort: example hyperlinks API
       if not itemID and C_WeeklyRewards.GetExampleRewardItemHyperlinks then
         local ok, link = pcall(C_WeeklyRewards.GetExampleRewardItemHyperlinks, activity.id)
         if ok and link then
@@ -200,21 +348,7 @@ local function hookVaultUI()
     C_Timer.After(0.1, scanAndAnnotate)
   end)
 
-  -- Hook tooltip enhancement on activity frames
-  for _, child in pairs({vaultFrame:GetChildren()}) do
-    if child.info and child.ItemFrame then
-      local itemFrame = child.ItemFrame
-      if itemFrame:GetScript("OnEnter") then
-        itemFrame:HookScript("OnEnter", function() onRewardEnter(child) end)
-      else
-        itemFrame:SetScript("OnEnter", function(self)
-          -- Preserve default tooltip behavior by calling parent's tooltip if needed
-          if self.UpdateTooltip then self:UpdateTooltip() end
-          onRewardEnter(child)
-        end)
-      end
-    end
-  end
+  -- Tooltip enhancement is handled globally by TooltipDataProcessor above.
 
   -- Initial scan if already visible
   if vaultFrame:IsShown() then
@@ -222,13 +356,23 @@ local function hookVaultUI()
   end
 end
 
+-- Expose early so even if event registration errors, slash command can trigger.
+Vault.Scan = scanAndAnnotate
+Vault.Hook = hookVaultUI
+
 -- Events ----------------------------------------------------------------------
 
 local eventFrame = CreateFrame("Frame")
-eventFrame:RegisterEvent("ADDON_LOADED")
-eventFrame:RegisterEvent("WEEKLY_REWARDS_SHOW")
-eventFrame:RegisterEvent("WEEKLY_REWARDS_UPDATE")
-eventFrame:RegisterEvent("WEEKLY_REWARDS_ITEM_CHANGED")
+local function safeRegister(name)
+  local ok, err = pcall(eventFrame.RegisterEvent, eventFrame, name)
+  if not ok then
+    print("|cffff6b6b[LWL-Vault]|r RegisterEvent failed for " .. tostring(name) .. ": " .. tostring(err))
+  end
+end
+safeRegister("ADDON_LOADED")
+safeRegister("WEEKLY_REWARDS_SHOW")
+safeRegister("WEEKLY_REWARDS_UPDATE")
+safeRegister("WEEKLY_REWARDS_ITEM_CHANGED")
 eventFrame:SetScript("OnEvent", function(_, event, ...)
   if event == "ADDON_LOADED" then
     local addonName = ...
@@ -252,5 +396,19 @@ loginFrame:SetScript("OnEvent", function()
   local isLoaded = C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Blizzard_WeeklyRewards")
   if isLoaded then
     hookVaultUI()
+    if _G["WeeklyRewardsFrame"] and _G["WeeklyRewardsFrame"]:IsShown() then
+      C_Timer.After(0.1, scanAndAnnotate)
+    end
   end
 end)
+
+-- If the vault was already open across a /reload, ADDON_LOADED / WEEKLY_REWARDS_SHOW
+-- already fired. Hook and scan immediately at file-load time to recover.
+if C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Blizzard_WeeklyRewards")
+   and _G["WeeklyRewardsFrame"] then
+  hookVaultUI()
+  if _G["WeeklyRewardsFrame"]:IsShown() then
+    C_Timer.After(0.1, scanAndAnnotate)
+  end
+end
+

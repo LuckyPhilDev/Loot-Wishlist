@@ -494,6 +494,12 @@ SlashCmdList.WISHLIST = function(msg)
     else
       print("/wishlist testdrop-other <itemID|itemLink> [looterName]")
     end
+  elseif msg == "vault" or msg == "vaultinfo" then
+    if LootWishlist.Vault and LootWishlist.Vault.Diagnose then
+      LootWishlist.Vault.Diagnose()
+    else
+      print("Loot Wishlist: vault module not loaded.")
+    end
   elseif msg == "raidinfo" then
     local P = "|cffC9A84CLoot Wishlist|r: "
     -- Combat status
