@@ -1,8 +1,6 @@
 -- Loot Wishlist - Great Vault Awareness
 -- Overlays wishlist badges on Great Vault reward choices.
 
-print("|cffffd100[LWL-Vault]|r file loaded")
-
 LootWishlist = LootWishlist or {}
 LootWishlist.Vault = LootWishlist.Vault or {}
 

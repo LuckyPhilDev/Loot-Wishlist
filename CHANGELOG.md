@@ -2,6 +2,15 @@
 
 All notable changes to Loot Wishlist will be documented in this file.
 
+## [1.7.0] - 2026-04-15
+
+### Added
+- **Great Vault highlights** — a gold star now appears on every Great Vault reward slot that drops an item from your wishlist, so you can see at a glance which choice matters most
+- Hovering a highlighted vault slot shows which boss and dungeon the item comes from, grouped by difficulty
+
+### Fixed
+- Vault highlights now work correctly on Midnight — previously the matching always failed because the vault's internal item reference format changed
+
 ## [1.6.0] - 2026-04-07
 
 ### Added
