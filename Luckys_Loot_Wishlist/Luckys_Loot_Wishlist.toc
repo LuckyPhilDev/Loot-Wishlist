@@ -1,7 +1,7 @@
 ## Interface: 120001
 ## Title: Lucky's Loot Wishlist
 ## Notes: Track loot from the Adventure Guide and manage a per-character wishlist.
-## Version: 1.7.1
+## Version: 1.8.0
 ## Dependencies: Luckys_Utils
 ## SavedVariablesPerCharacter: LootWishlistCharDB
 ## SavedVariables: LootWishlistDB, RemindMeDB, RemindMeCharDB
@@ -16,3 +16,4 @@ LootWishlist_EncounterJournal.lua
 LootWishlist_Summary.lua
 LootWishlist_Vault.lua
 LootWishlist_Alerts.lua
+LootWishlist_BonusRoll.lua

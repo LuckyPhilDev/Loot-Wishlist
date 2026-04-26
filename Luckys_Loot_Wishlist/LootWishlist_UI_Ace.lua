@@ -317,7 +317,7 @@ local function createPoolFrame(parent)
   f.itemLabel:SetFont(UI.BODY_FONT, 12)
   f.itemLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
   f.itemLabel:SetPoint("TOPLEFT", f.icon, "TOPRIGHT", 6, -2)
-  f.itemLabel:SetPoint("RIGHT",   -30, 0)
+  f.itemLabel:SetPoint("RIGHT",   -64, 0)
   f.itemLabel:SetJustifyH("LEFT")
   f.itemLabel:SetWordWrap(false)
   f.itemLabel:Hide()
@@ -327,7 +327,7 @@ local function createPoolFrame(parent)
   f.subLabel:SetFont(UI.BODY_FONT, 10)
   f.subLabel:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
   f.subLabel:SetPoint("BOTTOMLEFT", f.icon, "BOTTOMRIGHT", 6, 3)
-  f.subLabel:SetPoint("RIGHT",      -30, 0)
+  f.subLabel:SetPoint("RIGHT",      -64, 0)
   f.subLabel:SetJustifyH("LEFT")
   f.subLabel:SetWordWrap(false)
   f.subLabel:Hide()
@@ -335,6 +335,20 @@ local function createPoolFrame(parent)
   -- Remove button (matches Character Mount list style: 24×22 secondary)
   f.removeBtn = UI.CreateButton(f, "\195\151", 24, 22, "secondary")
   f.removeBtn:SetPoint("RIGHT", -4, 0)
+
+  -- Bonus roll toggle button (left of remove)
+  f.bonusRollBtn = UI.CreateButton(f, "BR", 28, 22, "secondary")
+  f.bonusRollBtn:SetPoint("RIGHT", f.removeBtn, "LEFT", -4, 0)
+  f.bonusRollBtn.label:SetFont(UI.BODY_FONT, 10)
+  f.bonusRollBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText("Mark as bonus roll target", 1, 1, 1)
+    GameTooltip:AddLine("Reminds you to spend a Nebulous Voidcore charge", 0.8, 0.8, 0.8, true)
+    GameTooltip:AddLine("after a M+ 10+ run or Heroic/Mythic raid boss kill.", 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  f.bonusRollBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  f.bonusRollBtn:Hide()
   f.removeBtn.label:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 0.6)
   f.removeBtn:SetScript("OnEnter", function(self)
     self.label:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 1)
@@ -382,6 +396,10 @@ local function populatePoolFrame(f, row, rowIndex)
   f.subLabel:Hide()
   f.removeBtn:Hide()
   f.removeBtn:SetScript("OnClick", nil)
+  if f.bonusRollBtn then
+    f.bonusRollBtn:Hide()
+    f.bonusRollBtn:SetScript("OnClick", nil)
+  end
   f.itemLink = nil
   f.rowType  = row.type
   f._bgR, f._bgG, f._bgB, f._bgA = nil, nil, nil, nil
@@ -504,6 +522,25 @@ local function populatePoolFrame(f, row, rowIndex)
     local itemIDForRemove = row.id
     f.removeBtn:SetScript("OnClick", function() LootWishlist.RemoveTrackedItem(itemIDForRemove) end)
     f.removeBtn:Show()
+
+    -- Bonus roll toggle button
+    if f.bonusRollBtn and LootWishlist.BonusRoll then
+      local idForBR = row.id
+      local function paint()
+        local on = LootWishlist.BonusRoll.IsFlagged(idForBR)
+        if on then
+          f.bonusRollBtn.label:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3], 1)
+        else
+          f.bonusRollBtn.label:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3], 1)
+        end
+      end
+      paint()
+      f.bonusRollBtn:SetScript("OnClick", function()
+        LootWishlist.BonusRoll.Toggle(idForBR)
+        paint()
+      end)
+      f.bonusRollBtn:Show()
+    end
   end
 end
 

@@ -202,11 +202,92 @@ local function AddTrackButtonToLootButton(lootButton)
     lootButton.LootWishlistTrackButton = btn
   end
 
+  -- Bonus roll toggle button (left of the Wishlist button)
+  local brBtn = lootButton.LootWishlistBonusRollButton
+  if not brBtn then
+    local UI = LuckyUI
+    local Cl = UI.C
+    brBtn = CreateFrame("Button", nil, lootButton, "BackdropTemplate")
+    brBtn:SetSize(28, 20)
+    brBtn:SetPoint("RIGHT", btn, "LEFT", -4, 0)
+    brBtn:SetFrameLevel(lootButton:GetFrameLevel() + 5)
+    brBtn:SetFrameStrata("HIGH")
+    brBtn:SetBackdrop(UI.Backdrop)
+
+    local brLbl = brBtn:CreateFontString(nil, "OVERLAY")
+    brLbl:SetFont(UI.BODY_FONT, 10)
+    brLbl:SetPoint("CENTER")
+    brLbl:SetText("BR")
+    brBtn.label = brLbl
+
+    local function applyState()
+      local id = ExtractItemID(lootButton)
+      local on = id and LootWishlist.BonusRoll and LootWishlist.BonusRoll.IsFlagged(id)
+      if on then
+        brBtn:SetBackdropColor(Cl.goldAccent[1], Cl.goldAccent[2], Cl.goldAccent[3], 0.6)
+        brBtn:SetBackdropBorderColor(Cl.goldPrimary[1], Cl.goldPrimary[2], Cl.goldPrimary[3])
+        brLbl:SetTextColor(Cl.bgDark[1], Cl.bgDark[2], Cl.bgDark[3])
+      else
+        brBtn:SetBackdropColor(Cl.bgDark[1], Cl.bgDark[2], Cl.bgDark[3], 0.9)
+        brBtn:SetBackdropBorderColor(Cl.goldMuted[1], Cl.goldMuted[2], Cl.goldMuted[3])
+        brLbl:SetTextColor(Cl.goldAccent[1], Cl.goldAccent[2], Cl.goldAccent[3])
+      end
+    end
+    brBtn.applyState = applyState
+
+    brBtn:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText("Mark as bonus roll target", 1, 1, 1)
+      GameTooltip:AddLine("Reminds you to spend a Nebulous Voidcore charge", 0.8, 0.8, 0.8, true)
+      GameTooltip:AddLine("after running this dungeon (M+ 10+) or killing", 0.8, 0.8, 0.8, true)
+      GameTooltip:AddLine("this raid boss (Heroic / Mythic).", 0.8, 0.8, 0.8, true)
+      GameTooltip:Show()
+    end)
+    brBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    brBtn:SetScript("OnClick", function()
+      local idNow = ExtractItemID(lootButton)
+      if not idNow then return end
+      if not LootWishlist.BonusRoll then return end
+      local nowOn = not LootWishlist.BonusRoll.IsFlagged(idNow)
+
+      -- If turning on and the item isn't yet tracked, track it first
+      if nowOn then
+        local tracked = false
+        if LootWishlist.GetTracked then
+          for _, e in pairs(LootWishlist.GetTracked()) do
+            if type(e) == "table" and e.id == idNow then tracked = true; break end
+          end
+        end
+        if not tracked then
+          local itemLink = lootButton.link or lootButton.itemLink
+          if not itemLink and type(lootButton.index) == "number" then
+            local EJ_GetLootInfoByIndex = _G["EJ_GetLootInfoByIndex"]
+            if type(EJ_GetLootInfoByIndex) == "function" then
+              local ok, _, _, _, _, _, link = pcall(EJ_GetLootInfoByIndex, lootButton.index, EncounterJournal and EncounterJournal.encounterID)
+              if ok then itemLink = link end
+            end
+          end
+          local isRaid, bossName, instanceName, encounterID, instanceID, diffID, diffName = DetermineEJContext(lootButton)
+          LootWishlist.AddTrackedItem(idNow, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, diffID, diffName)
+        end
+      end
+
+      LootWishlist.BonusRoll.SetFlagged(idNow, nowOn)
+      applyState()
+    end)
+
+    lootButton.LootWishlistBonusRollButton = brBtn
+  end
+
   -- Show only for item rows; hide for headers like 'Bonus Loot'
   if itemID then
     btn:Show()
+    brBtn:Show()
+    if brBtn.applyState then brBtn.applyState() end
   else
     btn:Hide()
+    brBtn:Hide()
   end
 end
 

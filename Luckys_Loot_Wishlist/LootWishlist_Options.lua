@@ -261,9 +261,49 @@ local function CreateOptionsPanel()
     if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
   end)
 
+  -- Bonus roll reminder checkbox
+  local bonusRollCB = LuckyUI.CreateCheckbox(panel, 16)
+  bonusRollCB:SetPoint("TOPLEFT", vaultCB, "BOTTOMLEFT", 0, -10)
+  bonusRollCB:SetChecked(s.enableBonusRollReminders ~= false)
+  bonusRollCB:SetScript("OnClick", function(self)
+    local val = self:GetChecked() and true or false
+    if LootWishlistDB and LootWishlistDB.settings then
+      LootWishlistDB.settings.enableBonusRollReminders = val
+    end
+  end)
+
+  local bonusRollLabel = panel:CreateFontString(nil, "OVERLAY")
+  bonusRollLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  bonusRollLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  bonusRollLabel:SetPoint("LEFT", bonusRollCB, "RIGHT", 8, 0)
+  bonusRollLabel:SetText("Bonus roll reminders (Nebulous Voidcore)")
+
+  local bonusRollHint = panel:CreateFontString(nil, "OVERLAY")
+  bonusRollHint:SetFont(LuckyUI.BODY_FONT, 11)
+  bonusRollHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  bonusRollHint:SetPoint("TOPLEFT", bonusRollCB, "BOTTOMLEFT", 0, -2)
+  bonusRollHint:SetText("Popup after a M+ 10+ run or H/M raid boss kill if a flagged item drops here.")
+
+  -- Bonus roll sound checkbox
+  local bonusSoundCB = LuckyUI.CreateCheckbox(panel, 16)
+  bonusSoundCB:SetPoint("TOPLEFT", bonusRollHint, "BOTTOMLEFT", 0, -8)
+  bonusSoundCB:SetChecked(s.bonusRollSound ~= false)
+  bonusSoundCB:SetScript("OnClick", function(self)
+    local val = self:GetChecked() and true or false
+    if LootWishlistDB and LootWishlistDB.settings then
+      LootWishlistDB.settings.bonusRollSound = val
+    end
+  end)
+
+  local bonusSoundLabel = panel:CreateFontString(nil, "OVERLAY")
+  bonusSoundLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  bonusSoundLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  bonusSoundLabel:SetPoint("LEFT", bonusSoundCB, "RIGHT", 8, 0)
+  bonusSoundLabel:SetText("Play sound on bonus roll reminder")
+
   -- Debug mode checkbox
   local debugCB = LuckyUI.CreateCheckbox(panel, 16)
-  debugCB:SetPoint("TOPLEFT", vaultCB, "BOTTOMLEFT", 0, -10)
+  debugCB:SetPoint("TOPLEFT", bonusSoundCB, "BOTTOMLEFT", 0, -10)
   debugCB:SetChecked(s.debug == true)
   debugCB:SetScript("OnClick", function(self)
     local val = self:GetChecked() and true or false

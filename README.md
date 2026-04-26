@@ -25,6 +25,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 - **Sticky summary window** — a compact, draggable overview of dungeons and raid bosses with remaining wishlist items; click to open the full list; position is remembered between sessions
 - **Custom message templates** — configure Whisper and Party messages with `%item%` and `%looter%` placeholders
 - **Multiple difficulty support** — track items across Normal, Heroic, Mythic, and LFR
+- **Bonus roll targets** — mark any wishlist item as a bonus roll chase with the "BR" button in the Encounter Journal or on a wishlist row; a popup reminds you to spend Nebulous Voidcore charges after a Mythic+ 10+ run or a Heroic/Mythic raid boss kill when a flagged item could drop
 
 ## Installation
 
@@ -67,6 +68,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Toggle automatic multi-difficulty tracking (on by default)
 - Toggle Great Vault highlights (on by default)
 - Toggle raid roll reminder alerts
+- Toggle bonus roll reminders and their sound
 - Configure the delay before spec reminders show after a boss kill
 - Enable debug mode for troubleshooting
 - Customise Whisper and Party message templates (`%item%`, `%looter%`)
