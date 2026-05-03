@@ -1,3 +1,5 @@
+[Join the Discord](https://discord.gg/87HRHcAYP)
+
 # Lucky's Loot Wishlist
 
 Track loot from the Adventure Guide and manage a per-character wishlist with spec-aware alerts.
