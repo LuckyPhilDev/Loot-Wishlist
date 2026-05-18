@@ -207,10 +207,21 @@ local function buildSummaryLines()
   return lines
 end
 
+local function shouldAutoHide()
+  local settings = LootWishlistDB and LootWishlistDB.settings
+  if not settings or settings.hideSummaryInCombatAndMythicPlus == false then return false end
+  if InCombatLockdown() then return true end
+  if C_ChallengeMode and C_ChallengeMode.IsChallengeModeActive and C_ChallengeMode.IsChallengeModeActive() then
+    return true
+  end
+  return false
+end
+
 local function refresh()
   local f = ensureFrame()
   local settings = LootWishlistDB and LootWishlistDB.settings
   if settings and settings.hideSummaryWindow then f:Hide(); return end
+  if shouldAutoHide() then f:Hide(); return end
   local lines = buildSummaryLines()
   if not next(lines) then f:Hide(); return end
   local content = table.concat(lines, "\n")
@@ -236,3 +247,13 @@ Summary.refresh = refresh
 function Summary.showIfNeeded()
   refresh()
 end
+
+-- Auto-hide on combat / Mythic+ transitions
+local autoHideWatcher = CreateFrame("Frame")
+autoHideWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")
+autoHideWatcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+autoHideWatcher:RegisterEvent("CHALLENGE_MODE_START")
+autoHideWatcher:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+autoHideWatcher:RegisterEvent("CHALLENGE_MODE_RESET")
+autoHideWatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
+autoHideWatcher:SetScript("OnEvent", function() refresh() end)

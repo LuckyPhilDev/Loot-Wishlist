@@ -106,6 +106,7 @@ local function InitializeDB()
   -- Account-wide toggle default
   if acctS.enableRaidRollAlert == nil then acctS.enableRaidRollAlert = true end
   if acctS.hideSummaryWindow == nil then acctS.hideSummaryWindow = false end
+  if acctS.hideSummaryInCombatAndMythicPlus == nil then acctS.hideSummaryInCombatAndMythicPlus = true end
   if acctS.bossKillReminderDelay == nil then acctS.bossKillReminderDelay = 10 end
   if acctS.summaryUnhoveredAlpha == nil then acctS.summaryUnhoveredAlpha = 1.0 end
   if acctS.addHigherDifficulties == nil then acctS.addHigherDifficulties = true end

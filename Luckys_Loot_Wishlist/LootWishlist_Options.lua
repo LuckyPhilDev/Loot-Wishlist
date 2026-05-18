@@ -214,9 +214,27 @@ local function CreateOptionsPanel()
   summaryLabel:SetPoint("LEFT", summaryCB, "RIGHT", 8, 0)
   summaryLabel:SetText("Hide summary window")
 
+  -- Auto-hide summary in combat / Mythic+ checkbox
+  local autoHideCB = LuckyUI.CreateCheckbox(panel, 16)
+  autoHideCB:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -10)
+  autoHideCB:SetChecked(s.hideSummaryInCombatAndMythicPlus ~= false)
+  autoHideCB:SetScript("OnClick", function(self)
+    local val = self:GetChecked() and true or false
+    if LootWishlistDB and LootWishlistDB.settings then
+      LootWishlistDB.settings.hideSummaryInCombatAndMythicPlus = val
+    end
+    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+  end)
+
+  local autoHideLabel = panel:CreateFontString(nil, "OVERLAY")
+  autoHideLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  autoHideLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  autoHideLabel:SetPoint("LEFT", autoHideCB, "RIGHT", 8, 0)
+  autoHideLabel:SetText("Hide summary while in combat or a Mythic+ run")
+
   -- Track higher difficulties checkbox
   local higherDiffCB = LuckyUI.CreateCheckbox(panel, 16)
-  higherDiffCB:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -10)
+  higherDiffCB:SetPoint("TOPLEFT", autoHideCB, "BOTTOMLEFT", 0, -10)
   higherDiffCB:SetChecked(s.addHigherDifficulties ~= false)
   higherDiffCB:SetScript("OnClick", function(self)
     local val = self:GetChecked() and true or false
@@ -419,6 +437,7 @@ local function CreateOptionsPanel()
       st.partyTemplate = (pText ~= "") and pText or GetDefaultParty()
       st.enableRaidRollAlert = rollCB:GetChecked() and true or false
       st.hideSummaryWindow = summaryCB:GetChecked() and true or false
+      st.hideSummaryInCombatAndMythicPlus = autoHideCB:GetChecked() and true or false
       st.addHigherDifficulties = higherDiffCB:GetChecked() and true or false
       st.enableVaultOverlay = vaultCB:GetChecked() and true or false
       if LootWishlist.SetDebug then LootWishlist.SetDebug(debugCB:GetChecked() and true or false) end
@@ -453,6 +472,7 @@ local function CreateOptionsPanel()
     minimapCB:SetChecked(not ms.hide)
     rollCB:SetChecked(st.enableRaidRollAlert ~= false)
     summaryCB:SetChecked(st.hideSummaryWindow == true)
+    autoHideCB:SetChecked(st.hideSummaryInCombatAndMythicPlus ~= false)
     higherDiffCB:SetChecked(st.addHigherDifficulties ~= false)
     vaultCB:SetChecked(st.enableVaultOverlay ~= false)
     debugCB:SetChecked(st.debug == true)
