@@ -2,7 +2,7 @@
 -- Uses LuckyUI for consistent dark/gold styling.
 
 LootWishlist = LootWishlist or {}
-LootWishlist.Ace = LootWishlist.Ace or {}
+LootWishlist.UI = LootWishlist.UI or {}
 
 ------------------------------------------------------------------------
 -- LuckyUI references
@@ -466,7 +466,7 @@ local function populatePoolFrame(f, row, rowIndex)
             if ic then info.icon = ic end
             local q = obj.GetItemQuality and obj:GetItemQuality()
             if q then info.quality = q end
-            if LootWishlist.Ace.deferredRefresh then LootWishlist.Ace.deferredRefresh() end
+            if LootWishlist.UI.deferredRefresh then LootWishlist.UI.deferredRefresh() end
           end)
         end
       elseif C_Item and C_Item.RequestLoadItemDataByID then
@@ -675,7 +675,7 @@ local function createMainFrame()
   -- Find the close button (last child of header)
   for _, child in ipairs({ header:GetChildren() }) do
     if child:GetObjectType() == "Button" then
-      child:SetScript("OnClick", function() f:Hide(); LootWishlist.Ace.isOpen = false end)
+      child:SetScript("OnClick", function() f:Hide(); LootWishlist.UI.isOpen = false end)
     end
   end
 
@@ -773,7 +773,7 @@ local function createMainFrame()
   -- Close button (secondary)
   closeBtn2 = UI.CreateButton(statusBar, "Close", 80, 22, "secondary")
   closeBtn2:SetPoint("RIGHT", statusBar, "RIGHT", -4, -2)
-  closeBtn2:SetScript("OnClick", function() f:Hide(); LootWishlist.Ace.isOpen = false end)
+  closeBtn2:SetScript("OnClick", function() f:Hide(); LootWishlist.UI.isOpen = false end)
 
   -- Item count label
   statusCountLabel = statusBar:CreateFontString(nil, "OVERLAY")
@@ -804,12 +804,12 @@ local function open()
   end
   mainFrame:Show()
   mainFrame:Raise()
-  LootWishlist.Ace.isOpen = true
+  LootWishlist.UI.isOpen = true
   refresh()
 end
 
 local function hide()
-  if mainFrame then mainFrame:Hide(); LootWishlist.Ace.isOpen = false end
+  if mainFrame then mainFrame:Hide(); LootWishlist.UI.isOpen = false end
 end
 
 ------------------------------------------------------------------------
@@ -838,7 +838,7 @@ local function deferredRefresh()
   end)
 end
 
-LootWishlist.Ace.refresh         = scheduleRefresh
-LootWishlist.Ace.deferredRefresh = deferredRefresh
-LootWishlist.Ace.open            = open
-LootWishlist.Ace.hide            = hide
+LootWishlist.UI.refresh         = scheduleRefresh
+LootWishlist.UI.deferredRefresh = deferredRefresh
+LootWishlist.UI.open            = open
+LootWishlist.UI.hide            = hide

@@ -896,7 +896,7 @@ local function ensureAlertFrame()
       or (btnDismiss and btnDismiss:IsShown() and btnDismiss:IsMouseOver()) then
       return
     end
-    if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
+    if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
   end)
 
   alertFS = alertFrame:CreateFontString(nil, "OVERLAY")

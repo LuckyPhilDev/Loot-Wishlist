@@ -24,7 +24,7 @@ local function ensureFlagSet()
 end
 
 local function refreshUI()
-  local ace = LootWishlist.Ace
+  local ace = LootWishlist.UI
   if ace and ace.deferredRefresh then ace.deferredRefresh()
   elseif ace and ace.refresh then ace.refresh() end
   if LootWishlist.Summary and LootWishlist.Summary.refresh then

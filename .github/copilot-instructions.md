@@ -46,7 +46,7 @@ Loot Wishlist/
 ├── LootWishlist_Alerts.lua       -- Drop alerts, spec reminders, event handling
 ├── LootWishlist_EJ.lua           -- Encounter Journal integration
 ├── LootWishlist_Options.lua      -- Settings panel
-├── LootWishlist_UI_Ace.lua       -- Main UI window (AceGUI)
+├── LootWishlist_UI.lua           -- Main UI window (pure WoW API, LuckyUI)
 ├── LootWishlist_Summary.lua      -- Sticky summary window
 └── libs/                         -- Third-party libraries (don't edit)
 ```

@@ -160,7 +160,7 @@ local function InitializeDB()
     if type(v) == "table" and type(v.id) == "number" and (v.specs == nil or (type(v.specs)=="table" and next(v.specs)==nil)) then
       computeItemSpecs(v.id, v.link, function(specs)
         v.specs = specs or {}
-        local ace = LootWishlist.Ace
+        local ace = LootWishlist.UI
         if ace and ace.deferredRefresh then ace.deferredRefresh()
         elseif ace and ace.refresh then ace.refresh() end
         if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
@@ -202,15 +202,15 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
     local entry = trackedItems[key]
     if entry then entry.specs = specs or {} end
     PerfLog("computeItemSpecs CALLBACK for id=" .. tostring(itemID))
-    local ace = LootWishlist.Ace
+    local ace = LootWishlist.UI
     if ace and ace.deferredRefresh then ace.deferredRefresh()
     elseif ace and ace.refresh then ace.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   end)
   -- Prefer Ace view opening; the UI module will handle opening and refreshing
   local tBeforeOpen = debugprofilestop()
-  if LootWishlist.Ace and LootWishlist.Ace.open then
-    LootWishlist.Ace.open()
+  if LootWishlist.UI and LootWishlist.UI.open then
+    LootWishlist.UI.open()
     PerfLog("open() took " .. string.format("%.1f", debugprofilestop() - tBeforeOpen) .. "ms")
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   else
@@ -262,7 +262,7 @@ function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
       for _ in pairs(trackedItems) do cnt = cnt + 1 end
       DevLog("removed keys:", table.concat(removedKeys, ", "), "remaining=", cnt)
     end
-    if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+    if LootWishlist.UI and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   else
     DevLog("RemoveTrackedItem: no matching entries removed")
@@ -280,7 +280,7 @@ end
 function LootWishlist.ClearAllTracked()
   if not trackedItems or not next(trackedItems) then return end
   for k in pairs(trackedItems) do trackedItems[k] = nil end
-  if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+  if LootWishlist.UI and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
   if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
 end
 
@@ -359,11 +359,11 @@ f:SetScript("OnEvent", function(self, event, ...)
         db      = LootWishlistDB,
         onClick = function(_, mouseBtn)
           if mouseBtn == "LeftButton" then
-            if LootWishlist.Ace and LootWishlist.Ace.open then
-              if LootWishlist.Ace.isOpen then
-                LootWishlist.Ace.hide()
+            if LootWishlist.UI and LootWishlist.UI.open then
+              if LootWishlist.UI.isOpen then
+                LootWishlist.UI.hide()
               else
-                LootWishlist.Ace.open()
+                LootWishlist.UI.open()
               end
             end
           elseif mouseBtn == "RightButton" then
@@ -405,7 +405,7 @@ f:SetScript("OnEvent", function(self, event, ...)
       end)
     end
     -- Initial UI refresh without forcing windows open
-    if LootWishlist.Ace and LootWishlist.Ace.refresh then LootWishlist.Ace.refresh() end
+    if LootWishlist.UI and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.showIfNeeded then LootWishlist.Summary.showIfNeeded() end
   elseif event == "GET_ITEM_INFO_RECEIVED" then
     -- When item info is received, try to resolve missing spec info for that item.
@@ -416,7 +416,7 @@ f:SetScript("OnEvent", function(self, event, ...)
         if type(v) == "table" and v.id == itemID and (v.specs == nil or (type(v.specs)=="table" and next(v.specs)==nil)) then
           computeItemSpecs(itemID, v.link, function(specs)
             v.specs = specs or {}
-            local ace = LootWishlist.Ace
+            local ace = LootWishlist.UI
             if ace and ace.deferredRefresh then ace.deferredRefresh()
             elseif ace and ace.refresh then ace.refresh() end
             if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
@@ -433,9 +433,9 @@ SLASH_WISHLIST2 = "/lwl" -- short alias for Loot Wishlist
 SlashCmdList.WISHLIST = function(msg)
   msg = msg and msg:lower() or ""
   if msg == "show" then
-    if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() else print("Loot Wishlist: UI module not loaded.") end
+    if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() else print("Loot Wishlist: UI module not loaded.") end
   elseif msg == "hide" then
-    if LootWishlist.Ace and LootWishlist.Ace.hide then LootWishlist.Ace.hide() end
+    if LootWishlist.UI and LootWishlist.UI.hide then LootWishlist.UI.hide() end
   elseif msg == "debug" then
     LootWishlist.SetDebug(not LootWishlist.IsDebug())
     if EncounterJournal and EncounterJournal:IsShown() then

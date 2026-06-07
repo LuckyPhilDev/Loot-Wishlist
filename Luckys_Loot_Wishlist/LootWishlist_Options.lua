@@ -276,7 +276,7 @@ local function CreateOptionsPanel()
   local openBtn = LuckyUI.CreateButton(panel, "Open Wishlist", 110, 22, "secondary")
   openBtn:SetPoint("LEFT", higherDiffLabel, "RIGHT", 12, 0)
   openBtn:SetScript("OnClick", function()
-    if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
+    if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
   end)
 
   -- Bonus roll reminder checkbox

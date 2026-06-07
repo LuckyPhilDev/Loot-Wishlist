@@ -48,7 +48,7 @@ local function ensureFrame()
   -- Click anywhere to open full list
   frame:SetScript("OnMouseUp", function(self, button)
     if button == "LeftButton" and not isDragging then
-      if LootWishlist.Ace and LootWishlist.Ace.open then LootWishlist.Ace.open() end
+      if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
     end
   end)
   frame:HookScript("OnDragStart", function() isDragging = true end)
