@@ -2,6 +2,7 @@
 ## Title: Lucky's Loot Wishlist
 ## Notes: Track loot from the Adventure Guide and manage a per-character wishlist.
 ## Version: 1.9.1
+## Author: Lucky Phil
 ## Dependencies: Luckys_Utils
 ## SavedVariablesPerCharacter: LootWishlistCharDB
 ## SavedVariables: LootWishlistDB, RemindMeDB, RemindMeCharDB
