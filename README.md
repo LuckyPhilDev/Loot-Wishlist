@@ -9,6 +9,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 ## Features
 
 - **Adventure Guide integration** — a "Wishlist" button appears on each loot row in the Encounter Journal; click to track any item across all tiers and difficulties
+- **Manual add** — track any item by ID or item link with `/wishlist add`, handy for items outside the Adventure Guide
 - **Spec-aware tracking** — records which specs can loot each item and shows them inline; items usable by all specs are tagged accordingly
 - **Drop alerts** — notifies you when a tracked item drops, with context-sensitive actions:
   - *Self-looted:* Remove from wishlist or Keep tracking
@@ -54,6 +55,7 @@ Install from [CurseForge](https://www.curseforge.com/wow/addons/luckys-loot-wish
 | `/wishlist show` | Open the wishlist window |
 | `/wishlist hide` | Hide the wishlist window |
 | `/wishlist settings` | Open the settings panel (also accepts `options`) |
+| `/wishlist add <itemID or link>` | Manually add an item by ID or item link |
 | `/wishlist list` | Print the number of tracked items |
 | `/wishlist remove <itemID>` | Remove a single item by ID |
 | `/wishlist clear` | Remove all tracked items |

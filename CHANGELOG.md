@@ -1,3 +1,8 @@
+## [1.10.0] - 2026-06-14
+
+### Added
+- **Manual add**: track any item by ID or item link with `/wishlist add`, so you can wishlist things that don't show up in the Adventure Guide.
+
 ## [1.9.1] - 2026-06-05
 
 ### Fixed

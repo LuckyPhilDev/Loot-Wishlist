@@ -284,6 +284,44 @@ function LootWishlist.ClearAllTracked()
   if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
 end
 
+-- Manually add an item to the wishlist from a slash command.
+-- Accepts a bare itemID (e.g. 12345) or a full item link.
+function LootWishlist.AddByInput(input)
+  local P = "|cffC9A84CLoot Wishlist|r: "
+  local itemID
+  if type(input) == "number" then
+    itemID = input
+  elseif type(input) == "string" then
+    input = strtrim(input)
+    itemID = tonumber(input) or tonumber(input:match("item:(%d+)"))
+  end
+  if not itemID then
+    print(P .. "usage: /wishlist add <itemID or item link>")
+    return
+  end
+  if C_Item and C_Item.DoesItemExistByID and not C_Item.DoesItemExistByID(itemID) then
+    print(P .. "no item found with ID " .. tostring(itemID) .. ".")
+    return
+  end
+
+  -- Manual adds have no boss/instance/difficulty context; group them under
+  -- "Manually Added" so they read sensibly in the list.
+  local function track(link, name)
+    LootWishlist.AddTrackedItem(itemID, nil, "Manually Added", false, link, nil, nil, nil, nil)
+    print(P .. "added " .. (link or name or ("item:" .. tostring(itemID))) .. " to your wishlist.")
+  end
+
+  local item = Item and Item.CreateFromItemID and Item:CreateFromItemID(itemID)
+  if item and item.ContinueOnItemLoad then
+    item:ContinueOnItemLoad(function()
+      track(item:GetItemLink(), item:GetItemName())
+    end)
+  else
+    if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(itemID) end
+    track(string.format("item:%d", itemID), nil)
+  end
+end
+
 do
   -- Proxy that reads/writes account-wide templates and per-character toggles
   local settingsProxy
@@ -430,7 +468,8 @@ end)
 SLASH_WISHLIST1 = "/wishlist"
 SLASH_WISHLIST2 = "/lwl" -- short alias for Loot Wishlist
 SlashCmdList.WISHLIST = function(msg)
-  msg = msg and msg:lower() or ""
+  local raw = msg or ""
+  msg = raw:lower()
   if msg == "show" then
     if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() else print("Loot Wishlist: UI module not loaded.") end
   elseif msg == "hide" then
@@ -440,6 +479,14 @@ SlashCmdList.WISHLIST = function(msg)
     if EncounterJournal and EncounterJournal:IsShown() then
       local upd = _G["EncounterJournal_LootUpdate"]
       if type(upd) == "function" then upd() end
+    end
+  elseif msg == "add" or msg:match("^add%s") then
+    -- Read the raw argument so item links survive (lowercasing breaks |Hitem:).
+    local arg = raw:match("^%s*[Aa][Dd][Dd]%s+(.+)$")
+    if arg then
+      LootWishlist.AddByInput(arg)
+    else
+      print("Loot Wishlist: usage /wishlist add <itemID or item link>")
     end
   elseif msg:match("^remove ") then
     local idStr = msg:match("^remove%s+(%d+)") or msg:match("item:(%d+)")
@@ -605,6 +652,6 @@ SlashCmdList.WISHLIST = function(msg)
     if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end
     print("Loot Wishlist: cleared all tracked items")
   else
-    print("/wishlist commands: show | hide | settings | remove <ID> | list | clear | debug | reset-spec | raidinfo")
+    print("/wishlist commands: show | hide | settings | add <ID> | remove <ID> | list | clear | debug | reset-spec | raidinfo")
   end
 end
