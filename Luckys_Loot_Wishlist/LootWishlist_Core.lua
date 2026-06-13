@@ -304,7 +304,6 @@ do
         end,
         __newindex = function(_, k, v)
           local acct = (LootWishlistDB and LootWishlistDB.settings) or {}
-          local ch = (LootWishlistCharDB and LootWishlistCharDB.settings) or {}
           if k == "whisperTemplate" or k == "partyTemplate" then
             acct[k] = v
           elseif k == "enableRaidRollAlert" then
@@ -507,8 +506,7 @@ SlashCmdList.WISHLIST = function(msg)
     print(P .. "In combat: " .. tostring(InCombatLockdown()))
 
     -- Instance info
-    local name, instType, diffID, diffName, maxPlayers, dynDiff, isDynamic, instID, instGroupSize =
-      GetInstanceInfo()
+    local name, _, diffID, diffName, maxPlayers, _, _, instID = GetInstanceInfo()
     local inInstance, iType = IsInInstance()
     print(P .. "IsInInstance: " .. tostring(inInstance) .. "  type: " .. tostring(iType))
     print(P .. "Instance: " .. tostring(name) .. "  (ID " .. tostring(instID) .. ")")
@@ -542,8 +540,7 @@ SlashCmdList.WISHLIST = function(msg)
       local numSaved = GetNumSavedInstances()
       local foundLockout = false
       for i = 1, numSaved do
-        local iName, iID, iReset, iDiff, iLocked, iExtended, iInstIDontUse,
-              iIsRaid, iMaxPlayers, iDiffName = GetSavedInstanceInfo(i)
+        local iName, _, _, _, iLocked, _, _, _, _, iDiffName = GetSavedInstanceInfo(i)
         if iName == name then
           foundLockout = true
           print(P .. "  Lockout: " .. tostring(iName) .. " " .. tostring(iDiffName)
@@ -580,7 +577,7 @@ SlashCmdList.WISHLIST = function(msg)
         EJ_SelectInstance(ejInstID)
         local i = 1
         while true do
-          local eName, eDesc, eEncID, eRootSectionID, eLink = EJ_GetEncounterInfoByIndex(i, ejInstID)
+          local eName, _, eEncID = EJ_GetEncounterInfoByIndex(i, ejInstID)
           if not eName then break end
           print(P .. "  " .. i .. ". " .. tostring(eName) .. " (encounterID " .. tostring(eEncID) .. ")")
           i = i + 1

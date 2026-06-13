@@ -113,7 +113,7 @@ local function CreateOptionsPanel()
   -- Shadow `panel` within this function so all children parent to the scroll content.
   -- The outer panel (registered with the settings API) is kept as `outerPanel`.
   local outerPanel = panel
-  local panel = content
+  local panel = content -- luacheck: ignore 431
 
   -- Title
   local title = panel:CreateFontString(nil, "OVERLAY")

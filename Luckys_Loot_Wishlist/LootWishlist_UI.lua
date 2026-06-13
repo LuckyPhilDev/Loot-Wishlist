@@ -671,7 +671,6 @@ local function createMainFrame()
   -- Header (using LuckyUI.CreateHeader)
   local header = UI.CreateHeader(f, "Loot Wishlist")
   -- Override close to track isOpen state
-  local closeBtn = header:GetChildren()
   -- Find the close button (last child of header)
   for _, child in ipairs({ header:GetChildren() }) do
     if child:GetObjectType() == "Button" then
