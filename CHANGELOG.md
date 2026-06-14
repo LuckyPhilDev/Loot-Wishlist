@@ -3,6 +3,9 @@
 ### Added
 - **Manual add**: track any item by ID or item link with `/wishlist add`, so you can wishlist things that don't show up in the Adventure Guide.
 
+### Fixed
+- Wishlist rows no longer flicker while their names and icons load; the list now fills in cleanly.
+
 ## [1.9.1] - 2026-06-05
 
 ### Fixed
