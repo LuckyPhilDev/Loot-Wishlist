@@ -446,33 +446,23 @@ local function populatePoolFrame(f, row, rowIndex)
     f.icon:ClearAllPoints()
     f.icon:SetPoint("LEFT", f, "LEFT", row.indent and 24 or 8, 0)
 
+    -- Pull display fields from LuckyItem's session cache. The list warms every
+    -- tracked item up front (warmTrackedItems), so by the time a row paints, the
+    -- name, icon and quality are usually already present, with no per-row async
+    -- load or refresh cascade.
+    local cached = LuckyItem and LuckyItem:GetCached(itemID)
+    if cached then
+      info.link    = info.link    or cached.link
+      info.icon    = info.icon    or cached.icon
+      info.quality = info.quality or cached.quality
+    end
+
     -- Icon texture
     local iconTex = info.icon
     if not iconTex and C_Item and C_Item.GetItemIconByID then
       iconTex = C_Item.GetItemIconByID(itemID)
     end
-    if iconTex then
-      f.icon:SetTexture(iconTex)
-    else
-      f.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-      local ItemAPI = _G["Item"]
-      if type(ItemAPI) == "table" and ItemAPI.CreateFromItemID then
-        local obj = ItemAPI:CreateFromItemID(itemID)
-        if obj and obj.ContinueOnItemLoad then
-          obj:ContinueOnItemLoad(function()
-            local ilink = obj.GetItemLink and obj:GetItemLink()
-            if ilink then info.link = ilink end
-            local ic = obj.GetItemIcon and obj:GetItemIcon()
-            if ic then info.icon = ic end
-            local q = obj.GetItemQuality and obj:GetItemQuality()
-            if q then info.quality = q end
-            if LootWishlist.UI.deferredRefresh then LootWishlist.UI.deferredRefresh() end
-          end)
-        end
-      elseif C_Item and C_Item.RequestLoadItemDataByID then
-        C_Item.RequestLoadItemDataByID(itemID)
-      end
-    end
+    f.icon:SetTexture(iconTex or "Interface\\Icons\\INV_Misc_QuestionMark")
     f.icon:Show()
 
     -- Quality bar
@@ -590,10 +580,45 @@ local function updateScrollRange()
 end
 
 ------------------------------------------------------------------------
+-- warmTrackedItems
+--
+-- Batch-load every tracked item through LuckyItem so the session cache is
+-- populated before rows paint. Only triggers a load (and a follow-up refresh)
+-- when something is actually missing, and guards against re-entry, so the
+-- load -> refresh -> warm cycle terminates once everything is cached.
+------------------------------------------------------------------------
+local warmPending = false
+local function warmTrackedItems()
+  if not LuckyItem then return end
+  local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked()
+  if type(tracked) ~= "table" then return end
+
+  local ids, seen, missing = {}, {}, false
+  for _, v in pairs(tracked) do
+    if type(v) == "table" and type(v.id) == "number" and not seen[v.id] then
+      seen[v.id] = true
+      ids[#ids + 1] = v.id
+      if not LuckyItem:IsCached(v.id) then missing = true end
+    end
+  end
+
+  if not missing or warmPending then return end
+  warmPending = true
+  LuckyItem:GetMany(ids, function()
+    warmPending = false
+    if LootWishlist.UI and LootWishlist.UI.refresh then
+      LootWishlist.UI.refresh()
+    end
+  end)
+end
+
+------------------------------------------------------------------------
 -- refresh
 ------------------------------------------------------------------------
 local function refresh()
   if not viewport then return end
+
+  warmTrackedItems()
 
   perfRefreshCount = perfRefreshCount + 1
   local refreshID = perfRefreshCount
