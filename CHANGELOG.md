@@ -1,3 +1,8 @@
+## [1.10.2] - 2026-07-05
+
+### Improved
+- Minor maintenance and packaging updates.
+
 ## [1.10.1] - 2026-06-17
 
 ### Improved
