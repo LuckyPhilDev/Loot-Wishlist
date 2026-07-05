@@ -1,7 +1,7 @@
 package-as: Luckys_Loot_Wishlist
 
 move-folders:
-  Luckys_Loot_Wishlist/Luckys_Loot_Wishlist: Luckys_Loot_Wishlist
+  Luckys_Loot_Wishlist/src: Luckys_Loot_Wishlist
 
 manual-changelog:
   filename: CHANGELOG.md
