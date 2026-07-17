@@ -1,5 +1,8 @@
 package-as: Luckys_Loot_Wishlist
 
+ignore:
+  - tests
+
 move-folders:
   Luckys_Loot_Wishlist/src: Luckys_Loot_Wishlist
 

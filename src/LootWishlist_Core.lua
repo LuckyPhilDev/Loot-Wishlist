@@ -379,6 +379,12 @@ f:SetScript("OnEvent", function(self, event, ...)
     local addonName = ...
     if addonName == ADDON_NAME then
       InitializeDB()
+      if LootWishlist.Reminders and LootWishlist.Reminders.Init then
+        LootWishlist.Reminders:Init(LootWishlistCharDB)
+      end
+      if LootWishlist.Alerts and LootWishlist.Alerts.Init then
+        LootWishlist.Alerts:Init(LootWishlistCharDB)
+      end
       -- Defer UI refresh to modules after they initialize
     elseif addonName == "Blizzard_EncounterJournal" then
       if LootWishlist.EJ and LootWishlist.EJ.hook then LootWishlist.EJ.hook() end
@@ -508,8 +514,8 @@ SlashCmdList.WISHLIST = function(msg)
       print("Open Interface Options and look for 'Loot Wishlist'.")
     end
   elseif msg == "reset-spec" or msg == "resetspec" then
-    if LootWishlist.Alerts and LootWishlist.Alerts.ResetSpecReminderDebounce then
-      LootWishlist.Alerts.ResetSpecReminderDebounce()
+    if LootWishlist.Reminders and LootWishlist.Reminders.ResetDebounce then
+      LootWishlist.Reminders:ResetDebounce()
       print("Loot Wishlist: spec reminder reset. Target a boss or re-enter to trigger again.")
     else
       print("Loot Wishlist: alerts module not ready.")

@@ -4,18 +4,11 @@ LootWishlist = LootWishlist or {}
 LootWishlist.Alerts = LootWishlist.Alerts or {}
 
 local Alerts = LootWishlist.Alerts
+local LootParser = LootWishlist.LootParser
+local db
+local eventFrame
 local alertFrame, alertFS, alertHideAt
-local raidDropFrame, raidDropFS, raidDropHideAt
 local rollAlertFrame, rollAlertFS, rollHideAt
-local dungeonReminderFrame, drSpecFS, drAssistFS, drDivider, drHideAt
-local drBtnWhisper, drBtnParty, drBtnDismiss
-local lastAssistTargetName, lastAssistMessageWhisper, lastAssistMessageParty
-local dungeonReminded = {}
-local bossReminded = {}
-local assistDungeonReminded = {}
-local assistBossReminded = {}
--- Track previous instance state so we can reset dedupers when leaving
-local lastInInstance, lastInstanceType
 
 -- Debug helper
 local function dprint(...)
@@ -42,662 +35,6 @@ local function getCurrentInstanceDifficulty()
   end
   return nil, nil
 end
-
--- Current loot specialization helpers --------------------------------------
-local function getCurrentSpecID()
-  if GetSpecialization then
-    local idx = GetSpecialization()
-    if idx then
-      local ok, specID = pcall(GetSpecializationInfo, idx)
-      if ok and type(specID) == "number" then return specID end
-    end
-  end
-  return nil
-end
-
-local function getLootSpecID()
-  if GetLootSpecialization then
-    local sid = GetLootSpecialization()
-    if sid and sid ~= 0 then return sid end
-  end
-  return getCurrentSpecID()
-end
-
-local function getSpecNameByID(specID)
-  if not specID then return nil end
-  local ok, _sid, name = pcall(GetSpecializationInfoByID, specID)
-  if ok and type(name) == "string" and name ~= "" then return name end
-  return tostring(specID)
-end
-
--- Player specialization set and coverage helpers ----------------------------
-local function getPlayerSpecIDs()
-  local out = {}
-  if GetNumSpecializations and GetSpecializationInfo then
-    local count = GetNumSpecializations()
-    if type(count) == "number" and count > 0 then
-      for i = 1, count do
-        local ok, id = pcall(GetSpecializationInfo, i)
-        if ok and type(id) == "number" then table.insert(out, id) end
-      end
-    end
-  end
-  return out
-end
-
-local function isAnySpecForPlayer(specs)
-  if type(specs) ~= "table" or not next(specs) then return true end -- no restriction means any spec
-  local playerSpecs = getPlayerSpecIDs()
-  if #playerSpecs == 0 then return false end
-  local set = {}
-  for _, sid in ipairs(specs) do set[sid] = true end
-  for _, ps in ipairs(playerSpecs) do if not set[ps] then return false end end
-  return true
-end
-
--- Instance mapping helpers --------------------------------------------------
-local function normalizeName(s)
-  if type(s) ~= "string" then return s end
-  s = s:lower()
-  s = s:gsub("[%s%p]", "")
-  return s
-end
-
-local function getCurrentEJInstanceID()
-  local mapID = GetInstanceInfo and select(8, GetInstanceInfo()) or nil
-  local uiMapID = (C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")) or nil
-  local EJ_GetInstanceForMap = _G and _G["EJ_GetInstanceForMap"]
-  if type(EJ_GetInstanceForMap) == "function" then
-    if mapID then
-      local ok, ej = pcall(EJ_GetInstanceForMap, mapID)
-      if ok and type(ej) == "number" and ej > 0 then return ej end
-    end
-    if uiMapID then
-      local ok, ej = pcall(EJ_GetInstanceForMap, uiMapID)
-      if ok and type(ej) == "number" and ej > 0 then return ej end
-    end
-  end
-  return nil
-end
-
--- Dungeon reminder UI (combined spec + assist) -----------------------------
-local function ensureDungeonReminderFrame()
-  if dungeonReminderFrame then return dungeonReminderFrame end
-  dungeonReminderFrame = CreateFrame("Frame", "LootWishlistDungeonReminder", UIParent, "BackdropTemplate")
-  dungeonReminderFrame:SetSize(520, 80)
-  dungeonReminderFrame:SetPoint("TOP", UIParent, "TOP", 0, -340)
-  dungeonReminderFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-  dungeonReminderFrame:SetBackdrop(LuckyUI.Backdrop)
-  dungeonReminderFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], 0.95)
-  dungeonReminderFrame:EnableMouse(true)
-  dungeonReminderFrame:SetMovable(true)
-  dungeonReminderFrame:RegisterForDrag("LeftButton")
-  dungeonReminderFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
-  dungeonReminderFrame:SetScript("OnDragStop", function(self)
-    self:StopMovingOrSizing()
-    if LootWishlistCharDB and self:GetPoint(1) then
-      local p, rel, rp, x, y = self:GetPoint(1)
-      LootWishlistCharDB.dungeonReminderWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
-    end
-  end)
-
-  -- Spec section font string
-  drSpecFS = dungeonReminderFrame:CreateFontString(nil, "OVERLAY")
-  drSpecFS:SetFont(LuckyUI.BODY_FONT, 13)
-  drSpecFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
-  drSpecFS:SetPoint("TOP", 0, -8)
-  drSpecFS:SetJustifyH("CENTER")
-  drSpecFS:SetJustifyV("TOP")
-  drSpecFS:SetText("")
-
-  -- Divider between sections
-  drDivider = dungeonReminderFrame:CreateTexture(nil, "ARTWORK")
-  drDivider:SetColorTexture(0.23, 0.18, 0.10, 0.8)
-  drDivider:SetHeight(1)
-  drDivider:SetPoint("LEFT", 12, 0)
-  drDivider:SetPoint("RIGHT", -12, 0)
-  drDivider:Hide()
-
-  -- Assist section font string
-  drAssistFS = dungeonReminderFrame:CreateFontString(nil, "OVERLAY")
-  drAssistFS:SetFont(LuckyUI.BODY_FONT, 13)
-  drAssistFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
-  drAssistFS:SetJustifyH("CENTER")
-  drAssistFS:SetJustifyV("TOP")
-  drAssistFS:SetText("")
-
-  -- Buttons
-  drBtnWhisper = LuckyUI.CreateButton(dungeonReminderFrame, "Whisper", 110, 22, "primary")
-  drBtnParty = LuckyUI.CreateButton(dungeonReminderFrame, "Party", 110, 22, "secondary")
-  drBtnDismiss = LuckyUI.CreateButton(dungeonReminderFrame, "Dismiss", 110, 22, "secondary")
-
-  drBtnWhisper:SetScript("OnClick", function()
-    if not lastAssistTargetName or not lastAssistMessageWhisper then dungeonReminderFrame:Hide(); return end
-    if ChatEdit_ChooseBoxForSend and ChatEdit_SendText and ChatEdit_ActivateChat then
-      local eb = ChatEdit_ChooseBoxForSend()
-      if eb then
-        local prevShown = eb:IsShown()
-        ChatEdit_ActivateChat(eb)
-        eb:SetText(string.format("/w %s %s", lastAssistTargetName, lastAssistMessageWhisper))
-        ChatEdit_SendText(eb, 0)
-        eb:SetText("")
-        if not prevShown then eb:Hide() end
-      end
-    end
-    dungeonReminderFrame:Hide()
-  end)
-  drBtnParty:SetScript("OnClick", function()
-    if not lastAssistMessageParty then dungeonReminderFrame:Hide(); return end
-    local prefix = "/s"
-    if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then prefix = "/i"
-    elseif IsInRaid() then prefix = "/raid"
-    elseif IsInGroup() then prefix = "/p" end
-    if ChatEdit_ChooseBoxForSend and ChatEdit_SendText and ChatEdit_ActivateChat then
-      local eb = ChatEdit_ChooseBoxForSend()
-      if eb then
-        local prevShown = eb:IsShown()
-        ChatEdit_ActivateChat(eb)
-        eb:SetText(prefix .. " " .. lastAssistMessageParty)
-        ChatEdit_SendText(eb, 0)
-        eb:SetText("")
-        if not prevShown then eb:Hide() end
-      end
-    end
-    dungeonReminderFrame:Hide()
-  end)
-  drBtnDismiss:SetScript("OnClick", function()
-    drHideAt = nil
-    dungeonReminderFrame:Hide()
-  end)
-
-  -- Restore saved position (migrate from old keys if needed)
-  local w = LootWishlistCharDB and (LootWishlistCharDB.dungeonReminderWindow or LootWishlistCharDB.specReminderWindow)
-  if w and w.point then
-    dungeonReminderFrame:ClearAllPoints()
-    dungeonReminderFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
-  end
-  dungeonReminderFrame:Hide()
-  dungeonReminderFrame:SetScript("OnUpdate", function(_, _elapsed)
-    if drHideAt and GetTime() >= drHideAt then
-      dungeonReminderFrame:Hide()
-      drHideAt = nil
-    end
-  end)
-  return dungeonReminderFrame
-end
-
-local function ShowDungeonReminder(specLines, assistLines, firstTargetName, firstSpecName, itemsList)
-  local hasSpec = specLines and #specLines > 0
-  local hasAssist = assistLines and #assistLines > 0
-  if not hasSpec and not hasAssist then return end
-
-  local f = ensureDungeonReminderFrame()
-  local fw = f:GetWidth() - 20
-
-  -- Border color: green for spec-only, blue for assist-only, gold for both
-  if hasSpec and hasAssist then
-    f:SetBackdropBorderColor(LuckyUI.C.goldAccent[1], LuckyUI.C.goldAccent[2], LuckyUI.C.goldAccent[3], 0.9)
-  elseif hasSpec then
-    f:SetBackdropBorderColor(LuckyUI.C.success[1], LuckyUI.C.success[2], LuckyUI.C.success[3], 0.9)
-  else
-    f:SetBackdropBorderColor(LuckyUI.C.info[1], LuckyUI.C.info[2], LuckyUI.C.info[3], 0.9)
-  end
-
-  -- Layout spec section
-  local contentH = 0
-  if hasSpec then
-    drSpecFS:SetWidth(fw)
-    drSpecFS:SetText(table.concat(specLines, "\n"))
-    drSpecFS:Show()
-    contentH = contentH + drSpecFS:GetStringHeight()
-  else
-    drSpecFS:SetText("")
-    drSpecFS:Hide()
-  end
-
-  -- Divider and assist section
-  if hasSpec and hasAssist then
-    drDivider:ClearAllPoints()
-    drDivider:SetPoint("TOP", drSpecFS, "BOTTOM", 0, -6)
-    drDivider:Show()
-    drAssistFS:ClearAllPoints()
-    drAssistFS:SetPoint("TOP", drDivider, "BOTTOM", 0, -6)
-    contentH = contentH + 12 -- divider + gaps
-  elseif hasAssist then
-    drDivider:Hide()
-    drAssistFS:ClearAllPoints()
-    drAssistFS:SetPoint("TOP", f, "TOP", 0, -8)
-  else
-    drDivider:Hide()
-  end
-
-  if hasAssist then
-    drAssistFS:SetWidth(fw)
-    drAssistFS:SetText(table.concat(assistLines, "\n"))
-    drAssistFS:Show()
-    contentH = contentH + drAssistFS:GetStringHeight()
-  else
-    drAssistFS:SetText("")
-    drAssistFS:Hide()
-  end
-
-  -- Button layout: show Whisper/Party only when assist data is present
-  if hasAssist then
-    drBtnWhisper:ClearAllPoints()
-    drBtnParty:ClearAllPoints()
-    drBtnDismiss:ClearAllPoints()
-    drBtnWhisper:SetPoint("BOTTOM", f, "BOTTOM", -120, 10)
-    drBtnParty:SetPoint("BOTTOM", f, "BOTTOM", 0, 10)
-    drBtnDismiss:SetPoint("BOTTOM", f, "BOTTOM", 120, 10)
-    drBtnWhisper:Show()
-    drBtnParty:Show()
-  else
-    drBtnDismiss:ClearAllPoints()
-    drBtnDismiss:SetPoint("BOTTOM", f, "BOTTOM", 0, 10)
-    drBtnWhisper:Hide()
-    drBtnParty:Hide()
-  end
-
-  -- Prepare assist messages
-  lastAssistTargetName = firstTargetName
-  if firstTargetName and firstSpecName and itemsList then
-    lastAssistMessageWhisper = string.format("Hey %s, could you set your loot spec to %s for %s? It's on my wishlist.", firstTargetName, firstSpecName, itemsList)
-    lastAssistMessageParty = string.format("%s, could you set loot spec to %s for %s?", firstTargetName, firstSpecName, itemsList)
-  else
-    lastAssistMessageWhisper, lastAssistMessageParty = nil, nil
-  end
-
-  -- Size frame to content: top padding + content + gap + buttons + bottom padding
-  local desiredH = 8 + contentH + 10 + 22 + 10
-  f:SetHeight(math.max(80, math.min(320, desiredH)))
-  f:Show()
-  drHideAt = GetTime() + 12
-end
-
--- Convenience wrapper for callers that only have spec lines (e.g. raid spec check)
-local function ShowSpecReminder(lines)
-  ShowDungeonReminder(lines, nil, nil, nil, nil)
-end
-
--- Group assist suggestion builder ------------------------------------------
-local function getSpecInfoByID(specID)
-  if not specID then return nil,nil,nil end
-  local ok, _id, name, _desc, _icon, _role, classFile = pcall(GetSpecializationInfoByID, specID)
-  if ok then return name, classFile, _id end
-  return nil,nil,nil
-end
-
-local function iterateGroupUnits()
-  local units = {}
-  if IsInRaid() then
-    local n = GetNumGroupMembers() or 0
-    for i=1,n do table.insert(units, "raid"..i) end
-  elseif IsInGroup() then
-    local n = GetNumGroupMembers() or 0
-    for i=1,math.max(0,n-1) do table.insert(units, "party"..i) end -- party1..4; player excluded below
-  end
-  return units
-end
-
-local function collectAssistForContext(isRaidContext, bossName, instName, ejID)
-  local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
-  if not tracked or not next(tracked) then return nil end
-  local units = iterateGroupUnits()
-  if #units == 0 then return nil end
-  local suggestions = {} -- name -> {specName, items{}}
-  local firstName, firstSpec, firstItems
-  -- Precompute group member classes
-  local memberClass = {}
-  for _, unit in ipairs(units) do
-    if UnitIsPlayer(unit) and not UnitIsUnit(unit, "player") then
-      local name = UnitName(unit)
-      local _, classFile = UnitClass(unit)
-      if name and classFile then memberClass[name] = classFile end
-    end
-  end
-  if not next(memberClass) then return nil end
-
-  local function addSuggest(name, specName, link)
-    if not suggestions[name] then suggestions[name] = {specName = specName, items = {}} end
-    table.insert(suggestions[name].items, link)
-  end
-
-  for _, v in pairs(tracked) do
-    if type(v) == "table" then
-      local contextOK = false
-      if isRaidContext then
-        contextOK = v.isRaid and (v.boss == bossName)
-      else
-        if v.isRaid then contextOK = false else
-          if ejID and v.instanceID then contextOK = (v.instanceID == ejID) else contextOK = (v.dungeon == instName) or (normalizeName(v.dungeon) == normalizeName(instName or "")) end
-        end
-      end
-      if contextOK then
-        local specs = v.specs
-        if type(specs) == "table" and next(specs) then
-          for _, sid in ipairs(specs) do
-            local specName, classFile = getSpecInfoByID(sid)
-            if specName and classFile then
-              for mName, mClass in pairs(memberClass) do
-                if mClass == classFile then
-                  addSuggest(mName, specName, v.link or ("item:"..tostring(v.id)))
-                  if not firstName then firstName, firstSpec, firstItems = mName, specName, v.link or ("item:"..tostring(v.id)) end
-                end
-              end
-            end
-          end
-        end
-      end
-    end
-  end
-
-  if not next(suggestions) then return nil end
-  -- Build lines
-  local lines = { "Ask group to help with wishlist items:" }
-  local sortedNames = {}
-  for name in pairs(suggestions) do table.insert(sortedNames, name) end
-  table.sort(sortedNames)
-  for _, name in ipairs(sortedNames) do
-    local s = suggestions[name]
-    table.sort(s.items)
-    table.insert(lines, string.format("- %s (%s): %s", name, s.specName or "Spec", table.concat(s.items, ", ")))
-  end
-  return lines, firstName, firstSpec, firstItems
-end
-
--- Matching logic ------------------------------------------------------------
-local function playerLootSpecMatches(specs)
-  if type(specs) ~= "table" then return true end
-  if not next(specs) then return true end -- treat empty as any spec
-  local lsid = getLootSpecID()
-  if not lsid then return true end
-  for _, sid in ipairs(specs) do if sid == lsid then return true end end
-  return false
-end
-
-local function collectDungeonSpecSuggestions()
-  local inInstance, instType = IsInInstance()
-  dprint("collectDungeonSpecSuggestions inInstance=", inInstance, "type=", instType)
-  if not inInstance or instType ~= "party" then return nil end
-  local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or nil
-  local ejID = getCurrentEJInstanceID()
-  dprint("instance=", instName or "nil", "ejID=", tostring(ejID or "nil"))
-  if not instName and not ejID then return nil end
-  local deDupeKey = ejID or instName
-  if dungeonReminded[deDupeKey] then dprint("already reminded for", deDupeKey); return nil end
-  local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
-  local tcount = 0; if tracked then for _ in pairs(tracked) do tcount = tcount + 1 end end
-  dprint("tracked items=", tcount)
-  if not tracked or not next(tracked) then return nil end
-  local bySpec = {}
-  local haveAny = false
-  local lsid = getLootSpecID()
-  local stayStrictItems, stayAnyItems = {}, {}
-  for _, v in pairs(tracked) do
-    if type(v) == "table" and (not v.isRaid) then
-      local match
-      if ejID and v.instanceID then
-        match = (v.instanceID == ejID)
-      else
-        match = (v.dungeon == instName) or (normalizeName(v.dungeon) == normalizeName(instName or ""))
-      end
-      if match then
-        dprint("candidate item", v.id, "dungeon=", v.dungeon, "instanceID=", tostring(v.instanceID or "nil"), "link=", v.link or ("item:"..tostring(v.id)))
-        local specs = v.specs
-        if type(specs) == "table" and next(specs) then
-          dprint("specs=", table.concat((function() local tmp={} for _,sid in ipairs(specs) do table.insert(tmp, tostring(sid)) end return tmp end)(), ","), "lootSpec=", tostring(lsid or "nil"))
-          if not playerLootSpecMatches(specs) then
-            -- Build spec name from all valid specs
-            local specNames = {}
-            for _, sid in ipairs(specs) do
-              local name = getSpecNameByID(sid)
-              if name and name ~= "" then
-                table.insert(specNames, name)
-              end
-            end
-            if #specNames == 0 then
-              -- Fallback to non-array iteration
-              for _, sid in pairs(specs) do
-                if type(sid) == "number" then
-                  local name = getSpecNameByID(sid)
-                  if name and name ~= "" then
-                    table.insert(specNames, name)
-                  end
-                end
-              end
-            end
-            local specKey = #specNames > 0 and table.concat(specNames, " or ") or "appropriate spec"
-            bySpec[specKey] = bySpec[specKey] or {}
-            table.insert(bySpec[specKey], v.link or ("item:"..tostring(v.id)))
-            haveAny = true
-          else
-            -- Matches current loot spec; accumulate to show a 'stay' recommendation alongside switches
-            local link = v.link or ("item:"..tostring(v.id))
-            if isAnySpecForPlayer(specs) then
-              table.insert(stayAnyItems, link)
-            else
-              table.insert(stayStrictItems, link)
-            end
-          end
-        else
-          dprint("no specific specs (any spec) for", v.id)
-          -- Treat as any-spec eligible
-          local link = v.link or ("item:"..tostring(v.id))
-          table.insert(stayAnyItems, link)
-        end
-      else
-        dprint("skip item", v.id, "(instance mismatch)", "v.dungeon=", tostring(v.dungeon), "inst=", tostring(instName), "norm=", normalizeName(v.dungeon or ""), "vs", normalizeName(instName or ""), "v.instanceID=", tostring(v.instanceID or "nil"), "ejID=", tostring(ejID or "nil"))
-      end
-    end
-  end
-  if not haveAny then return nil end
-  local lines = { "Wrong loot spec for wishlist items:" }
-  for specName, items in pairs(bySpec) do
-    table.sort(items)
-    table.insert(lines, string.format("- Switch %s for %s", specName, table.concat(items, ", ")))
-  end
-  if lsid and #stayStrictItems > 0 then
-    table.sort(stayStrictItems)
-    local curName = getSpecNameByID(lsid) or "current spec"
-    table.insert(lines, string.format("- Stay %s for %s", curName, table.concat(stayStrictItems, ", ")))
-  end
-  if #stayAnyItems > 0 then
-    table.sort(stayAnyItems)
-    table.insert(lines, string.format("- OK in any spec: %s", table.concat(stayAnyItems, ", ")))
-  end
-  dungeonReminded[deDupeKey] = true
-  return lines
-end
-
-local raidLayouts = LootWishlist.Const.RAID_LAYOUTS
-
--- Given a raid's EJ instanceID and the current difficulty, return a set of
--- boss names that are alive and whose prerequisites are all dead.
--- Returns: { ["Boss Name"] = encounterID, ... } or nil
-local function getAvailableRaidBosses()
-  local inInstance, instType = IsInInstance()
-  if not inInstance or instType ~= "raid" then return nil end
-
-  local instName, _, diffID = GetInstanceInfo()
-  local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-  if not mapID then return nil end
-
-  -- Get EJ instance ID
-  local ejInstID
-  if EJ_GetInstanceForMap then
-    local ok, ej = pcall(EJ_GetInstanceForMap, mapID)
-    if ok and type(ej) == "number" and ej > 0 then ejInstID = ej end
-  end
-  if not ejInstID then return nil end
-
-  -- Build full boss list from EJ
-  EJ_SelectInstance(ejInstID)
-  local ejBosses = {} -- ordered list of { encounterID, name }
-  local i = 1
-  while true do
-    local eName, _, eEncID = EJ_GetEncounterInfoByIndex(i, ejInstID)
-    if not eName then break end
-    table.insert(ejBosses, { encounterID = eEncID, name = eName })
-    i = i + 1
-  end
-  if #ejBosses == 0 then return nil end
-
-  -- Build killed set from saved lockout matching this instance + difficulty
-  local killedIDs = {}  -- encounterID → true (we map by name since lockout uses names)
-  local killedNames = {} -- name → true
-  local numSaved = GetNumSavedInstances()
-  for si = 1, numSaved do
-    local iName, _, _, iDiff = GetSavedInstanceInfo(si)
-    if iName == instName and iDiff == diffID then
-      for j = 1, 20 do
-        local bName, _, isKilled = GetSavedInstanceEncounterInfo(si, j)
-        if not bName then break end
-        if isKilled then
-          killedNames[bName] = true
-        end
-      end
-    end
-  end
-
-  -- Map killed names to encounter IDs
-  for _, boss in ipairs(ejBosses) do
-    if killedNames[boss.name] then
-      killedIDs[boss.encounterID] = true
-    end
-  end
-
-  dprint("getAvailableRaidBosses: ejInstID=", ejInstID, "diffID=", diffID,
-         "totalBosses=", #ejBosses, "killed=", (function()
-           local n = 0; for _ in pairs(killedIDs) do n = n + 1 end; return n end)())
-
-  -- Determine available bosses
-  local layout = raidLayouts[ejInstID]
-  local available = {} -- { ["Boss Name"] = encounterID }
-
-  for _, boss in ipairs(ejBosses) do
-    if not killedIDs[boss.encounterID] then
-      -- Boss is alive; check prerequisites
-      local prereqs = layout and layout[boss.encounterID]
-      if prereqs then
-        local allMet = true
-        for _, reqID in ipairs(prereqs) do
-          if not killedIDs[reqID] then
-            allMet = false
-            break
-          end
-        end
-        if allMet then
-          available[boss.name] = boss.encounterID
-          dprint("  available:", boss.name, "(prereqs met)")
-        else
-          dprint("  locked:", boss.name, "(prereqs not met)")
-        end
-      else
-        -- No layout or no entry for this boss: treat as available
-        available[boss.name] = boss.encounterID
-        dprint("  available:", boss.name, "(no prereqs defined)")
-      end
-    else
-      dprint("  killed:", boss.name)
-    end
-  end
-
-  return available
-end
-
--- Collect spec suggestions for all available (upcoming) raid bosses.
--- Returns a lines table for ShowSpecReminder, or nil if nothing to show.
-local function collectRaidSpecSuggestions()
-  local inInstance, instType = IsInInstance()
-  dprint("collectRaidSpecSuggestions inInstance=", inInstance, "type=", instType)
-  if not inInstance or instType ~= "raid" then return nil end
-
-  local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or ""
-  local dedupeKey = instName .. "|raid"
-  if bossReminded[dedupeKey] then dprint("already reminded for", dedupeKey); return nil end
-
-  local available = getAvailableRaidBosses()
-  if not available or not next(available) then dprint("no available bosses"); return nil end
-
-  local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
-  if not tracked or not next(tracked) then return nil end
-
-  -- Group items by boss, then by spec within each boss
-  -- Structure: perBoss[bossName] = { bySpec={specKey={items}}, stayStrict={items}, stayAny={items} }
-  local perBoss = {}
-  local lsid = getLootSpecID()
-  local haveAny = false
-
-  for _, v in pairs(tracked) do
-    if type(v) == "table" and v.isRaid and v.boss and available[v.boss] then
-      local bossName = v.boss
-      if not perBoss[bossName] then
-        perBoss[bossName] = { bySpec = {}, stayStrict = {}, stayAny = {} }
-      end
-      local pb = perBoss[bossName]
-
-      local specs = v.specs
-      if type(specs) == "table" and next(specs) then
-        if not playerLootSpecMatches(specs) then
-          local specNames = {}
-          for _, sid in ipairs(specs) do
-            local sname = getSpecNameByID(sid)
-            if sname and sname ~= "" then table.insert(specNames, sname) end
-          end
-          if #specNames == 0 then
-            for _, sid in pairs(specs) do
-              if type(sid) == "number" then
-                local sname = getSpecNameByID(sid)
-                if sname and sname ~= "" then table.insert(specNames, sname) end
-              end
-            end
-          end
-          local specKey = #specNames > 0 and table.concat(specNames, " or ") or "appropriate spec"
-          pb.bySpec[specKey] = pb.bySpec[specKey] or {}
-          table.insert(pb.bySpec[specKey], v.link or ("item:" .. tostring(v.id)))
-          haveAny = true
-        else
-          local link = v.link or ("item:" .. tostring(v.id))
-          if isAnySpecForPlayer(specs) then
-            table.insert(pb.stayAny, link)
-          else
-            table.insert(pb.stayStrict, link)
-          end
-        end
-      else
-        local link = v.link or ("item:" .. tostring(v.id))
-        table.insert(pb.stayAny, link)
-      end
-    end
-  end
-
-  if not haveAny then return nil end
-
-  local lines = { "Wrong loot spec for upcoming bosses:" }
-  for bossName, pb in pairs(perBoss) do
-    if next(pb.bySpec) then
-      for specName, items in pairs(pb.bySpec) do
-        table.sort(items)
-        table.insert(lines, string.format("- %s: switch %s for %s", bossName, specName, table.concat(items, ", ")))
-      end
-    end
-    if lsid and #pb.stayStrict > 0 then
-      table.sort(pb.stayStrict)
-      local curName = getSpecNameByID(lsid) or "current spec"
-      table.insert(lines, string.format("- %s: stay %s for %s", bossName, curName, table.concat(pb.stayStrict, ", ")))
-    end
-    if #pb.stayAny > 0 then
-      table.sort(pb.stayAny)
-      table.insert(lines, string.format("- %s: OK in any spec: %s", bossName, table.concat(pb.stayAny, ", ")))
-    end
-  end
-
-  bossReminded[dedupeKey] = true
-  return lines
-end
-
--- Keep the old function name as an alias for any external callers
-local collectRaidTargetSpecSuggestions = collectRaidSpecSuggestions
 
 -- Get the number of a given itemID on the player (bags + equipped, excluding bank)
 local function getInventoryCount(itemID)
@@ -737,59 +74,6 @@ local function getInventoryCount(itemID)
   return 0
 end
 local rollAlertItems = {}
--- Show a simple popup when a tracked item drops in a raid (regardless of looter)
-local function ShowRaidDropAlert(itemLink)
-  if not itemLink then return end
-  if not raidDropFrame then
-    raidDropFrame = CreateFrame("Frame", "LootWishlistRaidDropFrame", UIParent, "BackdropTemplate")
-    raidDropFrame:SetSize(420, 80)
-    raidDropFrame:SetPoint("TOP", UIParent, "TOP", 0, -220)
-    raidDropFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    raidDropFrame:SetBackdrop(LuckyUI.Backdrop)
-    raidDropFrame:SetBackdropColor(LuckyUI.C.bgDark[1], LuckyUI.C.bgDark[2], LuckyUI.C.bgDark[3], 0.95)
-    raidDropFrame:SetBackdropBorderColor(LuckyUI.C.goldPrimary[1], LuckyUI.C.goldPrimary[2], LuckyUI.C.goldPrimary[3], 0.9)
-    raidDropFrame:EnableMouse(true)
-    raidDropFrame:SetMovable(true)
-    raidDropFrame:RegisterForDrag("LeftButton")
-    raidDropFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
-    raidDropFrame:SetScript("OnDragStop", function(self)
-      self:StopMovingOrSizing()
-      if LootWishlistCharDB and self:GetPoint(1) then
-        local p, rel, rp, x, y = self:GetPoint(1)
-        LootWishlistCharDB.raidDropWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
-      end
-    end)
-    raidDropFS = raidDropFrame:CreateFontString(nil, "OVERLAY")
-    raidDropFS:SetFont(LuckyUI.BODY_FONT, 13)
-    raidDropFS:SetTextColor(LuckyUI.C.textLight[1], LuckyUI.C.textLight[2], LuckyUI.C.textLight[3])
-    raidDropFS:SetPoint("TOP", 0, -8)
-    raidDropFS:SetJustifyH("CENTER")
-    raidDropFS:SetJustifyV("MIDDLE")
-    raidDropFS:SetText("")
-    local raidDropBtnDismiss = LuckyUI.CreateButton(raidDropFrame, "Dismiss", 100, 22, "secondary")
-    raidDropBtnDismiss:SetPoint("BOTTOM", raidDropFrame, "BOTTOM", 0, 10)
-    raidDropBtnDismiss:SetScript("OnClick", function()
-      raidDropHideAt = nil
-      raidDropFrame:Hide()
-    end)
-    local w = LootWishlistCharDB and LootWishlistCharDB.raidDropWindow
-    if w and w.point then
-      raidDropFrame:ClearAllPoints()
-      raidDropFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
-    end
-    raidDropFrame:Hide()
-    raidDropFrame:SetScript("OnUpdate", function(_, elapsed)
-      if raidDropHideAt and GetTime() >= raidDropHideAt then
-        raidDropFrame:Hide()
-        raidDropHideAt = nil
-      end
-    end)
-  end
-  raidDropFS:SetText("Tracked item dropped in raid!\n"..(itemLink or "[unknown]"))
-  raidDropFrame:Show()
-  raidDropHideAt = GetTime() + 8
-end
-
 -- Show a popup when a group loot roll starts in a raid for a tracked item
 local function ShowRaidRollAlert(itemLink)
   if not itemLink then return end
@@ -807,9 +91,9 @@ local function ShowRaidRollAlert(itemLink)
     rollAlertFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
     rollAlertFrame:SetScript("OnDragStop", function(self)
       self:StopMovingOrSizing()
-      if LootWishlistCharDB and self:GetPoint(1) then
+      if db and self:GetPoint(1) then
         local p, rel, rp, x, y = self:GetPoint(1)
-        LootWishlistCharDB.raidRollWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
+        db.raidRollWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
       end
     end)
     rollAlertFS = rollAlertFrame:CreateFontString(nil, "OVERLAY")
@@ -826,7 +110,7 @@ local function ShowRaidRollAlert(itemLink)
       rollAlertFrame:Hide()
       if wipe then wipe(rollAlertItems) end
     end)
-    local w = LootWishlistCharDB and LootWishlistCharDB.raidRollWindow
+    local w = db and db.raidRollWindow
     if w and w.point then
       rollAlertFrame:ClearAllPoints()
       rollAlertFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
@@ -861,8 +145,7 @@ local function ShowRaidRollAlert(itemLink)
   rollHideAt = GetTime() + 8
 end
 local btnRemove, btnKeep, btnWhisper, btnParty, btnDismiss
-local currentItemID, currentItemLink, currentLooter, currentIsSelf
-local currentDifficultyID, currentDifficultyName
+local currentDifficultyID
 
 local function ensureAlertFrame()
   if alertFrame then return alertFrame end
@@ -883,9 +166,9 @@ local function ensureAlertFrame()
   alertFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
   alertFrame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
-    if LootWishlistCharDB and self:GetPoint(1) then
+    if db and self:GetPoint(1) then
       local p, rel, rp, x, y = self:GetPoint(1)
-      LootWishlistCharDB.alertWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
+      db.alertWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
     end
   end)
   alertFrame:SetScript("OnMouseUp", function()
@@ -927,7 +210,7 @@ local function ensureAlertFrame()
   btnParty:SetPoint("BOTTOM", alertFrame, "BOTTOM", 0, 12)
   btnDismiss:SetPoint("BOTTOM", alertFrame, "BOTTOM", 150, 12)
 
-  local w = LootWishlistCharDB and LootWishlistCharDB.alertWindow
+  local w = db and db.alertWindow
   if w and w.point then
     alertFrame:ClearAllPoints()
     alertFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
@@ -1011,68 +294,6 @@ local function isWarboundItemLink(itemLink)
     end
   end
   return false
-end
-
--- Helpers to parse chat loot messages into looter context (localized-safe best effort)
-local function escapeLuaPattern(s)
-  return s and s:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1") or s
-end
-
-local function gs2pat(gs)
-  if not gs then return nil end
-  local p = escapeLuaPattern(gs)
-  p = p:gsub("%%s", "(.+)")
-  return "^" .. p .. "$"
-end
-
-local SELF_PATS = {
-  function(msg)
-    local pat = gs2pat(LOOT_ITEM_SELF)
-    return pat and msg:match(pat)
-  end,
-  function(msg)
-    local pat = gs2pat(LOOT_ITEM_SELF_MULTIPLE)
-    return pat and msg:match(pat)
-  end,
-  function(msg)
-    local pat = gs2pat(LOOT_ITEM_PUSHED_SELF)
-    return pat and msg:match(pat)
-  end,
-  function(msg)
-    local pat = gs2pat(LOOT_ITEM_BONUS_ROLL)
-    return pat and msg:match(pat)
-  end,
-}
-
-local OTHER_PATS = {
-  function(msg)
-    local pat = gs2pat(LOOT_ITEM) -- %s receives loot: %s.
-    if not pat then return end
-    return msg:match(pat)
-  end,
-  function(msg)
-    local pat = gs2pat(LOOT_ITEM_MULTIPLE)
-    if not pat then return end
-    return msg:match(pat)
-  end,
-  function(msg)
-    local pat = gs2pat(LOOT_ITEM_PUSHED)
-    if not pat then return end
-    return msg:match(pat)
-  end,
-}
-
-local function extractLooterFromChat(msg)
-  -- Returns isSelf, looterNameOrNil
-  for _, fn in ipairs(SELF_PATS) do
-    local ok, a = pcall(fn, msg)
-    if ok and a then return true, UnitName("player") end
-  end
-  for _, fn in ipairs(OTHER_PATS) do
-    local ok, name = pcall(fn, msg)
-    if ok and name then return false, name end
-  end
-  return nil, nil
 end
 
 local function chooseGroupChatPrefix()
@@ -1199,98 +420,33 @@ local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, di
   else
     configureOtherActions(looterName, itemID, itemLink)
   end
-  currentItemID, currentItemLink, currentLooter, currentIsSelf = itemID, itemLink, looterName, isSelf
-  currentDifficultyID, currentDifficultyName = difficultyID, difficultyName
+  currentDifficultyID = difficultyID
   if isSelf and itemID then
     recentSelfAlertAt[itemID] = GetTime()
   end
 end
 
-local function extractLinks(msg)
-  local links = {}
-  if not msg or type(msg) ~= "string" then return links end
-  for link in msg:gmatch("|c%x+|Hitem:[^|]+|h%[[^%]]+%]|h|r") do
-    table.insert(links, link)
-  end
-  return links
-end
-
-local function parseItemIDFromLink(link)
-  if not link then return nil end
-  local idStr = link:match("item:(%d+)")
-  return idStr and tonumber(idStr) or nil
-end
-
 local function isTracked(itemID)
   local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
-  if not t then return false end
-  for k, v in pairs(t) do
-    local vid = (type(v) == "table" and v.id) or nil
-    if vid and vid == itemID then return true end
-    -- Back-compat: legacy numeric or string keys without id field
-    if type(k) == "number" and k == itemID then return true end
-    if type(k) == "string" then
-      local nk = tonumber(k)
-      if nk and nk == itemID then return true end
-    end
-  end
-  return false
+  return LootParser:IsTracked(t, itemID)
 end
 
--- Run raid spec suggestions using lockout data (no targeting needed).
--- Called on zone entry and after boss kills.
-local raidCheckPending = false
-local function runRaidSpecCheck()
-  raidCheckPending = false
-  dprint("runRaidSpecCheck: running")
-  local ok, lines = pcall(collectRaidSpecSuggestions)
-  if not ok then
-    dprint("runRaidSpecCheck: errored:", lines)
-  elseif not lines then
-    dprint("runRaidSpecCheck: no suggestions")
-  else
-    dprint("runRaidSpecCheck: showing spec reminder,", #lines, "lines")
-    ShowSpecReminder(lines)
-  end
-end
-
-local function scheduleRaidSpecCheck(delay)
-  if not raidCheckPending then
-    raidCheckPending = true
-    C_Timer.After(delay or 1.0, runRaidSpecCheck)
-  end
-end
-
--- Event handling
-local ef = CreateFrame("Frame")
-ef:RegisterEvent("CHAT_MSG_LOOT")
-ef:RegisterEvent("ENCOUNTER_LOOT_RECEIVED")
-ef:RegisterEvent("START_LOOT_ROLL")
-ef:RegisterEvent("BAG_UPDATE_DELAYED")
-ef:RegisterEvent("PLAYER_LOGIN")
-ef:RegisterEvent("PLAYER_ENTERING_WORLD")
-ef:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-ef:RegisterEvent("BOSS_KILL")
-ef:RegisterEvent("ENCOUNTER_END")
-ef:SetScript("OnEvent", function(_, event, ...)
+local function handleEvent(_, event, ...)
   if event == "CHAT_MSG_LOOT" then
     local msg = ...
     local inRaid = IsInRaid() or (IsInGroup() and IsInInstance() and select(2, IsInInstance()) == "raid")
-    local isSelf, looter = extractLooterFromChat(msg)
-    if isSelf == nil then return end -- couldn't determine: avoid false prompts
-    for _, link in ipairs(extractLinks(msg)) do
-      local itemID = parseItemIDFromLink(link)
+    local parsed = LootParser:ParseMessage(msg)
+    if not parsed then return end
+    for _, item in ipairs(parsed.items) do
+      local itemID, link = item.itemID, item.link
       if itemID and isTracked(itemID) then
         if isWarboundItemLink(link) then dprint("skip warbound drop", link); return end
-        if inRaid then
-          -- In raids, suppress the action/party-whisper alert and the simple raid drop banner.
-          -- We'll rely on the START_LOOT_ROLL reminder popup instead.
-        else
+        if not inRaid then
           local diffID, diffName = getCurrentInstanceDifficulty()
-          if isSelf then
+          if parsed.isSelf then
             ShowDropAlertWithContext(link, true, UnitName("player"), itemID, diffID, diffName)
           else
-            ShowDropAlertWithContext(link, false, looter, itemID, diffID, diffName)
+            ShowDropAlertWithContext(link, false, parsed.looter, itemID, diffID, diffName)
           end
         end
       end
@@ -1334,7 +490,7 @@ ef:SetScript("OnEvent", function(_, event, ...)
   if not itemLink then return end
   if isWarboundItemLink(itemLink) then return end
     -- Only alert for wishlist-tracked items
-    local itemID = tonumber(itemLink:match("item:(%d+)"))
+    local itemID = LootParser:ParseItemID(itemLink)
     if not itemID then return end
     if not isTracked(itemID) then return end
     ShowRaidRollAlert(itemLink)
@@ -1391,98 +547,21 @@ ef:SetScript("OnEvent", function(_, event, ...)
         end
       end
     end
-  elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
-    dprint("event:", event)
-    -- Detect leaving an instance and reset de-dupers so re-entry can show again
-    local nowIn, nowType = IsInInstance()
-    if lastInInstance == nil then
-      -- First observation
-      lastInInstance, lastInstanceType = nowIn, nowType
-    else
-      if lastInInstance and not nowIn then
-        dprint("left instance; resetting spec reminder dedupers")
-        if wipe then
-          wipe(dungeonReminded)
-          wipe(bossReminded)
-          wipe(assistDungeonReminded)
-        else
-          dungeonReminded = {}
-          bossReminded = {}
-          assistDungeonReminded = {}
-        end
-      end
-      lastInInstance, lastInstanceType = nowIn, nowType
-    end
-    -- Raid spec suggestions (lockout-based, no targeting needed)
-    local _, raidType = IsInInstance()
-    if raidType == "raid" then
-      scheduleRaidSpecCheck()
-    end
-    -- Combined dungeon spec + assist reminder
-    do
-      local cachedSpecLines, cachedAssistLines
-      local cachedTName, cachedTSpec, cachedTItems
-      local function tryDungeonReminders()
-        if not cachedSpecLines then
-          cachedSpecLines = collectDungeonSpecSuggestions()
-        end
-        if not cachedAssistLines then
-          local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or nil
-          local ejID = getCurrentEJInstanceID()
-          local key = ejID or instName
-          if key and not assistDungeonReminded[key] then
-            cachedAssistLines, cachedTName, cachedTSpec, cachedTItems = collectAssistForContext(false, nil, instName, ejID)
-            if cachedAssistLines then
-              assistDungeonReminded[key] = true
-            end
-          end
-        end
-        if cachedSpecLines or cachedAssistLines then
-          ShowDungeonReminder(cachedSpecLines, cachedAssistLines, cachedTName, cachedTSpec, cachedTItems)
-          return true
-        end
-        return false
-      end
-      if not tryDungeonReminders() then
-        -- Retry after a short delay to allow instance info and party roster to settle
-        if C_Timer and C_Timer.After then
-          C_Timer.After(1.0, tryDungeonReminders)
-        end
-      end
-    end
-  elseif event == "BOSS_KILL" then
-    local encounterID, encounterName = ...
-    dprint("event: BOSS_KILL  encounterID=", encounterID, "name=", encounterName)
-    -- Reset the raid dedupe so the next set of available bosses can trigger a reminder
-    local instName = GetInstanceInfo and (select(1, GetInstanceInfo())) or ""
-    bossReminded[instName .. "|raid"] = nil
-    -- Re-check after a configurable delay so the reminder doesn't compete with loot rolls
-    local st = LootWishlist.GetSettings and LootWishlist.GetSettings() or (LootWishlistDB and LootWishlistDB.settings) or {}
-    local delay = st.bossKillReminderDelay or 10
-    scheduleRaidSpecCheck(delay)
-  elseif event == "ENCOUNTER_END" then
-    local encounterID, encounterName, difficultyID, groupSize, success = ...
-    dprint("event: ENCOUNTER_END  encounterID=", encounterID, "name=", encounterName,
-           "diff=", difficultyID, "size=", groupSize, "success=", success)
   end
-end)
+end
 
 -- Public API
-function Alerts.ResetSpecReminderDebounce()
-  if wipe then
-    wipe(dungeonReminded)
-    wipe(bossReminded)
-    wipe(assistDungeonReminded)
-    wipe(assistBossReminded)
-  else
-    dungeonReminded = {}
-    bossReminded = {}
-    assistDungeonReminded = {}
-    assistBossReminded = {}
-  end
-  -- Also forget last instance state to avoid immediate re-blocking
-  lastInInstance, lastInstanceType = nil, nil
-  dprint("Spec reminder debounce reset")
+function Alerts:Init(database)
+  db = database
+  if eventFrame then return end
+
+  eventFrame = CreateFrame("Frame")
+  eventFrame:RegisterEvent("CHAT_MSG_LOOT")
+  eventFrame:RegisterEvent("ENCOUNTER_LOOT_RECEIVED")
+  eventFrame:RegisterEvent("START_LOOT_ROLL")
+  eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+  eventFrame:RegisterEvent("PLAYER_LOGIN")
+  eventFrame:SetScript("OnEvent", handleEvent)
 end
 
 function Alerts.TestDrop(input, forceNot)
@@ -1493,7 +572,7 @@ function Alerts.TestDrop(input, forceNot)
     if num then itemID = num end
     if not itemID then
       link = input
-      itemID = parseItemIDFromLink(link)
+      itemID = LootParser:ParseItemID(link)
     end
   end
   if not itemID then
@@ -1516,7 +595,7 @@ function Alerts.TestDropOther(input)
   if not itemArg then itemArg = input end
   local itemID, link
   local num = tonumber(itemArg)
-  if num then itemID = num else link = itemArg; itemID = parseItemIDFromLink(link) end
+  if num then itemID = num else link = itemArg; itemID = LootParser:ParseItemID(link) end
   if not itemID then
     print("Loot Wishlist: testdrop-other requires an itemID or item link")
     return

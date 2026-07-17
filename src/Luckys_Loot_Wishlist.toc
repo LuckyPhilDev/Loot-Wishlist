@@ -16,5 +16,8 @@ LootWishlist_UI.lua
 LootWishlist_EncounterJournal.lua
 LootWishlist_Summary.lua
 LootWishlist_Vault.lua
+LootWishlist_LootParser.lua
+LootWishlist_ReminderPlanner.lua
+LootWishlist_Reminders.lua
 LootWishlist_Alerts.lua
 LootWishlist_BonusRoll.lua
