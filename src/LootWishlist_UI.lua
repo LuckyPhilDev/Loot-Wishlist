@@ -744,13 +744,16 @@ local function createMainFrame()
   scrollBar:SetPoint("TOPRIGHT",    f, "TOPRIGHT",    -4,  -50)
   scrollBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -4,   52)
   scrollBar:SetWidth(SCROLLBAR_W)
-  scrollBar:SetMinMaxValues(0, 0)
-  scrollBar:SetValue(0)
-  scrollBar:SetValueStep(ITEM_ROW_H)
+  -- Replace the template's OnValueChanged before any value is set: the
+  -- default handler calls SetVerticalScroll on the parent, which is only
+  -- there when the parent is a ScrollFrame, and ours is a plain frame.
   scrollBar:SetScript("OnValueChanged", function(_, value)
     scrollOffset = value
     renderVisibleRows()
   end)
+  scrollBar:SetMinMaxValues(0, 0)
+  scrollBar:SetValue(0)
+  scrollBar:SetValueStep(ITEM_ROW_H)
 
   -- Mouse wheel
   viewport:EnableMouseWheel(true)
