@@ -458,6 +458,53 @@ local function slotOf(it)
   return (it.slot and it.slot ~= "") and it.slot or OTHER_SLOT
 end
 
+-- Character sheet order for the filter menu. The journal names a slot with the
+-- localised inventory type string, so the ranks come off the same globals the
+-- paperdoll is labelled from.
+local PAPERDOLL_SLOTS = {
+  "INVTYPE_HEAD", "INVTYPE_NECK", "INVTYPE_SHOULDER", "INVTYPE_CLOAK", "INVTYPE_CHEST",
+  "INVTYPE_ROBE", "INVTYPE_BODY", "INVTYPE_TABARD", "INVTYPE_WRIST", "INVTYPE_HAND",
+  "INVTYPE_WAIST", "INVTYPE_LEGS", "INVTYPE_FEET", "INVTYPE_FINGER", "INVTYPE_TRINKET",
+}
+local WEAPON_SLOTS = {
+  "INVTYPE_WEAPONMAINHAND", "INVTYPE_WEAPON", "INVTYPE_2HWEAPON", "INVTYPE_WEAPONOFFHAND",
+  "INVTYPE_SHIELD", "INVTYPE_HOLDABLE", "INVTYPE_RANGED", "INVTYPE_RANGEDRIGHT",
+  "INVTYPE_THROWN", "INVTYPE_RELIC",
+}
+
+local WEAPON_RANK = 100
+local slotRank = {}
+do
+  local function rank(keys, base)
+    for i, key in ipairs(keys) do
+      local label = _G[key]
+      if label and not slotRank[label] then slotRank[label] = base + i end
+    end
+  end
+  rank(PAPERDOLL_SLOTS, 0)
+  rank(WEAPON_SLOTS, WEAPON_RANK)
+end
+
+-- Tokens and anything else the paperdoll has no place for follow the armour but
+-- stay above the weapons, so the weapons are the last group in the menu.
+local function slotRankOf(slot)
+  return slotRank[slot] or WEAPON_RANK - 1
+end
+
+local function isWeaponSlot(slot)
+  return slotRankOf(slot) >= WEAPON_RANK
+end
+
+local function sortSlots(slots)
+  table.sort(slots, function(a, b)
+    local ra, rb = slotRankOf(a), slotRankOf(b)
+    if ra ~= rb then return ra < rb end
+    return a < b
+  end)
+  return slots
+end
+LootWishlist.Browser.sortSlots = sortSlots
+
 -- Every slot present in the current view's cached loot, for the filter menu.
 local function slotsInView()
   local seen, list = {}, {}
@@ -477,8 +524,7 @@ local function slotsInView()
       end
     end
   end
-  table.sort(list)
-  return list
+  return sortSlots(list)
 end
 
 local function matchesFilters(it, inst)
@@ -1216,10 +1262,15 @@ local function ensureFrame()
       end
       if not listed then
         slots[#slots + 1] = state.slot
-        table.sort(slots)
+        sortSlots(slots)
       end
     end
+    local weaponsStarted = false
     for _, slot in ipairs(slots) do
+      if not weaponsStarted and isWeaponSlot(slot) then
+        weaponsStarted = true
+        root:CreateDivider()
+      end
       root:CreateRadio(slot,
         function() return state.slot == slot end,
         function()
