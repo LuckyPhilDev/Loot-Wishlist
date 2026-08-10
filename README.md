@@ -8,6 +8,13 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 
 ## Features
 
+- **Loot Browser** — browse the current season's dungeon and raid drop tables in one window, no Adventure Guide needed
+  - See every dungeon's loot at once, or switch to all raids or the entire season
+  - Always filtered to what your class can wear, with patterns and cosmetic drops left out
+  - Pick a gear track (Veteran, Champion, Hero, Myth) and items are tracked at the matching difficulty
+  - Filter by slot to see every trinket, weapon, or pair of hands in the pool
+  - Search by item name, boss, slot, or armor type
+  - Add or remove wishlist items with one click
 - **Adventure Guide integration** — a "Wishlist" button appears on each loot row in the Encounter Journal; click to track any item across all tiers and difficulties
 - **Manual add** — track any item by ID or item link with `/wishlist add`, handy for items outside the Adventure Guide
 - **Spec-aware tracking** — records which specs can loot each item and shows them inline; items usable by all specs are tagged accordingly
@@ -40,8 +47,8 @@ Install from [CurseForge](https://www.curseforge.com/wow/addons/luckys-loot-wish
 
 ## Usage
 
-1. Open the **Adventure Guide** (Shift+J) and browse to a boss
-2. Click the **Wishlist** button on any loot row to track it
+1. Open the **Loot Browser** with `/wishlist browse` (or the **Browse Loot** button on the wishlist window) and click **+** on anything you want
+2. Or browse to a boss in the **Adventure Guide** (Shift+J) and click the **Wishlist** button on any loot row
 3. Open your wishlist with `/wishlist show` or `/lwl show`
 4. Alerts appear automatically when tracked items drop in your group
 5. Customise templates and toggles via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishlist**
@@ -54,6 +61,7 @@ Install from [CurseForge](https://www.curseforge.com/wow/addons/luckys-loot-wish
 |---------|--------|
 | `/wishlist show` | Open the wishlist window |
 | `/wishlist hide` | Hide the wishlist window |
+| `/wishlist browse` | Open the season loot browser |
 | `/wishlist settings` | Open the settings panel (also accepts `options`) |
 | `/wishlist add <itemID or link>` | Manually add an item by ID or item link |
 | `/wishlist list` | Print the number of tracked items |
@@ -71,6 +79,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Adjust summary window opacity when your mouse isn't hovering over it
 - Toggle automatic multi-difficulty tracking (on by default)
 - Toggle Great Vault highlights (on by default)
+- Hide Lucky's Wardrobe item previews in the wishlist and Loot Browser (only shown when that addon is installed)
 - Toggle raid roll reminder alerts
 - Toggle bonus roll reminders and their sound
 - Configure the delay before spec reminders show after a boss kill

@@ -130,7 +130,7 @@ end
 ------------------------------------------------------------------------
 -- Difficulty sort order (shared between mergeItemsByID and display)
 ------------------------------------------------------------------------
-local DIFF_ORDER = { LFR=1, N=2, H=3, ["+"]=4, M=5 }
+local DIFF_ORDER = LootWishlist.Const.DIFF_TAG_ORDER
 
 ------------------------------------------------------------------------
 -- mergeItemsByID: collapse same-itemID entries into one row with a
@@ -365,6 +365,7 @@ local function createPoolFrame(parent)
   -- Tooltip on hover
   f:SetScript("OnEnter", function(self)
     if self.itemLink then
+      LootWishlist.ApplyWardrobePreviewFlag(self)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       GameTooltip:SetHyperlink(self.itemLink)
       GameTooltip:Show()
@@ -801,6 +802,13 @@ local function createMainFrame()
   closeBtn2 = UI.CreateButton(statusBar, "Close", 80, 22, "secondary")
   closeBtn2:SetPoint("RIGHT", statusBar, "RIGHT", -4, -2)
   closeBtn2:SetScript("OnClick", function() f:Hide(); LootWishlist.UI.isOpen = false end)
+
+  -- Browse Loot button (primary): opens the season drop-table browser
+  local browseBtn = UI.CreateButton(statusBar, "Browse Loot", 100, 22, "primary")
+  browseBtn:SetPoint("RIGHT", closeBtn2, "LEFT", -4, 0)
+  browseBtn:SetScript("OnClick", function()
+    if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() end
+  end)
 
   -- Item count label
   statusCountLabel = statusBar:CreateFontString(nil, "OVERLAY")

@@ -27,17 +27,43 @@ LootWishlist.Const = {
   -- Used to determine which difficulties to add when "track higher" is enabled.
   DIFFICULTY_CHAINS = {
     raid    = {17, 14, 15, 16},  -- LFR, Normal, Heroic, Mythic
-    dungeon = {1, 2, 8},         -- Normal, Heroic, Mythic+
+    dungeon = {1, 2, 23, 8},     -- Normal, Heroic, Mythic, Mythic+
   },
   -- Canonical display names for difficulty IDs (used when auto-adding extra difficulties).
   DIFFICULTY_NAMES = {
     [1]  = "Normal",      -- dungeon
     [2]  = "Heroic",      -- dungeon
+    [23] = "Mythic",      -- dungeon (Mythic 0)
     [8]  = "Mythic+",     -- Mythic+
     [14] = "Normal",      -- raid
     [15] = "Heroic",      -- raid
     [16] = "Mythic",      -- raid
     [17] = "Raid Finder", -- LFR
+  },
+  -- Display order for difficulty tags. Raids never carry "+" so both source
+  -- types read low → high with M0 before M+.
+  DIFF_TAG_ORDER = { LFR=1, N=2, H=3, M=4, ["+"]=5 },
+
+  -- Gear-track picker for the Loot Browser, Midnight-era track model.
+  --
+  -- Raids carry one EJ difficulty per track, so raidDiff is both what the
+  -- journal is read at and what a wishlist entry is stored as.
+  --
+  -- Dungeons have no Hero or Myth table in the journal at all. The same items
+  -- drop from every key, at a higher track from harder keys and from the
+  -- vault, so those tracks read the Mythic table (dungeonScanDiff) and each
+  -- item is rebuilt as the track's own version: trackBonus is the bonus ID
+  -- that marks an item "<track> 1/6" and trackIlvl the item level that rank
+  -- carries. Both are season data (Midnight Season 1 here) and need a refresh
+  -- each season; keystoneLevel is only the tooltip's "from +N" label.
+  -- dungeonTrackDiff is what a wishlist entry is recorded at.
+  TRACKS = {
+    { key = "Veteran",  dungeonScanDiff = 2,  dungeonTrackDiff = 2,  raidDiff = 17 },
+    { key = "Champion", dungeonScanDiff = 23, dungeonTrackDiff = 23, raidDiff = 14 },
+    { key = "Hero",     dungeonScanDiff = 23, dungeonTrackDiff = 8, keystone = true,
+      keystoneLevel = 6,  raidDiff = 15, trackIlvl = 259, trackBonus = 12793 },
+    { key = "Myth",     dungeonScanDiff = 23, dungeonTrackDiff = 8, keystone = true,
+      keystoneLevel = 10, raidDiff = 16, trackIlvl = 272, trackBonus = 12801 },
   },
 
   -- Raid layout graphs: maps EJ instanceID → { [encounterID] = { prereqs } }

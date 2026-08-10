@@ -111,6 +111,12 @@ local function InitializeDB()
   if acctS.summaryUnhoveredAlpha == nil then acctS.summaryUnhoveredAlpha = 1.0 end
   if acctS.addHigherDifficulties == nil then acctS.addHigherDifficulties = true end
   if acctS.enableVaultOverlay == nil then acctS.enableVaultOverlay = true end
+  -- Renamed when the toggle grew to cover the wishlist window as well
+  if acctS.hideWardrobePreviewInBrowser ~= nil and acctS.hideWardrobePreview == nil then
+    acctS.hideWardrobePreview = acctS.hideWardrobePreviewInBrowser
+    acctS.hideWardrobePreviewInBrowser = nil
+  end
+  if acctS.hideWardrobePreview == nil then acctS.hideWardrobePreview = false end
 
   -- Restore window position is handled by Ace frame status table
 
@@ -170,8 +176,9 @@ local function InitializeDB()
 end
 
 -- Public API: Add/Remove/Iterate --------------------------------------------
-function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, difficultyID, difficultyName)
-  local t0 = debugprofilestop()
+
+-- Add without opening the wishlist window (used by the Loot Browser).
+function LootWishlist.AddTrackedItemQuiet(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, difficultyID, difficultyName)
   -- Compose a unique key so that the same item can be tracked for multiple difficulties
   local key
   if difficultyID then
@@ -180,9 +187,6 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
     -- Back-compat when difficulty isn\'t provided
     key = tostring(itemID)
   end
-  local count = 0
-  for _ in pairs(trackedItems) do count = count + 1 end
-  PerfLog("AddTrackedItem START id=" .. tostring(itemID) .. " key=" .. key .. " existing=" .. count)
   trackedItems[key] = {
     id = itemID,
     boss = bossName,
@@ -197,7 +201,6 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
   }
   DevLog("AddTrackedItem id=", itemID, "key=", key, "diffID=", tostring(difficultyID or "nil"), "boss=", tostring(bossName or ""), "instance=", tostring(instanceName or ""))
   -- Compute and attach spec list asynchronously.
-  -- Uses deferredRefresh since open() already does an immediate refresh.
   computeItemSpecs(itemID, itemLink, function(specs)
     local entry = trackedItems[key]
     if entry then entry.specs = specs or {} end
@@ -207,16 +210,42 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
     elseif ace and ace.refresh then ace.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   end)
-  -- Prefer Ace view opening; the UI module will handle opening and refreshing
-  local tBeforeOpen = debugprofilestop()
+  if LootWishlist.UI and LootWishlist.UI.isOpen and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
+  if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+  if LootWishlist.Browser and LootWishlist.Browser.refresh then LootWishlist.Browser.refresh() end
+end
+
+function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, difficultyID, difficultyName)
+  local t0 = debugprofilestop()
+  LootWishlist.AddTrackedItemQuiet(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, difficultyID, difficultyName)
   if LootWishlist.UI and LootWishlist.UI.open then
     LootWishlist.UI.open()
-    PerfLog("open() took " .. string.format("%.1f", debugprofilestop() - tBeforeOpen) .. "ms")
-    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
   else
     print("Loot Wishlist: UI module not loaded. Item tracked.")
   end
   PerfLog("AddTrackedItem END total=" .. string.format("%.1f", debugprofilestop() - t0) .. "ms")
+end
+
+-- Add at difficultyID plus every higher difficulty in the source's chain when
+-- the "track higher difficulties" setting is on. Shared by the Encounter
+-- Journal button (loud) and the Loot Browser (quiet).
+function LootWishlist.AddTrackedItemWithChain(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, difficultyID, difficultyName, quiet)
+  local add = quiet and LootWishlist.AddTrackedItemQuiet or LootWishlist.AddTrackedItem
+  local settings = LootWishlistDB and LootWishlistDB.settings
+  local addHigher = settings == nil or settings.addHigherDifficulties ~= false
+  if addHigher and difficultyID then
+    local C = LootWishlist.Const
+    local chain = isRaid and C.DIFFICULTY_CHAINS.raid or C.DIFFICULTY_CHAINS.dungeon
+    local inChain = false
+    for _, cid in ipairs(chain) do
+      if cid == difficultyID then inChain = true end
+      if inChain then
+        add(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, cid, C.DIFFICULTY_NAMES[cid] or difficultyName)
+      end
+    end
+    if inChain then return end
+  end
+  add(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, difficultyID, difficultyName)
 end
 
 -- Remove one or more tracked entries.
@@ -264,6 +293,7 @@ function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
     end
     if LootWishlist.UI and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
     if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+    if LootWishlist.Browser and LootWishlist.Browser.refresh then LootWishlist.Browser.refresh() end
   else
     DevLog("RemoveTrackedItem: no matching entries removed")
   end
@@ -282,6 +312,7 @@ function LootWishlist.ClearAllTracked()
   for k in pairs(trackedItems) do trackedItems[k] = nil end
   if LootWishlist.UI and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
   if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+  if LootWishlist.Browser and LootWishlist.Browser.refresh then LootWishlist.Browser.refresh() end
 end
 
 -- Manually add an item to the wishlist from a slash command.
@@ -357,6 +388,13 @@ do
   end
 end
 
+-- Lucky's Wardrobe skips its tooltip model preview when the tooltip's owner
+-- carries this flag. Call on a row before showing its item tooltip.
+function LootWishlist.ApplyWardrobePreviewFlag(frame)
+  local s = LootWishlistDB and LootWishlistDB.settings
+  frame.luckysWardrobeNoPreview = (s and s.hideWardrobePreview) or nil
+end
+
 function LootWishlist.SetDebug(val)
   DEBUG = not not val
   if LootWishlistDB and LootWishlistDB.settings then
@@ -402,11 +440,22 @@ f:SetScript("OnEvent", function(self, event, ...)
         db      = LootWishlistDB,
         onClick = function(_, mouseBtn)
           if mouseBtn == "LeftButton" then
-            if LootWishlist.UI and LootWishlist.UI.open then
-              if LootWishlist.UI.isOpen then
-                LootWishlist.UI.hide()
-              else
+            local browserShown = LootWishlist.Browser and LootWishlist.Browser.isShown and LootWishlist.Browser.isShown()
+            local wishlistShown = LootWishlist.UI and LootWishlist.UI.isOpen
+            if browserShown or wishlistShown then
+              if wishlistShown and LootWishlist.UI.hide then LootWishlist.UI.hide() end
+              if browserShown and LootWishlist.Browser.hide then LootWishlist.Browser.hide() end
+            else
+              -- Wishlist only opens alongside the browser when it has items;
+              -- an empty list adds nothing to a browsing session.
+              local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked()
+              if tracked and next(tracked) and LootWishlist.UI and LootWishlist.UI.open then
                 LootWishlist.UI.open()
+              end
+              if LootWishlist.Browser and LootWishlist.Browser.open then
+                LootWishlist.Browser.open()
+              else
+                if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
               end
             end
           elseif mouseBtn == "RightButton" then
@@ -420,7 +469,7 @@ f:SetScript("OnEvent", function(self, event, ...)
         tooltip = function(tt)
           tt:AddLine("|cffffd100Lucky's Loot Wishlist|r")
           tt:AddLine(" ")
-          tt:AddLine("Left-click: Toggle wishlist", 0.91, 0.86, 0.78)
+          tt:AddLine("Left-click: Toggle wishlist and loot browser", 0.91, 0.86, 0.78)
           tt:AddLine("Right-click: Open settings", 0.91, 0.86, 0.78)
           tt:AddLine("Middle-click: Toggle dev mode", 0.54, 0.49, 0.42)
           tt:AddLine("Drag: Move button", 0.54, 0.49, 0.42)
@@ -480,6 +529,14 @@ SlashCmdList.WISHLIST = function(msg)
     if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() else print("Loot Wishlist: UI module not loaded.") end
   elseif msg == "hide" then
     if LootWishlist.UI and LootWishlist.UI.hide then LootWishlist.UI.hide() end
+  elseif msg == "trackinfo" then
+    if LootWishlist.Browser and LootWishlist.Browser.DiagnoseTracks then
+      LootWishlist.Browser.DiagnoseTracks()
+    else
+      print("Loot Wishlist: browser module not loaded.")
+    end
+  elseif msg == "browse" or msg == "browser" then
+    if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() else print("Loot Wishlist: browser module not loaded.") end
   elseif msg == "debug" then
     LootWishlist.SetDebug(not LootWishlist.IsDebug())
     if EncounterJournal and EncounterJournal:IsShown() then
@@ -658,6 +715,6 @@ SlashCmdList.WISHLIST = function(msg)
     if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end
     print("Loot Wishlist: cleared all tracked items")
   else
-    print("/wishlist commands: show | hide | settings | add <ID> | remove <ID> | list | clear | debug | reset-spec | raidinfo")
+    print("/wishlist commands: show | hide | browse | settings | add <ID> | remove <ID> | list | clear | debug | reset-spec | raidinfo")
   end
 end
