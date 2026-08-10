@@ -104,7 +104,7 @@ local function CreateOptionsPanel()
   scrollFrame:SetPoint("TOPLEFT", 0, 0)
   scrollFrame:SetPoint("BOTTOMRIGHT", -26, 0)
   local content = CreateFrame("Frame", nil, scrollFrame)
-  content:SetSize(570, 760)
+  content:SetSize(570, 800)
   scrollFrame:SetScrollChild(content)
   scrollFrame:HookScript("OnSizeChanged", function(self, width)
     content:SetWidth(width)
@@ -253,7 +253,7 @@ local function CreateOptionsPanel()
   higherDiffHint:SetFont(LuckyUI.BODY_FONT, 11)
   higherDiffHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
   higherDiffHint:SetPoint("TOPLEFT", higherDiffCB, "BOTTOMLEFT", 0, -2)
-  higherDiffHint:SetText("e.g. adding on Normal also adds Heroic and Mythic.")
+  higherDiffHint:SetText("e.g. adding a dungeon item on Normal also adds Heroic, Mythic and Mythic+.")
 
   -- Great Vault overlay checkbox
   local vaultCB = LuckyUI.CreateCheckbox(panel, 16)
@@ -279,9 +279,39 @@ local function CreateOptionsPanel()
     if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
   end)
 
+  -- Lucky's Wardrobe preview checkbox: only offered when that addon is
+  -- installed, since the preview it hides belongs to it. The panel is built on
+  -- PLAYER_LOGIN, so every installed addon has loaded by the time this runs.
+  local wardrobePreviewCB
+  local afterVault = vaultCB
+  if LuckysWardrobe and LuckysWardrobe.TooltipModel then
+    wardrobePreviewCB = LuckyUI.CreateCheckbox(panel, 16)
+    wardrobePreviewCB:SetPoint("TOPLEFT", vaultCB, "BOTTOMLEFT", 0, -10)
+    wardrobePreviewCB:SetChecked(s.hideWardrobePreview == true)
+    wardrobePreviewCB:SetScript("OnClick", function(self)
+      local val = self:GetChecked() and true or false
+      if LootWishlistDB and LootWishlistDB.settings then
+        LootWishlistDB.settings.hideWardrobePreview = val
+      end
+    end)
+
+    local wardrobePreviewLabel = panel:CreateFontString(nil, "OVERLAY")
+    wardrobePreviewLabel:SetFont(LuckyUI.BODY_FONT, 13)
+    wardrobePreviewLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+    wardrobePreviewLabel:SetPoint("LEFT", wardrobePreviewCB, "RIGHT", 8, 0)
+    wardrobePreviewLabel:SetText("Hide Lucky's Wardrobe item preview in wishlist windows")
+
+    local wardrobePreviewHint = panel:CreateFontString(nil, "OVERLAY")
+    wardrobePreviewHint:SetFont(LuckyUI.BODY_FONT, 11)
+    wardrobePreviewHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+    wardrobePreviewHint:SetPoint("TOPLEFT", wardrobePreviewCB, "BOTTOMLEFT", 0, -2)
+    wardrobePreviewHint:SetText("Applies to the wishlist and the Loot Browser. The model stays on everywhere else.")
+    afterVault = wardrobePreviewHint
+  end
+
   -- Bonus roll reminder checkbox
   local bonusRollCB = LuckyUI.CreateCheckbox(panel, 16)
-  bonusRollCB:SetPoint("TOPLEFT", vaultCB, "BOTTOMLEFT", 0, -10)
+  bonusRollCB:SetPoint("TOPLEFT", afterVault, "BOTTOMLEFT", 0, -10)
   bonusRollCB:SetChecked(s.enableBonusRollReminders ~= false)
   bonusRollCB:SetScript("OnClick", function(self)
     local val = self:GetChecked() and true or false
@@ -440,6 +470,7 @@ local function CreateOptionsPanel()
       st.hideSummaryInCombatAndMythicPlus = autoHideCB:GetChecked() and true or false
       st.addHigherDifficulties = higherDiffCB:GetChecked() and true or false
       st.enableVaultOverlay = vaultCB:GetChecked() and true or false
+      if wardrobePreviewCB then st.hideWardrobePreview = wardrobePreviewCB:GetChecked() and true or false end
       if LootWishlist.SetDebug then LootWishlist.SetDebug(debugCB:GetChecked() and true or false) end
       updateExample()
       if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
@@ -475,6 +506,7 @@ local function CreateOptionsPanel()
     autoHideCB:SetChecked(st.hideSummaryInCombatAndMythicPlus ~= false)
     higherDiffCB:SetChecked(st.addHigherDifficulties ~= false)
     vaultCB:SetChecked(st.enableVaultOverlay ~= false)
+    if wardrobePreviewCB then wardrobePreviewCB:SetChecked(st.hideWardrobePreview == true) end
     debugCB:SetChecked(st.debug == true)
     delaySlider:SetValue(st.bossKillReminderDelay or 10)
     delayValue:SetText(tostring(math.floor(delaySlider:GetValue())) .. "s")

@@ -120,7 +120,7 @@ local function joinTags(set)
   local arr = {}
   for k in pairs(set) do table.insert(arr, k) end
   table.sort(arr, function(a, b)
-    local order = { LFR=1, N=2, H=3, ["+"]=4, M=5 }
+    local order = LootWishlist.Const.DIFF_TAG_ORDER
     return (order[a] or 99) < (order[b] or 99)
   end)
   return table.concat(arr, ", ")
