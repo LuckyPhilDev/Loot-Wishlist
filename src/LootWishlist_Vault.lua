@@ -86,8 +86,7 @@ function Vault.Diagnose()
   end
 end
 
-local UI = LuckyUI
-local C  = UI and UI.C
+local C = LuckyUI.C
 
 local DevLog
 if LuckyLog and LuckyLog.New then
@@ -142,22 +141,69 @@ end
 
 -- Badge overlay ---------------------------------------------------------------
 
+-- Appends the deduplicated "Boss - Instance [diffs]" lines for a set of matches.
+local function addMatchLines(tooltip, matches)
+  local seen = {}
+  for _, m in ipairs(matches) do
+    local boss = m.boss or "Unknown"
+    local dungeon = m.dungeon or "Unknown"
+    local tag = diffTag(m.difficultyName, m.difficultyID)
+    local lineKey = boss .. "|" .. dungeon
+    if not seen[lineKey] then
+      seen[lineKey] = { boss = boss, dungeon = dungeon, diffs = {} }
+    end
+    if tag then seen[lineKey].diffs[tag] = true end
+  end
+  for _, info in pairs(seen) do
+    local tagStr = next(info.diffs) and (" [" .. joinTags(info.diffs) .. "]") or ""
+    tooltip:AddLine("  " .. info.boss .. " - " .. info.dungeon .. tagStr,
+      C.textLight[1], C.textLight[2], C.textLight[3])
+  end
+end
+
 local function ensureBadge(parent)
   if parent.LootWishlistVaultBadge then return parent.LootWishlistVaultBadge end
 
-  local badge = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-  badge:SetSize(32, 32)
-  badge:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -2, -2)
+  local badge = CreateFrame("Frame", nil, parent)
+  badge:SetSize(30, 30)
+  badge:SetPoint("CENTER", parent, "TOPRIGHT", -10, -10)
   badge:SetFrameStrata("FULLSCREEN_DIALOG")
   badge:SetFrameLevel((parent:GetFrameLevel() or 5) + 10)
-  badge:SetBackdrop(UI.Backdrop)
-  badge:SetBackdropColor(C.bgDark[1], C.bgDark[2], C.bgDark[3], 0.92)
-  badge:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 1)
+
+  local glow = badge:CreateTexture(nil, "ARTWORK")
+  glow:SetAtlas("bags-newitem")
+  glow:SetBlendMode("ADD")
+  glow:SetSize(46, 46)
+  glow:SetPoint("CENTER")
 
   local star = badge:CreateTexture(nil, "OVERLAY")
-  star:SetTexture("Interface\\COMMON\\FavoritesIcon")
-  star:SetSize(32, 32)
-  star:SetPoint("CENTER", 0, 0)
+  star:SetAtlas("auctionhouse-icon-favorite")
+  star:SetSize(24, 22)
+  star:SetPoint("CENTER")
+
+  local pulse = glow:CreateAnimationGroup()
+  pulse:SetLooping("BOUNCE")
+  local fade = pulse:CreateAnimation("Alpha")
+  fade:SetFromAlpha(1)
+  fade:SetToAlpha(0.4)
+  fade:SetDuration(0.9)
+  fade:SetSmoothing("IN_OUT")
+  badge:SetScript("OnShow", function() pulse:Play() end)
+  badge:SetScript("OnHide", function() pulse:Stop() end)
+
+  -- Hover explains the badge; clicks pass through so reward selection still works.
+  badge:SetMouseMotionEnabled(true)
+  badge:SetMouseClickEnabled(false)
+  badge:SetScript("OnEnter", function(self)
+    local matches = self.wishlistMatches
+    if not matches or #matches == 0 then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine("Loot Wishlist", C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
+    GameTooltip:AddLine("This reward matches an item on your wishlist:", C.textLight[1], C.textLight[2], C.textLight[3])
+    addMatchLines(GameTooltip, matches)
+    GameTooltip:Show()
+  end)
+  badge:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   badge:Hide()
   parent.LootWishlistVaultBadge = badge
@@ -181,22 +227,7 @@ end
 local function appendWishlistLines(tooltip, matches)
   tooltip:AddLine(" ")
   tooltip:AddLine("On your Wishlist:", C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
-  local seen = {}
-  for _, m in ipairs(matches) do
-    local boss = m.boss or "Unknown"
-    local dungeon = m.dungeon or "Unknown"
-    local tag = diffTag(m.difficultyName, m.difficultyID)
-    local lineKey = boss .. "|" .. dungeon
-    if not seen[lineKey] then
-      seen[lineKey] = { boss = boss, dungeon = dungeon, diffs = {} }
-    end
-    if tag then seen[lineKey].diffs[tag] = true end
-  end
-  for _, info in pairs(seen) do
-    local tagStr = next(info.diffs) and (" [" .. joinTags(info.diffs) .. "]") or ""
-    tooltip:AddLine("  " .. info.boss .. " - " .. info.dungeon .. tagStr,
-      C.textLight[1], C.textLight[2], C.textLight[3])
-  end
+  addMatchLines(tooltip, matches)
   tooltip:Show()
 end
 
