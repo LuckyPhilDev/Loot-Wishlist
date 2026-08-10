@@ -1,8 +1,9 @@
 -- Loot Wishlist - Loot Browser
 -- Browse the current season's dungeon and raid drop tables without the
--- Encounter Journal, filtered to what the character can wear, and toggle
--- wishlist entries directly. Drives the native EJ data APIs headless, the
--- same pattern getEncounterOrder in LootWishlist_UI.lua already uses.
+-- Encounter Journal, filtered to a class and spec (the player's own by
+-- default, other classes read-only), and toggle wishlist entries directly.
+-- Drives the native EJ data APIs headless, the same pattern
+-- getEncounterOrder in LootWishlist_UI.lua already uses.
 
 LootWishlist = LootWishlist or {}
 LootWishlist.Browser = LootWishlist.Browser or {}
@@ -41,9 +42,11 @@ local TRACK_TIPS = {
 local frame, sidebarList, lootList, searchBox, statusLabel
 local trackButtons = {}
 local season                 -- { dungeons = {..}, raids = {..} }
-local lootCache = {}         -- ["instanceID@diffID"] = { items = {..}, diffID = scanned }
+local lootCache = {}         -- [cacheKey(...)] = { items = {..}, diffID = scanned }
 local bossNames = {}         -- encounterID -> name (false = lookup failed)
-local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceName = nil, isRaid = nil, search = "", slot = nil }
+-- classID/specID drive the EJ loot filter; specID 0 = all specs. A class other
+-- than the player's is browse-only: rows lose their add controls.
+local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceName = nil, isRaid = nil, search = "", slot = nil, classID = nil, specID = 0 }
 
 local scheduleRefresh        -- forward: defined with the UI, used by the scanner
 
@@ -58,6 +61,24 @@ end
 
 local function playerClassID()
   return (select(3, UnitClass("player")))
+end
+
+local function browsingOwnClass()
+  return state.classID == playerClassID()
+end
+
+local function classNameAndColor(classID)
+  local name, file = GetClassInfo(classID)
+  local color = file and RAID_CLASS_COLORS and RAID_CLASS_COLORS[file]
+  return name or "?", color
+end
+
+local function coloredClassName(classID)
+  local name, color = classNameAndColor(classID)
+  if color and color.colorStr then
+    return "|c" .. color.colorStr .. name .. "|r"
+  end
+  return name
 end
 
 ------------------------------------------------------------------------
@@ -206,7 +227,7 @@ local function assertSelection(scan)
   local diff = applyDifficulty(scan)
   if not diff then return nil end
   scan.scannedDiff = diff
-  pcall(EJ_SetLootFilter, playerClassID(), 0)
+  pcall(EJ_SetLootFilter, scan.classID, scan.specID)
   return diff
 end
 
@@ -325,13 +346,22 @@ scanEvents:SetScript("OnEvent", function(_, event)
   end
 end)
 
+-- The loot filter shapes what a scan reads, so class and spec are part of the
+-- cache identity alongside instance and difficulty.
+local function cacheKey(instanceID, diffID)
+  return table.concat({ instanceID, diffID, state.classID, state.specID }, "@")
+end
+
 -- Returns the cache entry when ready, else queues a scan and returns nil.
 local function requestLoot(instanceID, isRaid, diffID)
-  local key = tostring(instanceID) .. "@" .. tostring(diffID)
+  local key = cacheKey(instanceID, diffID)
   if lootCache[key] then return lootCache[key] end
   if not pendingKeys[key] then
     pendingKeys[key] = true
-    queue[#queue + 1] = { key = key, instanceID = instanceID, isRaid = isRaid, diffID = diffID }
+    queue[#queue + 1] = {
+      key = key, instanceID = instanceID, isRaid = isRaid, diffID = diffID,
+      classID = state.classID, specID = state.specID,
+    }
     pump()
   end
   return nil
@@ -386,8 +416,10 @@ local function trackItemLink(itemID, tr)
   if equipLoc == "INVTYPE_FINGER" or equipLoc == "INVTYPE_NECK" then
     bonuses[#bonuses + 1] = 13534  -- Midnight ring and amulet stat layout
   end
-  local specID = 0
-  if GetSpecialization and GetSpecializationInfo then
+  -- The link's spec field decides which stat spread variable items show, so a
+  -- browsed spec renders as that spec's drop rather than the player's.
+  local specID = state.specID
+  if specID == 0 and GetSpecialization and GetSpecializationInfo then
     specID = GetSpecializationInfo(GetSpecialization() or 0) or 0
   end
   local payload = string.format("item:%d::::::::%d:%d:::%d:%s",
@@ -433,7 +465,7 @@ local function slotsInView()
   if not insts then return list end
   local tr = trackEntry()
   for _, inst in ipairs(insts) do
-    local key = tostring(inst.id) .. "@" .. tostring(inst.isRaid and tr.raidDiff or tr.dungeonScanDiff)
+    local key = cacheKey(inst.id, inst.isRaid and tr.raidDiff or tr.dungeonScanDiff)
     local cache = lootCache[key]
     if cache then
       for _, it in ipairs(cache.items) do
@@ -468,6 +500,7 @@ local function buildRows()
   local readAt  -- difficulty actually applied, when it is not the one asked for
   local tr = trackEntry()
   local single = state.view == "instance"
+  local viewOnly = not browsingOwnClass()
   local filtering = state.search ~= "" or state.slot ~= nil
   -- A slot filter leaves one or two items per instance, so headers would take
   -- as many rows as the loot; the item sub line already names boss and
@@ -511,7 +544,7 @@ local function buildRows()
         if on then onList = onList + 1 end
         section[#section + 1] = {
           kind = "item", item = it, instance = inst,
-          scannedDiff = trackDiff, tracked = on, single = single,
+          scannedDiff = trackDiff, tracked = on, single = single, viewOnly = viewOnly,
           trackIlvl = trackIlvl, trackName = trackIlvl and state.track or nil,
           trackLink = trackIlvl and trackItemLink(it.itemID, tr) or nil,
         }
@@ -558,6 +591,9 @@ end
 -- Actions
 ------------------------------------------------------------------------
 local function toggleRow(r)
+  -- Another class's loot is browse-only: this character could never loot it,
+  -- so a wishlist entry would only produce reminders that cannot pay off.
+  if r.viewOnly then return end
   local it = r.item
   if isTracked(it.itemID) then
     LootWishlist.RemoveTrackedItem(it.itemID)
@@ -588,6 +624,10 @@ local function updateStatus(shown, onList, readAt)
   local text = string.format(
     "|cffe8dcc8%d|r item%s shown%s|cffe8dcc8%d|r on wishlist",
     shown, shown == 1 and "" or "s", DOT, onList)
+  if not browsingOwnClass() then
+    text = text .. DOT .. coloredClassName(state.classID) .. " loot"
+      .. DOT .. WC.textMuted .. "view only, switch back to your class to add" .. WC.reset
+  end
   -- The journal does not carry a table for every track. Say which one the
   -- items on screen actually came from rather than let the track button imply
   -- something the data cannot back up.
@@ -920,16 +960,18 @@ local function updateLootRow(row, r)
     row.sub:Show()
   end
 
-  if r.tracked then
-    row.btn:SetBackdropColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 0.9)
-    row.btn.label:SetText(CROSS)
-    row.btn.label:SetTextColor(C.bgDark[1], C.bgDark[2], C.bgDark[3])
-  else
-    row.btn:SetBackdropColor(C.bgInput[1], C.bgInput[2], C.bgInput[3], C.bgInput[4])
-    row.btn.label:SetText("+")
-    row.btn.label:SetTextColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
+  if not r.viewOnly then
+    if r.tracked then
+      row.btn:SetBackdropColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 0.9)
+      row.btn.label:SetText(CROSS)
+      row.btn.label:SetTextColor(C.bgDark[1], C.bgDark[2], C.bgDark[3])
+    else
+      row.btn:SetBackdropColor(C.bgInput[1], C.bgInput[2], C.bgInput[3], C.bgInput[4])
+      row.btn.label:SetText("+")
+      row.btn.label:SetTextColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
+    end
+    row.btn:Show()
   end
-  row.btn:Show()
 end
 
 -- A pooled, mixed-height scrolling list over rows built by createLootRow.
@@ -1039,12 +1081,17 @@ end
 local function ensureFrame()
   if frame then return end
 
-  -- Restore persisted browse state
+  -- Restore persisted browse state. The class always opens as the player's
+  -- own: another class's loot is view-only, and coming back a session later
+  -- to a browser that cannot add anything would read as broken. The spec
+  -- sticks, it is a preference about your own loot.
   local db = charDB()
   state.track = db.track or state.track
   state.view = db.view or state.view
   state.instanceID, state.instanceName, state.isRaid = db.instanceID, db.instanceName, db.isRaid
   if state.view == "instance" and not state.instanceID then state.view = "dungeons" end
+  state.classID = playerClassID()
+  state.specID = db.specID or 0
 
   frame = CreateFrame("Frame", "LootWishlistBrowserFrame", UIParent, "BackdropTemplate")
   frame:SetSize(DEFAULT_W, DEFAULT_H)
@@ -1146,24 +1193,6 @@ local function ensureFrame()
   end
   paintTrackButtons()
 
-  -- Class label: the list is always filtered to what this class can wear.
-  -- Anchored between the last track button and the right edge so it truncates
-  -- rather than overlapping at narrow window widths.
-  local className, classFile = UnitClass("player")
-  local classColor = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
-  local classLabel = toolbar:CreateFontString(nil, "OVERLAY")
-  classLabel:SetFont(UI.BODY_FONT, 11)
-  classLabel:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  classLabel:SetPoint("LEFT", prev, "RIGHT", 12, 0)
-  classLabel:SetPoint("RIGHT", toolbar, "TOPRIGHT", -4, -12)
-  classLabel:SetJustifyH("RIGHT")
-  classLabel:SetWordWrap(false)
-  if classColor and classColor.colorStr then
-    classLabel:SetText("Showing |c" .. classColor.colorStr .. (className or "") .. "|r loot")
-  else
-    classLabel:SetText("Showing " .. (className or "") .. " loot")
-  end
-
   -- Slot filter: every slot present in the current view's loot. The menu is
   -- regenerated on each open, so it tracks the view and streaming scans.
   local slotDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
@@ -1200,6 +1229,46 @@ local function ensureFrame()
     end
   end)
 
+  -- Class and spec filter: the browser opens on the player's class, and any
+  -- other class can be browsed read-only. Spec radios narrow the loot the way
+  -- the Adventure Guide's own filter does.
+  local function specRadio(parent, classID, specID, text)
+    parent:CreateRadio(text,
+      function() return state.classID == classID and state.specID == specID end,
+      function()
+        state.classID, state.specID = classID, specID
+        -- Only a spec of your own class is worth remembering; a foreign
+        -- class peek should not survive into the next session's open.
+        if classID == playerClassID() then charDB().specID = specID end
+        refreshNow()
+      end)
+  end
+
+  local function addSpecEntries(parent, classID)
+    specRadio(parent, classID, 0, "All " .. coloredClassName(classID))
+    for i = 1, GetNumSpecializationsForClassID(classID) or 0 do
+      local specID, specName = GetSpecializationInfoForClassID(classID, i)
+      if specID then
+        specRadio(parent, classID, specID, specName .. " " .. coloredClassName(classID))
+      end
+    end
+  end
+
+  local classDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
+  classDropdown:SetPoint("BOTTOMRIGHT", slotDropdown, "BOTTOMLEFT", -6, 0)
+  classDropdown:SetWidth(140)
+  classDropdown:SetDefaultText(coloredClassName(playerClassID()))
+  classDropdown:SetupMenu(function(_, root)
+    addSpecEntries(root, playerClassID())
+    root:CreateDivider()
+    for i = 1, GetNumClasses() do
+      local _, _, id = GetClassInfo(i)
+      if id and id ~= playerClassID() then
+        addSpecEntries(root:CreateButton(coloredClassName(id)), id)
+      end
+    end
+  end)
+
   searchBox = UI.CreateSearchBox(toolbar, {
     height = 24,
     placeholder = "Search items, bosses, slots...",
@@ -1211,7 +1280,7 @@ local function ensureFrame()
   })
   searchBox:ClearAllPoints()
   searchBox:SetPoint("BOTTOMLEFT", 4, 4)
-  searchBox:SetPoint("BOTTOMRIGHT", slotDropdown, "BOTTOMLEFT", -8, 1)
+  searchBox:SetPoint("BOTTOMRIGHT", classDropdown, "BOTTOMLEFT", -8, 1)
 
   -- Loot list
   lootList = createLootList(frame)

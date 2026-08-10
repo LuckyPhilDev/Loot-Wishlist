@@ -10,7 +10,8 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 
 - **Loot Browser** — browse the current season's dungeon and raid drop tables in one window, no Adventure Guide needed
   - See every dungeon's loot at once, or switch to all raids or the entire season
-  - Always filtered to what your class can wear, with patterns and cosmetic drops left out
+  - Filtered to your class with patterns and cosmetic drops left out, and narrowable to a single spec
+  - Peek at any other class's loot table, view only, so you can scout for an alt or a friend
   - Pick a gear track (Veteran, Champion, Hero, Myth) and items are tracked at the matching difficulty
   - Filter by slot to see every trinket, weapon, or pair of hands in the pool
   - Search by item name, boss, slot, or armor type
