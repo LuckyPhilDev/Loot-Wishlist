@@ -1,31 +1,15 @@
-## [1.10.2] - 2026-07-05
-
-### Improved
-- Minor maintenance and packaging updates.
-
-## [1.10.1] - 2026-06-17
-
-### Improved
-- Updated for the latest game patch.
-
-## [1.10.0] - 2026-06-14
+## [1.11.0] - 2026-08-10
 
 ### Added
-- **Manual add**: track any item by ID or item link with `/wishlist add`, so you can wishlist things that don't show up in the Adventure Guide.
+- **Loot Browser**: browse the whole season's dungeon and raid loot in one window and build your wishlist with one click, no Adventure Guide needed.
+  - See one dungeon at a time, all raids, or the entire season at once.
+  - Filtered to your class, and narrowable to a single spec.
+  - Peek at any other class's loot table to scout for an alt or a friend.
+  - Pick a gear track (Veteran, Champion, Hero, Myth) and items are tracked at the matching difficulty.
+  - Filter by slot or search by item name, boss, slot, or armor type.
+  - Open it with `/wishlist browse` or the Browse Loot button on the wishlist window.
+
+The Loot Browser is brand new, so if anything feels off or you have ideas for it, drop by the [Discord](https://discord.gg/87HRHcAYP) and let me know.
 
 ### Fixed
-- Wishlist rows no longer flicker while their names and icons load; the list now fills in cleanly.
-
-## [1.9.1] - 2026-06-05
-
-### Fixed
-- Minimap button now appears correctly on the minimap instead of sometimes hiding behind it.
-- Removed a black square that could appear when hovering the minimap button.
-
-### Improved
-- Move the minimap button with a simple click and drag.
-
-## [1.9.0] - 2026-05-17
-
-### Added
-- Summary window can now hide itself automatically while you're in combat or running a Mythic+ key. On by default; toggle it in settings.
+- Fixed an error that could fire when dragging the wishlist scrollbar.
