@@ -171,9 +171,10 @@ local function ensureBadge(parent)
   badge:SetFrameLevel((parent:GetFrameLevel() or 5) + 10)
 
   local glow = badge:CreateTexture(nil, "ARTWORK")
-  glow:SetAtlas("bags-newitem")
+  glow:SetTexture("Interface\\Cooldown\\star4")
   glow:SetBlendMode("ADD")
-  glow:SetSize(46, 46)
+  glow:SetVertexColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3], 0.8)
+  glow:SetSize(44, 44)
   glow:SetPoint("CENTER")
 
   local star = badge:CreateTexture(nil, "OVERLAY")
