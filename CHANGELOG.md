@@ -1,3 +1,11 @@
+## [1.11.1] - 2026-08-10
+
+### Added
+- **Hover the star on a Great Vault reward.** A tooltip names the boss and dungeon each matching wishlist item drops from.
+
+### Improved
+- **Spot wishlist matches in the Great Vault faster.** The marker on a matching reward is now a pulsing gold flare in place of the boxed star icon.
+
 ## [1.11.0] - 2026-08-10
 
 ### Added
