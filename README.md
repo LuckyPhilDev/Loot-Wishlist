@@ -1,4 +1,4 @@
-[Join the Discord](https://discord.gg/87HRHcAYP)
+[Join the Discord](https://discord.gg/ptTtYyAjdZ)
 
 # Lucky's Loot Wishlist
 
