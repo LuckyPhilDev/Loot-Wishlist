@@ -75,7 +75,7 @@ Install from [CurseForge](https://www.curseforge.com/wow/addons/luckys-loot-wish
 
 Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishlist**.
 
-- Toggle the minimap button
+- Toggle the minimap button, which can also sit on a panel addon such as Titan Panel instead
 - Toggle the sticky summary window
 - Adjust summary window opacity when your mouse isn't hovering over it
 - Toggle automatic multi-difficulty tracking (on by default)
