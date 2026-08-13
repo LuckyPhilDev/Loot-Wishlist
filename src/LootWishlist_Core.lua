@@ -435,6 +435,7 @@ f:SetScript("OnEvent", function(self, event, ...)
       if not LuckyMinimap or not LootWishlistDB then return end
       LootWishlist.minimapButton = LuckyMinimap:Create({
         name    = "LootWishlistMinimapButton",
+        tocname = "Luckys_Loot_Wishlist",
         icon    = "Interface\\Icons\\INV_Misc_Spyglass_03",
         dbKey   = "minimap",
         db      = LootWishlistDB,
