@@ -1,3 +1,9 @@
+## [1.11.4] - 2026-08-14
+
+### Fixed
+- The Hero and Myth tracks in the Loot Browser show this season's item levels for dungeon loot, in place of last season's.
+- Dungeon loot tooltips on the Hero and Myth tracks in the Loot Browser name the upgrade track again.
+
 ## [1.11.3] - 2026-08-13
 
 ### Added

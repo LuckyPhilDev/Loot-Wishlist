@@ -54,16 +54,16 @@ LootWishlist.Const = {
   -- vault, so those tracks read the Mythic table (dungeonScanDiff) and each
   -- item is rebuilt as the track's own version: trackBonus is the bonus ID
   -- that marks an item "<track> 1/6" and trackIlvl the item level that rank
-  -- carries. Both are season data (Midnight Season 1 here) and need a refresh
+  -- carries. Both are season data (Midnight Season 2 here) and need a refresh
   -- each season; keystoneLevel is only the tooltip's "from +N" label.
   -- dungeonTrackDiff is what a wishlist entry is recorded at.
   TRACKS = {
     { key = "Veteran",  dungeonScanDiff = 2,  dungeonTrackDiff = 2,  raidDiff = 17 },
     { key = "Champion", dungeonScanDiff = 23, dungeonTrackDiff = 23, raidDiff = 14 },
     { key = "Hero",     dungeonScanDiff = 23, dungeonTrackDiff = 8, keystone = true,
-      keystoneLevel = 6,  raidDiff = 15, trackIlvl = 259, trackBonus = 12793 },
+      keystoneLevel = 6,  raidDiff = 15, trackIlvl = 305, trackBonus = 12841 },
     { key = "Myth",     dungeonScanDiff = 23, dungeonTrackDiff = 8, keystone = true,
-      keystoneLevel = 10, raidDiff = 16, trackIlvl = 272, trackBonus = 12801 },
+      keystoneLevel = 10, raidDiff = 16, trackIlvl = 318, trackBonus = 12849 },
   },
 
   -- Raid layout graphs: maps EJ instanceID → { [encounterID] = { prereqs } }
