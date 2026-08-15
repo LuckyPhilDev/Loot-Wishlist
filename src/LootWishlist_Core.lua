@@ -436,7 +436,7 @@ f:SetScript("OnEvent", function(self, event, ...)
       LootWishlist.minimapButton = LuckyMinimap:Create({
         name    = "LootWishlistMinimapButton",
         tocname = "Luckys_Loot_Wishlist",
-        icon    = "Interface\\Icons\\INV_Misc_Spyglass_03",
+        icon    = "Interface\\AddOns\\Luckys_Utils\\Media\\promo-loot-wishlist.tga",
         dbKey   = "minimap",
         db      = LootWishlistDB,
         onClick = function(_, mouseBtn)
