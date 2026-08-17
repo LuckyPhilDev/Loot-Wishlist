@@ -1239,6 +1239,7 @@ local function ensureFrame()
   frame:SetFrameStrata("MEDIUM")
   frame:SetFrameLevel(20)
   frame:EnableMouse(true)
+  frame.lootWishlistWindow = true
   frame:SetBackdrop(UI.Backdrop)
   frame:SetBackdropColor(C.bgDark[1], C.bgDark[2], C.bgDark[3], C.bgDark[4])
   frame:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])

@@ -11,6 +11,38 @@ local UI = LuckyUI
 local C  = UI.C
 
 ------------------------------------------------------------------------
+-- Comparison tooltips: keep them off our windows
+------------------------------------------------------------------------
+-- Blizzard anchors the Equipped comparison tooltips to the sides of the
+-- GameTooltip itself, so a row tooltip on ANCHOR_RIGHT gets its comparisons
+-- stacked back across the window, burying the hovered row. The comparison
+-- manager accepts a custom anchor frame and keeps the comparisons outside
+-- its edges (how the Encounter Journal stays clear), so whenever the
+-- tooltip belongs to a row in one of our windows, hand it a frame spanning
+-- window plus tooltip.
+local obstacle = CreateFrame("Frame", nil, UIParent)
+-- The manager slides a tooltip sideways when comparisons don't fit, which
+-- would shove the row tooltip off its row; a no-op absorbs the slide.
+obstacle.SetAnchorType = function() end
+
+local function comparisonWindowFor(region)
+  while region do
+    if region.lootWishlistWindow then return region end
+    region = region:GetParent()
+  end
+end
+
+hooksecurefunc(TooltipComparisonManager, "Initialize", function(mgr)
+  local win = comparisonWindowFor(mgr.tooltip:GetOwner())
+  if not win then return end
+  obstacle:ClearAllPoints()
+  obstacle:SetPoint("TOPLEFT", win)
+  obstacle:SetPoint("BOTTOM", win)
+  obstacle:SetPoint("RIGHT", mgr.tooltip, "RIGHT")
+  mgr.anchorFrame = obstacle
+end)
+
+------------------------------------------------------------------------
 -- Layout constants
 ------------------------------------------------------------------------
 local INSTANCE_ROW_H = 26
@@ -701,6 +733,7 @@ local function createMainFrame()
   f:SetFrameStrata("MEDIUM")
   f:SetFrameLevel(10)
   f:EnableMouse(true)
+  f.lootWishlistWindow = true
 
   -- LuckyUI solid backdrop with gold border
   f:SetBackdrop(UI.Backdrop)
