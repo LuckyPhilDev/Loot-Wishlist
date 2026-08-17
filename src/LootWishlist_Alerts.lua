@@ -21,6 +21,7 @@ local function dprint(...)
 end
 -- Track bag counts to detect when a tracked item later appears in your inventory
 local bagCounts = {}
+local bagGraceUntil = 0
 local recentSelfAlertAt = {}
 -- Current instance difficulty helper (module scope)
 local function getCurrentInstanceDifficulty()
@@ -36,10 +37,12 @@ local function getCurrentInstanceDifficulty()
   return nil, nil
 end
 
--- Get the number of a given itemID on the player (bags + equipped, excluding bank)
+-- Get the number of a given itemID on the player (bags + equipped, excluding bank),
+-- plus the link of the first copy found so alerts can inspect the actual item
 local function getInventoryCount(itemID)
   if not itemID then return 0 end
   local total = 0
+  local firstLink
   if C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerItemInfo then
     local maxBag = (NUM_BAG_SLOTS or 4)
     for bag = 0, maxBag do
@@ -48,6 +51,7 @@ local function getInventoryCount(itemID)
         local info = C_Container.GetContainerItemInfo(bag, slot)
         if info and info.itemID == itemID then
           total = total + (info.stackCount or 1)
+          firstLink = firstLink or info.hyperlink
         end
       end
     end
@@ -58,6 +62,7 @@ local function getInventoryCount(itemID)
         local info = C_Container.GetContainerItemInfo(reagentBag, slot)
         if info and info.itemID == itemID then
           total = total + (info.stackCount or 1)
+          firstLink = firstLink or info.hyperlink
         end
       end
     end
@@ -65,9 +70,10 @@ local function getInventoryCount(itemID)
     for equipSlot = 1, 19 do
       if GetInventoryItemID("player", equipSlot) == itemID then
         total = total + 1
+        firstLink = firstLink or GetInventoryItemLink("player", equipSlot)
       end
     end
-    return total
+    return total, firstLink
   end
   -- Debug: legacy bag API path not available in this build; return 0
   dprint("getInventoryCount fallback 0 for", tostring(itemID))
@@ -412,9 +418,43 @@ local function configureOtherActions(looterName, itemID, itemLink)
   end
 end
 
+local function getLinkIlvl(link)
+  if not link then return nil end
+  local ilvl = C_Item and C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(link)
+  if type(ilvl) == "number" and ilvl > 0 then return ilvl end
+  return nil
+end
+
+-- Offer actions only when the dropped copy provably reaches an entry's own
+-- track. Entry links carry their difficulty/track bonus IDs, so comparing
+-- effective ilvls compares upgrade tracks without locale-dependent tooltip
+-- parsing. Anything unknowable stays a highlight-only alert.
+local function dropMeetsWishlistTrack(itemID, droppedLink)
+  local droppedIlvl = getLinkIlvl(droppedLink)
+  if not droppedIlvl then return false end
+  local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
+  if not t then return false end
+  for _, v in pairs(t) do
+    if type(v) == "table" and v.id == itemID then
+      local entryIlvl = getLinkIlvl(v.link)
+      if entryIlvl and droppedIlvl >= entryIlvl then return true end
+    end
+  end
+  return false
+end
+
+Alerts.DropMeetsWishlistTrack = dropMeetsWishlistTrack
+
 local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, difficultyID, difficultyName)
   dprint("ShowDropAlertWithContext:", "itemID=", tostring(itemID), "self=", tostring(isSelf), "looter=", tostring(looterName), "diff=", tostring(difficultyID), tostring(difficultyName))
   ShowDropAlert(itemLink)
+  if not dropMeetsWishlistTrack(itemID, itemLink) then
+    -- Not confirmed at any entry's track: highlight the drop, offer no actions
+    dprint("drop not confirmed at wishlist track for", tostring(itemID), "- informational alert only")
+    hideAllButtons()
+    alertFrame:SetHeight((LootWishlist.Const and LootWishlist.Const.ALERT_FRAME_INITIAL_HEIGHT) or 110)
+    return
+  end
   if isSelf then
     configureSelfActions(itemID, itemLink)
   else
@@ -494,25 +534,30 @@ local function handleEvent(_, event, ...)
     if not itemID then return end
     if not isTracked(itemID) then return end
     ShowRaidRollAlert(itemLink)
-  elseif event == "PLAYER_LOGIN" then
-    -- Initialize baseline bag counts for tracked items
-    local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
-    if tracked then
-      for _, v in pairs(tracked) do
-        local iid = v and v.id
-        if type(iid) == "number" then bagCounts[iid] = getInventoryCount(iid) end
-      end
-    end
+  elseif event == "PLAYER_ENTERING_WORLD" then
+    bagGraceUntil = GetTime() + 5
   elseif event == "BAG_UPDATE_DELAYED" then
     dprint("event: BAG_UPDATE_DELAYED")
     -- Detect when a tracked item newly appears in your bags (e.g., trade),
     -- and prompt to remove it from the wishlist with a self-style alert.
     local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
     if not tracked or not next(tracked) then dprint("no tracked items; skipping bag scan"); return end
+    -- Bags populate in waves around every loading screen, so a single early
+    -- baseline reads partial counts and the next wave looks like a gain,
+    -- re-announcing items already in your bags. Every scan inside the grace
+    -- window only (re)records baselines; the last wave wins.
+    if GetTime() < bagGraceUntil then
+      for _, info in pairs(tracked) do
+        local iid = info and info.id
+        if type(iid) == "number" then bagCounts[iid] = getInventoryCount(iid) end
+      end
+      dprint("bag baselines recorded (loading grace)")
+      return
+    end
     for _, info in pairs(tracked) do
       local iid = info and info.id or nil
       if type(iid) == "number" then
-        local current = getInventoryCount(iid)
+        local current, bagLink = getInventoryCount(iid)
         local prev = bagCounts[iid]
         dprint("scan item:", tostring(iid), "prev=", tostring(prev), "now=", tostring(current))
         if prev == nil then
@@ -532,7 +577,13 @@ local function handleEvent(_, event, ...)
                 dprint("triggering self remove alert for", tostring(iid), "diff=", tostring(diffID), tostring(diffName), "link=", tostring(l))
                 ShowDropAlertWithContext(l or ("item:"..tostring(iid)), true, UnitName("player"), iid, diffID, diffName)
               end
-              if info and info.link then
+              -- Prefer the actual bag copy's link so warbound and track checks
+              -- see the item you received, not the wishlist entry's version.
+              -- A "[]" name means the item isn't cached yet; use the entry's
+              -- link rather than display an empty name.
+              if bagLink and not bagLink:find("[]", 1, true) then
+                withLink(bagLink)
+              elseif info and info.link then
                 withLink(info.link)
               else
                 getItemLinkAsync(iid, withLink)
@@ -560,8 +611,29 @@ function Alerts:Init(database)
   eventFrame:RegisterEvent("ENCOUNTER_LOOT_RECEIVED")
   eventFrame:RegisterEvent("START_LOOT_ROLL")
   eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
-  eventFrame:RegisterEvent("PLAYER_LOGIN")
+  eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
   eventFrame:SetScript("OnEvent", handleEvent)
+end
+
+-- Replay the login bag sequence: arm the grace window, fake a partial first
+-- wave by zeroing baselines, then scan inside and after the window. Items
+-- already in your bags must stay silent; an alert means the guard regressed.
+function Alerts.TestLogin()
+  local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
+  if not tracked or not next(tracked) then
+    print("Loot Wishlist: testlogin needs a tracked item, ideally one in your bags")
+    return
+  end
+  handleEvent(nil, "PLAYER_ENTERING_WORLD")
+  for _, info in pairs(tracked) do
+    if info and type(info.id) == "number" then bagCounts[info.id] = 0 end
+  end
+  handleEvent(nil, "BAG_UPDATE_DELAYED")
+  print("Loot Wishlist: login sim running, result in 6s...")
+  C_Timer.After(6, function()
+    handleEvent(nil, "BAG_UPDATE_DELAYED")
+    print("Loot Wishlist: login sim done. No alert appeared = grace guard held.")
+  end)
 end
 
 function Alerts.TestDrop(input, forceNot)
