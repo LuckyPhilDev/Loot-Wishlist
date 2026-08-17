@@ -67,6 +67,36 @@ local function diffTag(id, name)
 end
 
 ------------------------------------------------------------------------
+-- trackKeyForEntry: which gear track a wishlist entry is stored at.
+-- Raids carry one difficulty per track. Dungeon Veteran and Champion own
+-- a difficulty each; Hero and Myth share the keystone difficulty and are
+-- told apart by the track bonus in the entry's link, or by its item
+-- level for entries recorded without one.
+------------------------------------------------------------------------
+local function trackKeyForEntry(info)
+  local diffID = info and info.difficultyID
+  if not diffID then return nil end
+  local link = info.link
+  local tracks = LootWishlist.Const.TRACKS
+  for _, t in ipairs(tracks) do
+    if info.isRaid then
+      if t.raidDiff == diffID then return t.key end
+    elseif t.dungeonTrackDiff == diffID then
+      if not t.trackBonus then return t.key end
+      if link and link:find(":" .. t.trackBonus .. "%f[%D]") then return t.key end
+    end
+  end
+  if info.isRaid or not link then return nil end
+  local ilvl = C_Item and C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(link)
+  if type(ilvl) ~= "number" then return nil end
+  for i = #tracks, 1, -1 do
+    local t = tracks[i]
+    if t.dungeonTrackDiff == diffID and t.trackIlvl and ilvl >= t.trackIlvl then return t.key end
+  end
+  return nil
+end
+
+------------------------------------------------------------------------
 -- Encounter order cache
 ------------------------------------------------------------------------
 local encounterOrderCache = {}
@@ -146,7 +176,10 @@ local function mergeItemsByID(items)
       table.insert(merged, byID[id])
     end
     local tag = diffTag(it.info.difficultyID, it.info.difficultyName)
-    table.insert(byID[id].diffs, { diffID = it.info.difficultyID, diffName = it.info.difficultyName, tag = tag })
+    table.insert(byID[id].diffs, {
+      diffID = it.info.difficultyID, diffName = it.info.difficultyName,
+      tag = tag, track = trackKeyForEntry(it.info),
+    })
   end
   for _, m in ipairs(merged) do
     table.sort(m.diffs, function(a, b)
@@ -486,7 +519,8 @@ local function populatePoolFrame(f, row, rowIndex)
     if row.diffs and #row.diffs > 0 then
       local tags = {}
       for _, d in ipairs(row.diffs) do
-        if d.tag then table.insert(tags, d.tag) end
+        local label = d.track or d.tag
+        if label then table.insert(tags, label) end
       end
       if #tags > 0 then
         table.insert(parts, string.format("|cff8a7e6a[%s]|r", table.concat(tags, "\194\183")))
@@ -873,6 +907,7 @@ local function deferredRefresh()
   end)
 end
 
+LootWishlist.UI.TrackKeyForEntry = trackKeyForEntry
 LootWishlist.UI.refresh         = scheduleRefresh
 LootWishlist.UI.deferredRefresh = deferredRefresh
 LootWishlist.UI.open            = open
