@@ -407,6 +407,17 @@ function LootWishlist.IsDebug()
   return DEBUG
 end
 
+-- Dev helper: append the item ID to every item tooltip while debug mode is on
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+  TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
+    if not DEBUG then return end
+    local id = data and data.id
+    if id and tooltip and tooltip.AddLine then
+      tooltip:AddLine("Item ID: " .. id, 0.7, 0.7, 0.7)
+    end
+  end)
+end
+
 -- Events ---------------------------------------------------------------------
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
@@ -604,6 +615,10 @@ SlashCmdList.WISHLIST = function(msg)
       end
     else
       print("/wishlist testdrop-other <itemID|itemLink> [looterName]")
+    end
+  elseif msg == "testlogin" then
+    if LootWishlist.Alerts and LootWishlist.Alerts.TestLogin then
+      LootWishlist.Alerts.TestLogin()
     end
   elseif msg == "vault" or msg == "vaultinfo" then
     if LootWishlist.Vault and LootWishlist.Vault.Diagnose then
