@@ -21,7 +21,8 @@ local SIDE_ROW_H   = 24
 local TOOLBAR_H    = 62
 local DEFAULT_W    = 720
 local DEFAULT_H    = 540
-local MIN_W        = 560
+-- Wide enough that the track buttons and the group dropdown share the top row.
+local MIN_W        = 650
 local MIN_H        = 400
 local SCAN_TIMEOUT = 3
 
@@ -1268,6 +1269,25 @@ local function ensureFrame()
   end
   paintTrackButtons()
 
+  -- Group mode: lay the list out by where loot drops or by gear slot
+  local groupDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
+  groupDropdown:SetPoint("TOPRIGHT", -4, -4)
+  groupDropdown:SetWidth(110)
+  groupDropdown:SetDefaultText(state.group == "slot" and "By Slot" or "By Source")
+  groupDropdown:SetupMenu(function(_, root)
+    local function groupRadio(label, value)
+      root:CreateRadio(label,
+        function() return state.group == value end,
+        function()
+          state.group = value
+          charDB().group = value
+          refreshNow()
+        end)
+    end
+    groupRadio("By Source", "source")
+    groupRadio("By Slot", "slot")
+  end)
+
   -- Slot filter: every slot present in the current view's loot. The menu is
   -- regenerated on each open, so it tracks the view and streaming scans.
   local slotDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
@@ -1388,25 +1408,7 @@ local function ensureFrame()
   closeBtn:SetPoint("RIGHT", -4, -2)
   closeBtn:SetScript("OnClick", function() frame:Hide() end)
 
-  -- Group mode: lay the list out by where loot drops or by gear slot
-  local groupDropdown = CreateFrame("DropdownButton", nil, statusBar, "WowStyle1DropdownTemplate")
-  groupDropdown:SetPoint("RIGHT", closeBtn, "LEFT", -6, 0)
-  groupDropdown:SetWidth(110)
-  groupDropdown:SetDefaultText(state.group == "slot" and "By Slot" or "By Source")
-  groupDropdown:SetupMenu(function(_, root)
-    local function groupRadio(label, value)
-      root:CreateRadio(label,
-        function() return state.group == value end,
-        function()
-          state.group = value
-          charDB().group = value
-          refreshNow()
-        end)
-    end
-    groupRadio("By Source", "source")
-    groupRadio("By Slot", "slot")
-  end)
-  statusLabel:SetPoint("RIGHT", groupDropdown, "LEFT", -8, 0)
+  statusLabel:SetPoint("RIGHT", closeBtn, "LEFT", -8, 0)
   statusLabel:SetJustifyH("LEFT")
   statusLabel:SetWordWrap(false)
 
@@ -1415,7 +1417,8 @@ local function ensureFrame()
   if pos and pos.point then
     frame:ClearAllPoints()
     frame:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
-    if pos.w and pos.h then frame:SetSize(pos.w, pos.h) end
+    -- A size saved before the minimum grew would let controls overlap.
+    if pos.w and pos.h then frame:SetSize(math.max(pos.w, MIN_W), math.max(pos.h, MIN_H)) end
   end
 
   table.insert(UISpecialFrames, "LootWishlistBrowserFrame")
