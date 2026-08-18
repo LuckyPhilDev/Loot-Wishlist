@@ -105,6 +105,7 @@ local function InitializeDB()
 
   -- Account-wide toggle default
   if acctS.enableRaidRollAlert == nil then acctS.enableRaidRollAlert = true end
+  if acctS.enableDropSound == nil then acctS.enableDropSound = true end
   if acctS.hideSummaryWindow == nil then acctS.hideSummaryWindow = false end
   if acctS.hideSummaryInCombatAndMythicPlus == nil then acctS.hideSummaryInCombatAndMythicPlus = true end
   if acctS.bossKillReminderDelay == nil then acctS.bossKillReminderDelay = 10 end
@@ -366,7 +367,7 @@ do
           local ch = (LootWishlistCharDB and LootWishlistCharDB.settings) or {}
           if k == "whisperTemplate" or k == "partyTemplate" then
             return acct[k]
-          elseif k == "enableRaidRollAlert" then
+          elseif k == "enableRaidRollAlert" or k == "enableDropSound" then
             return acct[k]
           end
           return acct[k] or ch[k]

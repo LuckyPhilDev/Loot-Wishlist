@@ -196,9 +196,32 @@ local function CreateOptionsPanel()
   rollLabel:SetPoint("LEFT", rollCB, "RIGHT", 8, 0)
   rollLabel:SetText("Enable raid roll alert")
 
+  -- Drop sound checkbox
+  local soundCB = LuckyUI.CreateCheckbox(panel, 16)
+  soundCB:SetPoint("TOPLEFT", rollCB, "BOTTOMLEFT", 0, -10)
+  soundCB:SetChecked(s.enableDropSound ~= false)
+  soundCB:SetScript("OnClick", function(self)
+    local val = self:GetChecked() and true or false
+    if LootWishlistDB and LootWishlistDB.settings then
+      LootWishlistDB.settings.enableDropSound = val
+    end
+  end)
+
+  local soundLabel = panel:CreateFontString(nil, "OVERLAY")
+  soundLabel:SetFont(LuckyUI.BODY_FONT, 13)
+  soundLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  soundLabel:SetPoint("LEFT", soundCB, "RIGHT", 8, 0)
+  soundLabel:SetText("Play a sound when a tracked item drops")
+
+  local soundHint = panel:CreateFontString(nil, "OVERLAY")
+  soundHint:SetFont(LuckyUI.BODY_FONT, 11)
+  soundHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  soundHint:SetPoint("TOPLEFT", soundCB, "BOTTOMLEFT", 0, -2)
+  soundHint:SetText("One sound for your own drop, another when it drops for someone else.")
+
   -- Hide summary checkbox
   local summaryCB = LuckyUI.CreateCheckbox(panel, 16)
-  summaryCB:SetPoint("TOPLEFT", rollCB, "BOTTOMLEFT", 0, -10)
+  summaryCB:SetPoint("TOPLEFT", soundHint, "BOTTOMLEFT", 0, -10)
   summaryCB:SetChecked(s.hideSummaryWindow == true)
   summaryCB:SetScript("OnClick", function(self)
     local val = self:GetChecked() and true or false
@@ -466,6 +489,7 @@ local function CreateOptionsPanel()
       st.whisperTemplate = (wText ~= "") and wText or GetDefaultWhisper()
       st.partyTemplate = (pText ~= "") and pText or GetDefaultParty()
       st.enableRaidRollAlert = rollCB:GetChecked() and true or false
+      st.enableDropSound = soundCB:GetChecked() and true or false
       st.hideSummaryWindow = summaryCB:GetChecked() and true or false
       st.hideSummaryInCombatAndMythicPlus = autoHideCB:GetChecked() and true or false
       st.addHigherDifficulties = higherDiffCB:GetChecked() and true or false
@@ -502,6 +526,7 @@ local function CreateOptionsPanel()
     local ms = (LootWishlistDB and LootWishlistDB.minimap) or {}
     minimapCB:SetChecked(not ms.hide)
     rollCB:SetChecked(st.enableRaidRollAlert ~= false)
+    soundCB:SetChecked(st.enableDropSound ~= false)
     summaryCB:SetChecked(st.hideSummaryWindow == true)
     autoHideCB:SetChecked(st.hideSummaryInCombatAndMythicPlus ~= false)
     higherDiffCB:SetChecked(st.addHigherDifficulties ~= false)

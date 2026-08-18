@@ -445,9 +445,34 @@ end
 
 Alerts.DropMeetsWishlistTrack = dropMeetsWishlistTrack
 
+-- The game's own loot toasts, the bigger one for your own drop. Chat and
+-- encounter loot both fire for the same drop, so each item stays quiet for a
+-- while after it sounds.
+local SOUND_SILENCE_SECONDS = 10
+local lastSoundAt = {}
+
+local function dropSoundKit(isSelf, itemID)
+  local st = LootWishlist.GetSettings and LootWishlist.GetSettings() or (LootWishlistDB and LootWishlistDB.settings) or {}
+  if st.enableDropSound == false then return nil end
+  if itemID then
+    local last = lastSoundAt[itemID]
+    if last and (GetTime() - last) < SOUND_SILENCE_SECONDS then return nil end
+    lastSoundAt[itemID] = GetTime()
+  end
+  return isSelf and SOUNDKIT.UI_LEGENDARY_LOOT_TOAST or SOUNDKIT.UI_EPICLOOT_TOAST
+end
+
+Alerts.DropSoundKit = dropSoundKit
+
+local function playDropSound(isSelf, itemID)
+  local kit = dropSoundKit(isSelf, itemID)
+  if kit then LuckySound:PlayKit(kit) end
+end
+
 local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, difficultyID, difficultyName)
   dprint("ShowDropAlertWithContext:", "itemID=", tostring(itemID), "self=", tostring(isSelf), "looter=", tostring(looterName), "diff=", tostring(difficultyID), tostring(difficultyName))
   ShowDropAlert(itemLink)
+  playDropSound(isSelf, itemID)
   if not dropMeetsWishlistTrack(itemID, itemLink) then
     -- Not confirmed at any entry's track: highlight the drop, offer no actions
     dprint("drop not confirmed at wishlist track for", tostring(itemID), "- informational alert only")
@@ -534,6 +559,7 @@ local function handleEvent(_, event, ...)
     if not itemID then return end
     if not isTracked(itemID) then return end
     ShowRaidRollAlert(itemLink)
+    playDropSound(false, itemID)
   elseif event == "PLAYER_ENTERING_WORLD" then
     bagGraceUntil = GetTime() + 5
   elseif event == "BAG_UPDATE_DELAYED" then
