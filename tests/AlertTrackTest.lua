@@ -76,6 +76,26 @@ check(meets(200, "item:200:318"), true, "boss Myth copy clears a vault-recorded 
 check(meets(200, "item:200:344"), true, "the vault copy itself still clears it")
 check(meets(200, "item:200:305"), false, "a Hero copy is still withheld")
 
+-- A lower-track drop says so, rather than highlighting the item and going quiet
+local shortfall = LootWishlist.Alerts.TrackShortfallText
+local C = LootWishlist.Const
+
+tracked = { ["200@16"] = { id = 200, isRaid = true, difficultyID = 16, link = "item:200:344" } }
+check(shortfall(200, "item:200:305"), C.ALERT_TEXT_LOWER_TRACK:format("Myth"), "lower track names the track you want")
+check(shortfall(200, "item:200:318"), nil, "a drop that clears the gate says nothing")
+check(shortfall(200, "item:200:305", 344), nil, "a simulated level that clears it says nothing")
+
+tracked = { ["200@16"] = { id = 200, link = "item:200:344" } }
+check(shortfall(200, "item:200:305"), C.ALERT_TEXT_LOWER_TRACK_UNNAMED, "entry with no difficulty leaves the track unnamed")
+
+-- A raid difficulty names a track on its own, so a linkless entry still explains
+tracked = { ["200@16"] = { id = 200, isRaid = true, difficultyID = 16 } }
+check(shortfall(200, "item:200:305"), C.ALERT_TEXT_LOWER_TRACK:format("Myth"), "raid entry needs no link to name its track")
+check(meets(200, "item:200:318"), true, "and it clears the gate with no link recorded")
+
+tracked = { ["200"] = { id = 200 } }
+check(shortfall(200, "item:200:305"), nil, "an entry with nothing to compare explains nothing")
+
 -- Tracks with no season item level keep comparing against the recorded copy
 tracked = { ["200@14"] = { id = 200, isRaid = true, difficultyID = 14, link = "item:200:292" } }
 check(meets(200, "item:200:292"), true, "Champion entry meets its recorded level")

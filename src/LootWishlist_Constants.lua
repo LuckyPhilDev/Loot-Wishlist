@@ -15,6 +15,10 @@ LootWishlist.Const = {
   ALERT_BORDER_COLOR_WISHLIST = {0.412, 0.859, 0.486, 0.9},    -- success
   ALERT_BORDER_COLOR_NOT      = {0.541, 0.494, 0.416, 0.9},    -- textMuted
   ALERT_TEXT_PREFIX_WISHLIST = "Wishlist item dropped:",
+  -- Shown when the drop is the wishlisted item at a track below the one you
+  -- track, which is why the alert offers nothing to do with it.
+  ALERT_TEXT_LOWER_TRACK = "Same item, on a lower track than the %s copy on your wishlist.",
+  ALERT_TEXT_LOWER_TRACK_UNNAMED = "Same item, on a lower track than the copy on your wishlist.",
   ALERT_AUTOHIDE_SECONDS = 6,
   ALERT_WIDTH_MIN_DEFAULT = 360,
   ALERT_WIDTH_MAX_DEFAULT = 700,

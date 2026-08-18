@@ -232,11 +232,13 @@ local function ensureAlertFrame()
   return alertFrame
 end
 
-local function ShowDropAlert(itemLink)
+local function ShowDropAlert(itemLink, note)
   local C = LootWishlist.Const or {}
   local f = ensureAlertFrame()
   local prefix = C.ALERT_TEXT_PREFIX_WISHLIST or "Wishlist item dropped:"
-  alertFS:SetText(string.format("%s\n%s", prefix, itemLink or "[unknown]"))
+  local text = string.format("%s\n%s", prefix, itemLink or "[unknown]")
+  if note then text = text .. "\n" .. note end
+  alertFS:SetText(text)
 
   f:SetBackdropBorderColor(LuckyUI.C.success[1], LuckyUI.C.success[2], LuckyUI.C.success[3], 0.9)
   -- Adjust width to content
@@ -462,6 +464,36 @@ end
 
 Alerts.DropMeetsWishlistTrack = dropMeetsWishlistTrack
 
+-- An alert that highlights the item you want and then offers nothing reads as
+-- broken, so say what happened when the reason is knowable: the drop is the
+-- wishlisted item at a track below the one you track. The easiest entry to
+-- satisfy names the track, since clearing that one clears the alert.
+local function trackShortfallText(itemID, droppedLink, simulatedIlvl)
+  local droppedIlvl = simulatedIlvl or getLinkIlvl(droppedLink)
+  if not droppedIlvl then return nil end
+  local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
+  if not t then return nil end
+  local lowestThreshold, trackKey
+  for _, v in pairs(t) do
+    if type(v) == "table" and v.id == itemID then
+      local threshold = entryThresholdIlvl(v)
+      if threshold and (not lowestThreshold or threshold < lowestThreshold) then
+        lowestThreshold = threshold
+        trackKey = LootWishlist.UI and LootWishlist.UI.TrackKeyForEntry
+          and LootWishlist.UI.TrackKeyForEntry(v)
+      end
+    end
+  end
+  if not lowestThreshold or droppedIlvl >= lowestThreshold then return nil end
+  local C = LootWishlist.Const or {}
+  if trackKey then
+    return (C.ALERT_TEXT_LOWER_TRACK or "Same item, on a lower track than the %s copy on your wishlist."):format(trackKey)
+  end
+  return C.ALERT_TEXT_LOWER_TRACK_UNNAMED or "Same item, on a lower track than the copy on your wishlist."
+end
+
+Alerts.TrackShortfallText = trackShortfallText
+
 -- A tracked entry's own link carries its difficulty's bonus IDs, so a test drop
 -- built from it clears the track gate the way a real drop of that difficulty
 -- does. A link built from a bare item ID resolves to base ilvl and never will.
@@ -559,13 +591,16 @@ end
 
 local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, difficultyID, difficultyName, simulatedIlvl)
   dprint("ShowDropAlertWithContext:", "itemID=", tostring(itemID), "self=", tostring(isSelf), "looter=", tostring(looterName), "diff=", tostring(difficultyID), tostring(difficultyName))
-  ShowDropAlert(itemLink)
+  local meetsTrack = dropMeetsWishlistTrack(itemID, itemLink, simulatedIlvl)
+  local note = not meetsTrack and trackShortfallText(itemID, itemLink, simulatedIlvl) or nil
+  ShowDropAlert(itemLink, note)
   playDropSound(isSelf, itemID)
-  if not dropMeetsWishlistTrack(itemID, itemLink, simulatedIlvl) then
+  if not meetsTrack then
     -- Not confirmed at any entry's track: highlight the drop, offer no actions
     dprint("drop not confirmed at wishlist track for", tostring(itemID), "- informational alert only")
     hideAllButtons()
-    alertFrame:SetHeight((LootWishlist.Const and LootWishlist.Const.ALERT_FRAME_INITIAL_HEIGHT) or 110)
+    local base = (LootWishlist.Const and LootWishlist.Const.ALERT_FRAME_INITIAL_HEIGHT) or 110
+    alertFrame:SetHeight(base + (note and 18 or 0))
     return
   end
   if isSelf then
