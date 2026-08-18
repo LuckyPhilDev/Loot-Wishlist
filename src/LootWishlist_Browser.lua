@@ -21,7 +21,8 @@ local SIDE_ROW_H   = 24
 local TOOLBAR_H    = 62
 local DEFAULT_W    = 720
 local DEFAULT_H    = 540
-local MIN_W        = 560
+-- Wide enough that the track buttons and the group dropdown share the top row.
+local MIN_W        = 650
 local MIN_H        = 400
 local SCAN_TIMEOUT = 3
 
@@ -46,7 +47,7 @@ local lootCache = {}         -- [cacheKey(...)] = { items = {..}, diffID = scann
 local bossNames = {}         -- encounterID -> name (false = lookup failed)
 -- classID/specID drive the EJ loot filter; specID 0 = all specs. A class other
 -- than the player's is browse-only: rows lose their add controls.
-local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceName = nil, isRaid = nil, search = "", slot = nil, classID = nil, specID = 0 }
+local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceName = nil, isRaid = nil, search = "", slot = nil, group = "source", classID = nil, specID = 0 }
 
 local scheduleRefresh        -- forward: defined with the UI, used by the scanner
 
@@ -555,6 +556,11 @@ local function buildRows()
   -- as many rows as the loot; the item sub line already names boss and
   -- instance, so the headers go.
   local hideHeaders = state.slot ~= nil
+  -- Slot grouping replaces the instance/boss sections with one section per
+  -- gear slot in paperdoll order. A slot filter already flattens the list to
+  -- one slot, so the filtered view keeps the source layout.
+  local slotGrouping = state.group == "slot" and not hideHeaders
+  local bySlot, slotNotes = {}, {}
   for _, inst in ipairs(insts) do
     local diffID = inst.isRaid and tr.raidDiff or tr.dungeonScanDiff
     local cache = requestLoot(inst.id, inst.isRaid, diffID)
@@ -564,13 +570,13 @@ local function buildRows()
       local waiting = journalShown() and "Waiting for the Adventure Guide to close..." or "Loading..."
       section[#section + 1] = {
         kind = "note",
-        text = hideHeaders and (inst.name .. ": " .. waiting) or waiting,
+        text = (hideHeaders or slotGrouping) and (inst.name .. ": " .. waiting) or waiting,
       }
     else
       -- Boss grouping: raids are shopped boss by boss, so they always group.
       -- Dungeon loot on an M+ difficulty (Hero and Myth tracks) comes from
       -- whole keystone runs, so there the boss is left to the sub line.
-      local withBoss = not hideHeaders and (inst.isRaid or not tr.keystone)
+      local withBoss = not hideHeaders and not slotGrouping and (inst.isRaid or not tr.keystone)
       local matched = {}
       for _, it in ipairs(cache.items) do
         if matchesFilters(it, inst) then matched[#matched + 1] = it end
@@ -591,12 +597,19 @@ local function buildRows()
         shown = shown + 1
         local on = isTracked(it.itemID)
         if on then onList = onList + 1 end
-        section[#section + 1] = {
+        local row = {
           kind = "item", item = it, instance = inst,
           scannedDiff = trackDiff, tracked = on, single = single, viewOnly = viewOnly,
           trackIlvl = trackIlvl, trackName = trackIlvl and state.track or nil,
           trackLink = trackIlvl and trackItemLink(it.itemID, tr) or nil,
         }
+        if slotGrouping then
+          local s = slotOf(it)
+          if not bySlot[s] then bySlot[s] = {} end
+          bySlot[s][#bySlot[s] + 1] = row
+        else
+          section[#section + 1] = row
+        end
       end
       if withBoss then
         -- The journal interleaves bosses in instance-level loot, so grouping
@@ -618,16 +631,29 @@ local function buildRows()
       else
         for _, it in ipairs(matched) do addItem(it) end
       end
-      if not any and not filtering then
+      if not any and not filtering and not slotGrouping then
         section[#section + 1] = { kind = "note", text = "No items." }
       end
     end
+    if slotGrouping then
+      -- Only loading notes land in the section here; items went to bySlot.
+      for _, r in ipairs(section) do slotNotes[#slotNotes + 1] = r end
     -- While filtering, drop instances with no matches entirely.
-    if #section > 0 and (any or not filtering or not cache) then
+    elseif #section > 0 and (any or not filtering or not cache) then
       if not hideHeaders then
         rows[#rows + 1] = { kind = "instance", name = inst.name, isRaid = inst.isRaid }
       end
       for _, r in ipairs(section) do rows[#rows + 1] = r end
+    end
+  end
+  if slotGrouping then
+    for _, r in ipairs(slotNotes) do rows[#rows + 1] = r end
+    local slots = {}
+    for s in pairs(bySlot) do slots[#slots + 1] = s end
+    sortSlots(slots)
+    for _, s in ipairs(slots) do
+      rows[#rows + 1] = { kind = "instance", name = s }
+      for _, r in ipairs(bySlot[s]) do rows[#rows + 1] = r end
     end
   end
   if #rows == 0 then
@@ -1137,6 +1163,7 @@ local function ensureFrame()
   local db = charDB()
   state.track = db.track or state.track
   state.view = db.view or state.view
+  state.group = db.group or state.group
   state.instanceID, state.instanceName, state.isRaid = db.instanceID, db.instanceName, db.isRaid
   if state.view == "instance" and not state.instanceID then state.view = "dungeons" end
   state.classID = playerClassID()
@@ -1241,6 +1268,25 @@ local function ensureFrame()
     prev = b
   end
   paintTrackButtons()
+
+  -- Group mode: lay the list out by where loot drops or by gear slot
+  local groupDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
+  groupDropdown:SetPoint("TOPRIGHT", -4, -4)
+  groupDropdown:SetWidth(110)
+  groupDropdown:SetDefaultText(state.group == "slot" and "By Slot" or "By Source")
+  groupDropdown:SetupMenu(function(_, root)
+    local function groupRadio(label, value)
+      root:CreateRadio(label,
+        function() return state.group == value end,
+        function()
+          state.group = value
+          charDB().group = value
+          refreshNow()
+        end)
+    end
+    groupRadio("By Source", "source")
+    groupRadio("By Slot", "slot")
+  end)
 
   -- Slot filter: every slot present in the current view's loot. The menu is
   -- regenerated on each open, so it tracks the view and streaming scans.
@@ -1362,12 +1408,17 @@ local function ensureFrame()
   closeBtn:SetPoint("RIGHT", -4, -2)
   closeBtn:SetScript("OnClick", function() frame:Hide() end)
 
+  statusLabel:SetPoint("RIGHT", closeBtn, "LEFT", -8, 0)
+  statusLabel:SetJustifyH("LEFT")
+  statusLabel:SetWordWrap(false)
+
   -- Restore saved position and size
   local pos = charDB().windowPos
   if pos and pos.point then
     frame:ClearAllPoints()
     frame:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
-    if pos.w and pos.h then frame:SetSize(pos.w, pos.h) end
+    -- A size saved before the minimum grew would let controls overlap.
+    if pos.w and pos.h then frame:SetSize(math.max(pos.w, MIN_W), math.max(pos.h, MIN_H)) end
   end
 
   table.insert(UISpecialFrames, "LootWishlistBrowserFrame")
