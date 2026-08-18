@@ -66,6 +66,12 @@ LootWishlist.Const = {
       keystoneLevel = 10, raidDiff = 16, trackIlvl = 318, trackBonus = 12849 },
   },
 
+  -- Season-tab journal pages the EJ lists as instances but which only group
+  -- loot that real instances already carry; the Loot Browser skips them.
+  -- 1319 "Keystone Dungeons" holds the M+ rotation, 1312 "Midnight" the
+  -- season raids. Season data, refresh alongside TRACKS.
+  EXCLUDED_JOURNAL_INSTANCES = { [1319] = true, [1312] = true },
+
   -- Raid layout graphs: maps EJ instanceID → { [encounterID] = { prereqs } }
   -- prereqs = {} means the boss is available from the start.
   -- prereqs = {id1, id2} means ALL listed bosses must be dead first.
