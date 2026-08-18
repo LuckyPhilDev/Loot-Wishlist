@@ -445,6 +445,25 @@ end
 
 Alerts.DropMeetsWishlistTrack = dropMeetsWishlistTrack
 
+-- A tracked entry's own link carries its difficulty's bonus IDs, so a test drop
+-- built from it clears the track gate the way a real drop of that difficulty
+-- does. A link built from a bare item ID resolves to base ilvl and never will.
+-- The highest tracked copy wins, so one test satisfies every entry for the item.
+local function trackedEntryLink(itemID)
+  local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
+  if not t then return nil end
+  local bestLink, bestIlvl
+  for _, v in pairs(t) do
+    if type(v) == "table" and v.id == itemID and v.link then
+      local ilvl = getLinkIlvl(v.link) or 0
+      if not bestIlvl or ilvl > bestIlvl then bestLink, bestIlvl = v.link, ilvl end
+    end
+  end
+  return bestLink
+end
+
+Alerts.TrackedEntryLink = trackedEntryLink
+
 -- The game's own loot toasts, the bigger one for your own drop. Chat and
 -- encounter loot both fire for the same drop, so each item stays quiet for a
 -- while after it sounds.
@@ -684,6 +703,7 @@ function Alerts.TestDrop(input, forceNot)
   local function show(l)
     ShowDropAlertWithContext(l, true, UnitName("player"), itemID)
   end
+  link = link or trackedEntryLink(itemID)
   if link then show(link) else getItemLinkAsync(itemID, show) end
 end
 
@@ -702,5 +722,6 @@ function Alerts.TestDropOther(input)
   local function show(l)
     ShowDropAlertWithContext(l, false, looterName or "Teammate", itemID)
   end
+  link = link or trackedEntryLink(itemID)
   if link then show(link) else getItemLinkAsync(itemID, show) end
 end

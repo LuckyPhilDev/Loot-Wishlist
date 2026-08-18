@@ -46,4 +46,17 @@ check(meets(100, "item:100:292"), false, "entry without link")
 tracked = {}
 check(meets(100, "item:100:292"), false, "item not in tracked table")
 
+-- A test drop uses the tracked entry's own link, so it clears its own gate
+local entryLink = LootWishlist.Alerts.TrackedEntryLink
+
+tracked = {
+    ["100@14"] = { id = 100, link = "item:100:292" },
+    ["100@16"] = { id = 100, link = "item:100:318" },
+}
+check(entryLink(100), "item:100:318", "highest tracked copy wins")
+check(meets(100, entryLink(100)), true, "test drop clears the track gate")
+check(entryLink(999), nil, "untracked item has no entry link")
+tracked = { ["100@16"] = { id = 100 } }
+check(entryLink(100), nil, "entry without a link")
+
 print(string.format("AlertTrackTest: %d checks passed", passed))
