@@ -96,12 +96,15 @@ local function getSeason()
   end
   local function listTier(tier)
     pcall(EJ_SelectTier, tier)
+    local excluded = LootWishlist.Const.EXCLUDED_JOURNAL_INSTANCES
     local function list(isRaid)
       local out, i = {}, 1
       while true do
         local id, name = EJ_GetInstanceByIndex(i, isRaid)
         if not id then break end
-        out[#out + 1] = { id = id, name = name, isRaid = isRaid }
+        if not excluded[id] then
+          out[#out + 1] = { id = id, name = name, isRaid = isRaid }
+        end
         i = i + 1
       end
       return out
