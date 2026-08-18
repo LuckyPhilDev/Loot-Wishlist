@@ -3,11 +3,12 @@
 ## Notes: Track loot from the Adventure Guide and manage a per-character wishlist.
 ## Version: 1.11.5
 ## Author: Lucky Phil
-## Dependencies: Luckys_Utils
+## OptionalDeps: Luckys_Utils
 ## SavedVariablesPerCharacter: LootWishlistCharDB
-## SavedVariables: LootWishlistDB, RemindMeDB, RemindMeCharDB
+## SavedVariables: LootWishlistDB, RemindMeDB, RemindMeCharDB, LuckySettingsDB, LuckyRosterDB
 ## X-Curse-Project-ID: 1353310
 
+Libs\LuckysUtils\embeds.xml
 LootWishlist_Constants.lua
 LootWishlist_Core.lua
 LootWishlist_Options.lua
