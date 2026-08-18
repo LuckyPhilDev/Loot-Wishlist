@@ -59,4 +59,30 @@ check(entryLink(999), nil, "untracked item has no entry link")
 tracked = { ["100@16"] = { id = 100 } }
 check(entryLink(100), nil, "entry without a link")
 
+-- A simulated item level stands in for the dropped copy's own
+tracked = { ["100@16"] = { id = 100, link = "item:100:318" } }
+check(meets(100, "item:100:292", 330), true, "simulated level clears the gate")
+check(meets(100, "item:100:318", 200), false, "simulated level below the track")
+
+-- Track words come from the Loot Browser's picker, so no second vocabulary
+LootWishlist.Const = { TRACKS = {
+    { key = "Veteran" },
+    { key = "Hero", trackIlvl = 305 },
+    { key = "Myth", trackIlvl = 318 },
+} }
+local resolve = LootWishlist.Alerts.ResolveSimulatedIlvl
+check(resolve("myth"), 318, "track word, any case")
+check(resolve("305"), 305, "bare item level")
+check(resolve("Veteran"), nil, "track carrying no season item level")
+check(resolve("Teammate"), nil, "a looter name is not a track")
+
+-- Only a real track argument is taken off the end of a test command
+local strip = LootWishlist.Alerts.StripTrackArg
+local rest, ilvl = strip("100 myth")
+check(rest .. "/" .. tostring(ilvl), "100/318", "track stripped off the item")
+rest, ilvl = strip("100 Teammate")
+check(rest .. "/" .. tostring(ilvl), "100 Teammate/nil", "looter name left alone")
+rest, ilvl = strip("|Hitem:100|h[Big Sword]|h")
+check(rest .. "/" .. tostring(ilvl), "|Hitem:100|h[Big Sword]|h/nil", "link with spaces left alone")
+
 print(string.format("AlertTrackTest: %d checks passed", passed))

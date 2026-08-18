@@ -429,8 +429,8 @@ end
 -- track. Entry links carry their difficulty/track bonus IDs, so comparing
 -- effective ilvls compares upgrade tracks without locale-dependent tooltip
 -- parsing. Anything unknowable stays a highlight-only alert.
-local function dropMeetsWishlistTrack(itemID, droppedLink)
-  local droppedIlvl = getLinkIlvl(droppedLink)
+local function dropMeetsWishlistTrack(itemID, droppedLink, simulatedIlvl)
+  local droppedIlvl = simulatedIlvl or getLinkIlvl(droppedLink)
   if not droppedIlvl then return false end
   local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
   if not t then return false end
@@ -464,6 +464,55 @@ end
 
 Alerts.TrackedEntryLink = trackedEntryLink
 
+-- A track name from the Loot Browser's picker, or a bare item level. TRACKS
+-- carries a season item level only for the tracks the browser has to rebuild,
+-- so Veteran and Champion are reached by passing a number.
+local function resolveSimulatedIlvl(word)
+  if not word then return nil end
+  local n = tonumber(word)
+  if n then return n end
+  for _, tr in ipairs((LootWishlist.Const and LootWishlist.Const.TRACKS) or {}) do
+    if tr.key:lower() == word:lower() then return tr.trackIlvl end
+  end
+  return nil
+end
+
+Alerts.ResolveSimulatedIlvl = resolveSimulatedIlvl
+
+-- Take a trailing track argument off a test command, leaving the rest intact.
+-- An item link ends in "|h|r" and a looter name resolves to nothing, so only a
+-- real track word or item level is ever consumed.
+local function stripTrackArg(input)
+  local rest, last = tostring(input):match("^(.-)%s+(%S+)%s*$")
+  if not rest then return input, nil end
+  local ilvl = resolveSimulatedIlvl(last)
+  if not ilvl then return input, nil end
+  return rest, ilvl
+end
+
+Alerts.StripTrackArg = stripTrackArg
+
+-- What the gate saw, so a test that offers no actions says why. An entry whose
+-- link never resolved carries no item level of its own, and nothing can clear
+-- a gate that has nothing to compare against.
+local function printTrackGate(itemID, droppedLink, simulatedIlvl)
+  local dropped = simulatedIlvl or getLinkIlvl(droppedLink)
+  print(string.format("Loot Wishlist: simulated drop at item level %s%s",
+    tostring(dropped or "unknown"), simulatedIlvl and " (simulated)" or ""))
+  local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
+  for key, v in pairs(t or {}) do
+    if type(v) == "table" and v.id == itemID then
+      local entryIlvl = getLinkIlvl(v.link)
+      print(string.format("  entry %s (%s): %s", tostring(key),
+        tostring(v.difficultyName or "no difficulty"),
+        entryIlvl and ("item level " .. entryIlvl) or "no item level, this entry has no link"))
+    end
+  end
+  if not dropMeetsWishlistTrack(itemID, droppedLink, simulatedIlvl) then
+    print("  no actions: the drop reaches no entry's track. Try /wishlist testdrop " .. tostring(itemID) .. " myth")
+  end
+end
+
 -- The game's own loot toasts, the bigger one for your own drop. Chat and
 -- encounter loot both fire for the same drop, so each item stays quiet for a
 -- while after it sounds.
@@ -488,11 +537,11 @@ local function playDropSound(isSelf, itemID)
   if kit then LuckySound:PlayKit(kit) end
 end
 
-local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, difficultyID, difficultyName)
+local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, difficultyID, difficultyName, simulatedIlvl)
   dprint("ShowDropAlertWithContext:", "itemID=", tostring(itemID), "self=", tostring(isSelf), "looter=", tostring(looterName), "diff=", tostring(difficultyID), tostring(difficultyName))
   ShowDropAlert(itemLink)
   playDropSound(isSelf, itemID)
-  if not dropMeetsWishlistTrack(itemID, itemLink) then
+  if not dropMeetsWishlistTrack(itemID, itemLink, simulatedIlvl) then
     -- Not confirmed at any entry's track: highlight the drop, offer no actions
     dprint("drop not confirmed at wishlist track for", tostring(itemID), "- informational alert only")
     hideAllButtons()
@@ -682,7 +731,8 @@ function Alerts.TestLogin()
 end
 
 function Alerts.TestDrop(input, forceNot)
-  local itemID, link
+  local itemID, link, simIlvl
+  if type(input) == "string" then input, simIlvl = stripTrackArg(input) end
   if type(input) == "number" then itemID = input end
   if not itemID and type(input) == "string" then
     local num = tonumber(input)
@@ -701,14 +751,17 @@ function Alerts.TestDrop(input, forceNot)
   -- Only show alerts for items that are in the wishlist
   if not tracked then return end
   local function show(l)
-    ShowDropAlertWithContext(l, true, UnitName("player"), itemID)
+    ShowDropAlertWithContext(l, true, UnitName("player"), itemID, nil, nil, simIlvl)
+    printTrackGate(itemID, l, simIlvl)
   end
   link = link or trackedEntryLink(itemID)
   if link then show(link) else getItemLinkAsync(itemID, show) end
 end
 
 function Alerts.TestDropOther(input)
-  -- input can be: "<itemID|link> [looterName]"
+  -- input can be: "<itemID|link> [looterName] [track|ilvl]"
+  local simIlvl
+  input, simIlvl = stripTrackArg(input)
   local itemArg, looterName = input:match("^%s*(.-)%s+([^%s].*)$")
   if not itemArg then itemArg = input end
   local itemID, link
@@ -720,7 +773,8 @@ function Alerts.TestDropOther(input)
   end
   if not isTracked(itemID) then return end
   local function show(l)
-    ShowDropAlertWithContext(l, false, looterName or "Teammate", itemID)
+    ShowDropAlertWithContext(l, false, looterName or "Teammate", itemID, nil, nil, simIlvl)
+    printTrackGate(itemID, l, simIlvl)
   end
   link = link or trackedEntryLink(itemID)
   if link then show(link) else getItemLinkAsync(itemID, show) end

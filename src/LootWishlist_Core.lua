@@ -597,7 +597,7 @@ SlashCmdList.WISHLIST = function(msg)
         LootWishlist.Alerts.TestDrop(arg, false)
       end
     else
-      print("/wishlist testdrop <itemID|itemLink>")
+      print("/wishlist testdrop <itemID|itemLink> [track|itemLevel]")
     end
   elseif msg:match("^testdropnot ") or msg:match("^testdrop%-not ") then
     local arg = msg:match("^testdrop%-?not%s+(.+)$")
@@ -615,7 +615,7 @@ SlashCmdList.WISHLIST = function(msg)
         LootWishlist.Alerts.TestDropOther(arg)
       end
     else
-      print("/wishlist testdrop-other <itemID|itemLink> [looterName]")
+      print("/wishlist testdrop-other <itemID|itemLink> [looterName] [track|itemLevel]")
     end
   elseif msg == "testlogin" then
     if LootWishlist.Alerts and LootWishlist.Alerts.TestLogin then
