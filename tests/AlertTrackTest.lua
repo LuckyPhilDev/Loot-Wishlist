@@ -1,14 +1,19 @@
 -- luacheck: ignore 121
 
 LootWishlist = {}
+LuckyUI = { C = {}, WC = {} }
+LuckyLog = { New = function() return function() end end }
 
--- Fake links encode their ilvl as "item:<id>:<ilvl>"
+-- Fake links encode their ilvl as "item:<id>:<ilvl>[:bonus...]"
 C_Item = {
     GetDetailedItemLevelInfo = function(link)
-        return tonumber(link:match("^item:%d+:(%d+)$"))
+        return tonumber(link:match("^item:%d+:(%d+)"))
     end,
 }
 
+-- The real track model, so the gate and the wishlist agree on what a track is
+dofile("src/LootWishlist_Constants.lua")
+dofile("src/LootWishlist_UI.lua")
 dofile("src/LootWishlist_Alerts.lua")
 
 local meets = LootWishlist.Alerts.DropMeetsWishlistTrack
@@ -64,12 +69,19 @@ tracked = { ["100@16"] = { id = 100, link = "item:100:318" } }
 check(meets(100, "item:100:292", 330), true, "simulated level clears the gate")
 check(meets(100, "item:100:318", 200), false, "simulated level below the track")
 
+-- The vault and bonus rolls hand out ranks well up a track: an entry recorded
+-- from a Myth 9/6 copy must still accept the Myth 1/6 the boss drops
+tracked = { ["200@16"] = { id = 200, isRaid = true, difficultyID = 16, link = "item:200:344" } }
+check(meets(200, "item:200:318"), true, "boss Myth copy clears a vault-recorded entry")
+check(meets(200, "item:200:344"), true, "the vault copy itself still clears it")
+check(meets(200, "item:200:305"), false, "a Hero copy is still withheld")
+
+-- Tracks with no season item level keep comparing against the recorded copy
+tracked = { ["200@14"] = { id = 200, isRaid = true, difficultyID = 14, link = "item:200:292" } }
+check(meets(200, "item:200:292"), true, "Champion entry meets its recorded level")
+check(meets(200, "item:200:278"), false, "below a Champion entry's recorded level")
+
 -- Track words come from the Loot Browser's picker, so no second vocabulary
-LootWishlist.Const = { TRACKS = {
-    { key = "Veteran" },
-    { key = "Hero", trackIlvl = 305 },
-    { key = "Myth", trackIlvl = 318 },
-} }
 local resolve = LootWishlist.Alerts.ResolveSimulatedIlvl
 check(resolve("myth"), 318, "track word, any case")
 check(resolve("305"), 305, "bare item level")

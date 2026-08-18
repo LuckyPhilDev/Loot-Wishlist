@@ -425,6 +425,23 @@ local function getLinkIlvl(link)
   return nil
 end
 
+-- What a drop has to reach to clear an entry: the item level rank 1 of the
+-- entry's track carries, not the level of whichever copy was recorded. The
+-- vault and bonus rolls hand out ranks well up a track, so an entry recorded
+-- from a Myth 9/6 copy at item level 344 must still accept the Myth 1/6 the
+-- boss actually drops at 318. TRACKS carries rank 1 only for the tracks the
+-- Loot Browser rebuilds, so the rest fall back to the recorded copy.
+local function entryThresholdIlvl(entry)
+  local trackKey = LootWishlist.UI and LootWishlist.UI.TrackKeyForEntry
+    and LootWishlist.UI.TrackKeyForEntry(entry)
+  if trackKey then
+    for _, tr in ipairs((LootWishlist.Const and LootWishlist.Const.TRACKS) or {}) do
+      if tr.key == trackKey and tr.trackIlvl then return tr.trackIlvl end
+    end
+  end
+  return getLinkIlvl(entry.link)
+end
+
 -- Offer actions only when the dropped copy provably reaches an entry's own
 -- track. Entry links carry their difficulty/track bonus IDs, so comparing
 -- effective ilvls compares upgrade tracks without locale-dependent tooltip
@@ -436,7 +453,7 @@ local function dropMeetsWishlistTrack(itemID, droppedLink, simulatedIlvl)
   if not t then return false end
   for _, v in pairs(t) do
     if type(v) == "table" and v.id == itemID then
-      local entryIlvl = getLinkIlvl(v.link)
+      local entryIlvl = entryThresholdIlvl(v)
       if entryIlvl and droppedIlvl >= entryIlvl then return true end
     end
   end
@@ -502,10 +519,13 @@ local function printTrackGate(itemID, droppedLink, simulatedIlvl)
   local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
   for key, v in pairs(t or {}) do
     if type(v) == "table" and v.id == itemID then
-      local entryIlvl = getLinkIlvl(v.link)
+      local threshold = entryThresholdIlvl(v)
+      local recorded = getLinkIlvl(v.link)
       print(string.format("  entry %s (%s): %s", tostring(key),
         tostring(v.difficultyName or "no difficulty"),
-        entryIlvl and ("item level " .. entryIlvl) or "no item level, this entry has no link"))
+        threshold and ("needs item level " .. threshold
+          .. (recorded and recorded ~= threshold and (", recorded at " .. recorded) or ""))
+          or "no item level, this entry has no link"))
     end
   end
   if not dropMeetsWishlistTrack(itemID, droppedLink, simulatedIlvl) then
