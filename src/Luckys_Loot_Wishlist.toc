@@ -11,7 +11,6 @@
 LootWishlist_Constants.lua
 LootWishlist_Core.lua
 LootWishlist_Options.lua
-LootWishlist_UI_Styles.lua
 LootWishlist_UI.lua
 LootWishlist_EncounterJournal.lua
 LootWishlist_Browser.lua
