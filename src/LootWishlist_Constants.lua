@@ -111,5 +111,20 @@ LootWishlist.Const = {
       [2739] = {},                  -- Belo'ren, Child of Al'ar
       [2740] = {2739},              -- Midnight Falls
     },
+    -- The Venomous Abyss (EJ 1320). Nek'zali opens the vault, the Vile Crypt
+    -- and the Crypt of the Soulcoilers are cleared in either order, and the
+    -- raid converges on the Twin Fangs for the last three.
+    [1320] = {
+      [2888] = {},                  -- Nek'zali the Soulcoiler: entrance boss
+      [2874] = {2888},              -- Entombed Sentinels: Vile Crypt
+      [2882] = {2874},              -- Vashnik the Malignant: after Entombed Sentinels
+      [2894] = {2888},              -- The Lost Explorers: Crypt of the Soulcoilers
+      [2871] = {2894},              -- Sszorak: after The Lost Explorers
+      [2887] = {2882, 2871},        -- The Twin Fangs: after both crypts
+      [2883] = {2887},              -- The Coiled Altar: after The Twin Fangs
+      [2895] = {2883},              -- Ula'tek: after The Coiled Altar
+    },
+    -- The Tidebound Grotto has one boss, Nymrissa Wavecaller, so there is
+    -- nothing to gate and no entry to keep.
   },
 }
