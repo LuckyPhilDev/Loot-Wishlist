@@ -21,7 +21,20 @@ local function dprint(...)
 end
 -- Track bag counts to detect when a tracked item later appears in your inventory
 local bagCounts = {}
-local bagGraceUntil = 0
+-- Bags refill in waves after a loading screen, and a slow login can push the
+-- last wave past any fixed window, leaving a partial baseline that then reads
+-- as a gain. Scans stay silent until the bags have been quiet for a moment.
+local BAG_SETTLE_SECONDS = 3
+local bagsSettling = false
+local bagSettleToken = 0
+local function armBagSettle()
+  bagsSettling = true
+  bagSettleToken = bagSettleToken + 1
+  local token = bagSettleToken
+  C_Timer.After(BAG_SETTLE_SECONDS, function()
+    if token == bagSettleToken then bagsSettling = false end
+  end)
+end
 local recentSelfAlertAt = {}
 -- Current instance difficulty helper (module scope)
 local function getCurrentInstanceDifficulty()
@@ -684,23 +697,20 @@ local function handleEvent(_, event, ...)
     ShowRaidRollAlert(itemLink)
     playDropSound(false, itemID)
   elseif event == "PLAYER_ENTERING_WORLD" then
-    bagGraceUntil = GetTime() + 5
+    armBagSettle()
   elseif event == "BAG_UPDATE_DELAYED" then
     dprint("event: BAG_UPDATE_DELAYED")
     -- Detect when a tracked item newly appears in your bags (e.g., trade),
     -- and prompt to remove it from the wishlist with a self-style alert.
     local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
     if not tracked or not next(tracked) then dprint("no tracked items; skipping bag scan"); return end
-    -- Bags populate in waves around every loading screen, so a single early
-    -- baseline reads partial counts and the next wave looks like a gain,
-    -- re-announcing items already in your bags. Every scan inside the grace
-    -- window only (re)records baselines; the last wave wins.
-    if GetTime() < bagGraceUntil then
+    if bagsSettling then
       for _, info in pairs(tracked) do
         local iid = info and info.id
         if type(iid) == "number" then bagCounts[iid] = getInventoryCount(iid) end
       end
-      dprint("bag baselines recorded (loading grace)")
+      armBagSettle()
+      dprint("bag baselines recorded (bags still settling)")
       return
     end
     for _, info in pairs(tracked) do
@@ -750,10 +760,17 @@ local function handleEvent(_, event, ...)
   end
 end
 
+-- The settle guard is a timing rule, so a test drives the events and reads it
+Alerts.HandleEvent = handleEvent
+function Alerts.BagsSettling() return bagsSettling end
+
 -- Public API
 function Alerts:Init(database)
   db = database
   if eventFrame then return end
+
+  -- Bag waves can land before the loading screen ends, so start out settling
+  armBagSettle()
 
   eventFrame = CreateFrame("Frame")
   eventFrame:RegisterEvent("CHAT_MSG_LOOT")
@@ -764,7 +781,7 @@ function Alerts:Init(database)
   eventFrame:SetScript("OnEvent", handleEvent)
 end
 
--- Replay the login bag sequence: arm the grace window, fake a partial first
+-- Replay the login bag sequence: arm the settle window, fake a partial first
 -- wave by zeroing baselines, then scan inside and after the window. Items
 -- already in your bags must stay silent; an alert means the guard regressed.
 function Alerts.TestLogin()
@@ -781,7 +798,7 @@ function Alerts.TestLogin()
   print("Loot Wishlist: login sim running, result in 6s...")
   C_Timer.After(6, function()
     handleEvent(nil, "BAG_UPDATE_DELAYED")
-    print("Loot Wishlist: login sim done. No alert appeared = grace guard held.")
+    print("Loot Wishlist: login sim done. No alert appeared = settle guard held.")
   end)
 end
 
