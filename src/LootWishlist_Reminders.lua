@@ -355,16 +355,7 @@ local function collectDungeonSpecLines()
     return lines
 end
 
-local function getAvailableRaidBosses()
-    local inInstance, instanceType = IsInInstance()
-    if not inInstance or instanceType ~= "raid" then return nil end
-
-    local instanceName, _, difficultyID = GetInstanceInfo()
-    local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-    if not mapID or not EJ_GetInstanceForMap then return nil end
-    local ok, ejInstanceID = pcall(EJ_GetInstanceForMap, mapID)
-    if not ok or type(ejInstanceID) ~= "number" or ejInstanceID <= 0 then return nil end
-
+local function raidBossList(ejInstanceID)
     EJ_SelectInstance(ejInstanceID)
     local bosses = {}
     local index = 1
@@ -374,8 +365,10 @@ local function getAvailableRaidBosses()
         table.insert(bosses, { encounterID = encounterID, name = name })
         index = index + 1
     end
-    if #bosses == 0 then return nil end
+    return bosses
+end
 
+local function killedFromLockout(bosses, instanceName, difficultyID)
     local killedNames = {}
     for savedIndex = 1, GetNumSavedInstances() do
         local savedName, _, _, savedDifficulty = GetSavedInstanceInfo(savedIndex)
@@ -392,7 +385,12 @@ local function getAvailableRaidBosses()
     for _, boss in ipairs(bosses) do
         if killedNames[boss.name] then killedIDs[boss.encounterID] = true end
     end
+    return killedIDs
+end
 
+-- Alive bosses whose prerequisites are all dead. A raid with no layout has no
+-- prerequisites to meet, so everything still alive counts as available.
+local function availableFrom(ejInstanceID, bosses, killedIDs)
     local layout = LootWishlist.Const.RAID_LAYOUTS[ejInstanceID]
     local available = {}
     for _, boss in ipairs(bosses) do
@@ -409,6 +407,22 @@ local function getAvailableRaidBosses()
         end
     end
     return available
+end
+
+local function getAvailableRaidBosses()
+    local inInstance, instanceType = IsInInstance()
+    if not inInstance or instanceType ~= "raid" then return nil end
+
+    local instanceName, _, difficultyID = GetInstanceInfo()
+    local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    if not mapID or not EJ_GetInstanceForMap then return nil end
+    local ok, ejInstanceID = pcall(EJ_GetInstanceForMap, mapID)
+    if not ok or type(ejInstanceID) ~= "number" or ejInstanceID <= 0 then return nil end
+
+    local bosses = raidBossList(ejInstanceID)
+    if #bosses == 0 then return nil end
+
+    return availableFrom(ejInstanceID, bosses, killedFromLockout(bosses, instanceName, difficultyID))
 end
 
 local function collectRaidSpecLines()
@@ -495,6 +509,77 @@ function Reminders:ResetDebounce()
     wipe(assistDungeonReminded)
     lastInInstance = nil
     dprint("Spec reminder debounce reset")
+end
+
+local function killedFromNames(bosses, fragments, report)
+    local killedIDs = {}
+    for entry in fragments:gmatch("[^,]+") do
+        local fragment = entry:match("^%s*(.-)%s*$"):lower()
+        local matched = false
+        for _, boss in ipairs(bosses) do
+            if fragment ~= "" and boss.name:lower():find(fragment, 1, true) then
+                killedIDs[boss.encounterID] = true
+                matched = true
+            end
+        end
+        if not matched then report("no boss matches '" .. fragment .. "'") end
+    end
+    return killedIDs
+end
+
+-- Run the reminder against a raid you are not standing in, so a layout can be
+-- checked without a raid night. Kills come from the named bosses, or from your
+-- real lockout when none are named. Returns the availability it worked out.
+function Reminders:TestNextBoss(ejInstanceID, bossFragments)
+    local prefix = "|cffC9A84CLoot Wishlist|r: "
+    local function report(line) print(prefix .. line) end
+
+    ejInstanceID = tonumber(ejInstanceID) or getCurrentEJInstanceID()
+    if not ejInstanceID then
+        report("usage: /wishlist testnextboss inside a raid, or /wishlist testnextboss <journal instance ID> [boss name, boss name] anywhere")
+        return nil
+    end
+
+    local bosses = raidBossList(ejInstanceID)
+    if #bosses == 0 then
+        report("the journal lists no bosses for instance " .. ejInstanceID)
+        return nil
+    end
+
+    local killedIDs
+    if bossFragments and bossFragments ~= "" then
+        killedIDs = killedFromNames(bosses, bossFragments, report)
+    else
+        local instanceName, _, difficultyID = GetInstanceInfo()
+        killedIDs = killedFromLockout(bosses, instanceName, difficultyID)
+        report("no bosses named, using your lockout for " .. tostring(instanceName))
+    end
+
+    local available = availableFrom(ejInstanceID, bosses, killedIDs)
+    report("instance " .. ejInstanceID .. ", " .. #bosses .. " bosses")
+    for _, boss in ipairs(bosses) do
+        local state = "|cff9d9d9dblocked|r"
+        if killedIDs[boss.encounterID] then
+            state = "|cffff6b6bdead|r"
+        elseif available[boss.name] then
+            state = "|cff69db7cavailable|r"
+        end
+        report("  " .. boss.name .. " (" .. tostring(boss.encounterID) .. "): " .. state)
+    end
+
+    local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked()
+    local lines = tracked and Planner:BuildRaidSpecLines(tracked, {
+        availableBosses = available,
+        lootSpecID = getLootSpecID(),
+        playerSpecIDs = getPlayerSpecIDs(),
+        getSpecName = getSpecName,
+    })
+    if lines then
+        showReminder(lines)
+    else
+        report("no reminder: nothing you track on an available boss wants a different loot spec")
+    end
+    return available
 end
 
 local function handleEvent(_, event, ...)

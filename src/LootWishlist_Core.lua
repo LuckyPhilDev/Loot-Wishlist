@@ -617,6 +617,15 @@ SlashCmdList.WISHLIST = function(msg)
     else
       print("/wishlist testdrop-other <itemID|itemLink> [looterName] [track|itemLevel]")
     end
+  elseif msg == "testnextboss" or msg:match("^testnextboss%s") then
+    local args = msg:match("^testnextboss%s+(.+)$") or ""
+    local instanceID = args:match("^(%d+)")
+    local bossFragments = instanceID and args:match("^%d+%s*(.*)$") or args
+    if LootWishlist.Reminders and LootWishlist.Reminders.TestNextBoss then
+      LootWishlist.Reminders:TestNextBoss(instanceID, bossFragments)
+    else
+      print("Loot Wishlist: reminders module not loaded.")
+    end
   elseif msg == "testlogin" then
     if LootWishlist.Alerts and LootWishlist.Alerts.TestLogin then
       LootWishlist.Alerts.TestLogin()
