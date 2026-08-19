@@ -1,3 +1,8 @@
+## [1.12.2] - 2026-08-19
+
+### Improved
+- **Spec reminders** The reminder for upcoming bosses follows the route through The Venomous Abyss, so it names the bosses you can reach next rather than every boss still alive.
+
 ## [1.12.1] - 2026-08-19
 
 ### Fixed
