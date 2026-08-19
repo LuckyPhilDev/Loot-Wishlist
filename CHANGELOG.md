@@ -1,3 +1,8 @@
+## [1.12.3] - 2026-08-19
+
+### Added
+- **Minimap click actions** Settings sets what a left-click, Ctrl-click and Shift-click on the minimap button opens: the wishlist and Loot Browser together, or either one on its own. (Thanks for the suggestion Serroc)
+
 ## [1.12.2] - 2026-08-19
 
 ### Improved
