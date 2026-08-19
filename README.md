@@ -85,7 +85,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Adjust summary window opacity when your mouse isn't hovering over it
 - Toggle automatic multi-difficulty tracking (on by default)
 - Toggle Great Vault highlights (on by default)
-- Hide Lucky's Wardrobe item previews in the wishlist and Loot Browser (only shown when that addon is installed)
+- Hide Lucky's Wardrobe item previews in the wishlist and Loot Browser (requires Lucky's Wardrobe)
 - Toggle raid roll reminder alerts
 - Toggle the sound played when a tracked item drops
 - Toggle bonus roll reminders and their sound
@@ -95,7 +95,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 
 ## Known Issues
 
-- Item data sometimes loads asynchronously — spec tags and links may appear a moment after opening the list
+- Item data sometimes loads asynchronously, so spec tags and links may appear a moment after opening the list
 - Group assist suggestions are based on class and spec; they assume teammates can set loot spec even if not currently in that spec
 
 ## A note on AI

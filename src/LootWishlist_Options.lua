@@ -1,599 +1,403 @@
--- Loot Wishlist - Options Panel
--- Uses LuckyUI colors and fonts for consistent styling with Character Mount.
+-- Loot Wishlist - settings panel, built on LuckyRichSettings.
 
 LootWishlist = LootWishlist or {}
 LootWishlist.Options = LootWishlist.Options or {}
 
 local Options = LootWishlist.Options
-local C = LuckyUI.C
-local panel
-local settingsCategory
-local DevLog = LuckyLog:New("[Lwl-Opts][debug]", function()
-  return LootWishlist.DEBUG and LootWishlist.DEBUG()
-end)
-
-local function GetSettings()
-  if LootWishlist.GetSettings then return LootWishlist.GetSettings() end
-  return (LootWishlistDB and LootWishlistDB.settings) or (LootWishlistCharDB and LootWishlistCharDB.settings)
-end
-
--- Wrap %variable% placeholders in color escapes for display
+local Theme = LuckySettings.Rich.Theme
+local FONT = LuckySettings.Rich.Font
+local ADDON_FOLDER = "Luckys_Loot_Wishlist"
 local VARIABLE_COLOR = "4fc3f7" -- info blue
-local function ColorizeVariables(text)
-  if not text then return "" end
-  return text:gsub("(%%[%w_]+%%)", "|cff" .. VARIABLE_COLOR .. "%1|r")
+local panel
+
+local DEFAULT_TEMPLATE_KEYS = {
+  whisperTemplate = "DEFAULT_WHISPER_TEMPLATE",
+  partyTemplate   = "DEFAULT_PARTY_TEMPLATE",
+}
+
+local function settings()
+  return LootWishlistDB and LootWishlistDB.settings
 end
 
--- One row of the minimap click settings: a label and a dropdown of the actions
--- a left-click can take, writing the chosen key straight into settings.
-local function CreateMinimapClickRow(parent, labelText, settingKey)
-  local label = parent:CreateFontString(nil, "OVERLAY")
-  label:SetFont(LuckyUI.BODY_FONT, 13)
-  label:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  label:SetText(labelText)
-
-  local dropdown = CreateFrame("DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
-  dropdown:SetSize(210, 22)
-  dropdown:SetupMenu(function(_, root)
-    for _, action in ipairs(LootWishlist.Const.MINIMAP_CLICK_ACTIONS) do
-      root:CreateRadio(action.label,
-        function() return (GetSettings() or {})[settingKey] == action.key end,
-        function()
-          if LootWishlistDB and LootWishlistDB.settings then
-            LootWishlistDB.settings[settingKey] = action.key
-          end
-          dropdown:SetDefaultText(action.label)
-        end)
-    end
-  end)
-  dropdown:SetDefaultText(LootWishlist.Const.MinimapActionLabel((GetSettings() or {})[settingKey]))
-
-  return label, dropdown
+-- Every key read here is given a value at load, so the fallbacks only matter
+-- for a database that has not finished initialising.
+local function isOn(key)
+  local s = settings()
+  return not s or s[key] ~= false
 end
 
-local function CreateMultiLineEditBox(parent, label, width, height)
+local function isOff(key)
+  local s = settings()
+  return (s and s[key]) == true
+end
+
+local function read(key, fallback)
+  local s = settings()
+  local value = s and s[key]
+  if value == nil then return fallback end
+  return value
+end
+
+local function write(key, value)
+  local s = settings()
+  if s then s[key] = value end
+end
+
+local function refreshSummary()
+  if LootWishlist.Summary and LootWishlist.Summary.refresh then
+    LootWishlist.Summary.refresh()
+  end
+end
+
+local function defaultTemplate(key)
+  return (LootWishlist.Const or {})[DEFAULT_TEMPLATE_KEYS[key]] or ""
+end
+
+local function colorizeVariables(text)
+  return ((text or ""):gsub("(%%[%w_]+%%)", "|cff" .. VARIABLE_COLOR .. "%1|r"))
+end
+
+local function applyPlaceholders(template, itemLink, looterName)
+  local out = (template or ""):gsub("%%item%%", itemLink or "[item]")
+  return (out:gsub("%%looter%%", looterName or "player"))
+end
+
+-- One labelled box holding a message template. It writes on focus loss, so
+-- there is nothing to save, and shows the variables in colour while it is not
+-- being typed in: an edit box cannot colour part of its own text, so a font
+-- string sits over the top carrying the coloured copy.
+local function CreateTemplateEditor(parent, labelText, key, onChanged)
   local title = parent:CreateFontString(nil, "OVERLAY")
-  title:SetFont(LuckyUI.TITLE_FONT, 14)
-  title:SetTextColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
-  title:SetText(label)
+  title:SetFont(FONT, 12, "")
+  title:SetTextColor(Theme.accentLight[1], Theme.accentLight[2], Theme.accentLight[3])
+  title:SetText(labelText)
 
   local box = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-  box:SetSize(width, height)
+  box:SetHeight(72)
   box:SetBackdrop(LuckyUI.Backdrop)
-  box:SetBackdropColor(C.bgInput[1], C.bgInput[2], C.bgInput[3], C.bgInput[4])
-  box:SetBackdropBorderColor(C.borderDark[1], C.borderDark[2], C.borderDark[3])
+  box:SetBackdropColor(Theme.bg3[1], Theme.bg3[2], Theme.bg3[3], 1)
+  box:SetBackdropBorderColor(Theme.border2[1], Theme.border2[2], Theme.border2[3], 1)
 
   local edit = CreateFrame("EditBox", nil, box)
   edit:SetMultiLine(true)
   edit:SetAutoFocus(false)
-  edit:SetFont(LuckyUI.BODY_FONT, 13, "")
-  edit:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  edit:SetFont(FONT, 12, "")
+  edit:SetTextColor(Theme.text[1], Theme.text[2], Theme.text[3])
   edit:SetPoint("TOPLEFT", 8, -6)
   edit:SetPoint("BOTTOMRIGHT", -8, 6)
 
-  -- Colored overlay — shows variables highlighted when not editing
   local overlay = box:CreateFontString(nil, "OVERLAY")
-  overlay:SetFont(LuckyUI.BODY_FONT, 13, "")
-  overlay:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  overlay:SetFont(FONT, 12, "")
+  overlay:SetTextColor(Theme.text[1], Theme.text[2], Theme.text[3])
   overlay:SetPoint("TOPLEFT", edit, "TOPLEFT", 0, 0)
   overlay:SetPoint("BOTTOMRIGHT", edit, "BOTTOMRIGHT", 0, 0)
   overlay:SetJustifyH("LEFT")
   overlay:SetJustifyV("TOP")
 
-  local function ShowOverlay()
-    overlay:SetText(ColorizeVariables(edit:GetText()))
+  local function showOverlay()
+    overlay:SetText(colorizeVariables(edit:GetText()))
     overlay:Show()
     edit:SetAlpha(0)
   end
 
-  local function HideOverlay()
+  edit:SetScript("OnEscapePressed", edit.ClearFocus)
+
+  edit:SetScript("OnEditFocusGained", function()
+    box:SetBackdropBorderColor(Theme.accent[1], Theme.accent[2], Theme.accent[3], 1)
     overlay:Hide()
     edit:SetAlpha(1)
-  end
-
-  -- Start with overlay visible
-  ShowOverlay()
-
-  edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-  edit:SetScript("OnEditFocusGained", function()
-    box:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3])
-    HideOverlay()
   end)
+
   edit:SetScript("OnEditFocusLost", function()
-    box:SetBackdropBorderColor(C.borderDark[1], C.borderDark[2], C.borderDark[3])
-    ShowOverlay()
-  end)
-
-  -- Keep overlay in sync when text is set programmatically
-  hooksecurefunc(edit, "SetText", function()
-    if not edit:HasFocus() then ShowOverlay() end
-  end)
-
-  return title, box, edit
-end
-
-local function applyPlaceholders(template, itemLink, looterName)
-  if not template then return "" end
-  local out = template:gsub("%%item%%", itemLink or "[item]")
-  out = out:gsub("%%looter%%", looterName or "player")
-  return out
-end
-
-local function CreateOptionsPanel()
-  if panel then return panel end
-  panel = CreateFrame("Frame")
-  panel:SetSize(600, 500)
-  panel:Hide()
-  panel.name = "Lucky's Loot Wishlist"
-
-  -- Scrollable content area so the settings work on smaller panels
-  local scrollFrame = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-  scrollFrame:SetPoint("TOPLEFT", 0, 0)
-  scrollFrame:SetPoint("BOTTOMRIGHT", -26, 0)
-  local content = CreateFrame("Frame", nil, scrollFrame)
-  content:SetSize(570, 800)
-  scrollFrame:SetScrollChild(content)
-  scrollFrame:HookScript("OnSizeChanged", function(self, width)
-    content:SetWidth(width)
-  end)
-
-  -- Shadow `panel` within this function so all children parent to the scroll content.
-  -- The outer panel (registered with the settings API) is kept as `outerPanel`.
-  local outerPanel = panel
-  local panel = content -- luacheck: ignore 431
-
-  -- Title
-  local title = panel:CreateFontString(nil, "OVERLAY")
-  title:SetFont(LuckyUI.TITLE_FONT, 16)
-  title:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
-  title:SetPoint("TOPLEFT", 16, -16)
-  title:SetText("Lucky's Loot Wishlist")
-
-  -- Description
-  local desc = panel:CreateFontString(nil, "OVERLAY")
-  desc:SetFont(LuckyUI.BODY_FONT, 12)
-  desc:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-  desc:SetWidth(560)
-  desc:SetJustifyH("LEFT")
-  desc:SetText("Use %item% and %looter% placeholders in message templates.")
-
-  local s = GetSettings() or {}
-  local function GetDefaultWhisper() return (LootWishlist.Const and LootWishlist.Const.DEFAULT_WHISPER_TEMPLATE) or "" end
-  local function GetDefaultParty()  return (LootWishlist.Const and LootWishlist.Const.DEFAULT_PARTY_TEMPLATE)  or "" end
-
-  -- Message Templates heading
-  local templatesHeading = panel:CreateFontString(nil, "OVERLAY")
-  templatesHeading:SetFont(LuckyUI.TITLE_FONT, 14)
-  templatesHeading:SetTextColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
-  templatesHeading:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -20)
-  templatesHeading:SetText("Message Templates")
-
-  local wTitle, wBox, wEdit = CreateMultiLineEditBox(panel, "Whisper message:", 560, 80)
-  wTitle:SetPoint("TOPLEFT", templatesHeading, "BOTTOMLEFT", 0, -10)
-  wBox:SetPoint("TOPLEFT", wTitle, "BOTTOMLEFT", 0, -6)
-  wEdit:SetText(s.whisperTemplate or GetDefaultWhisper())
-
-  local pTitle, pBox, pEdit = CreateMultiLineEditBox(panel, "Party message:", 560, 80)
-  pTitle:SetPoint("TOPLEFT", wBox, "BOTTOMLEFT", 0, -16)
-  pBox:SetPoint("TOPLEFT", pTitle, "BOTTOMLEFT", 0, -6)
-  pEdit:SetText(s.partyTemplate or GetDefaultParty())
-
-  -- Example text
-  local example = panel:CreateFontString(nil, "OVERLAY")
-  example:SetFont(LuckyUI.BODY_FONT, 11)
-  example:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  example:SetPoint("TOPLEFT", pBox, "BOTTOMLEFT", 0, -8)
-  example:SetWidth(560)
-  example:SetJustifyH("LEFT")
-  example:SetText("Example whisper: " .. applyPlaceholders(s.whisperTemplate or GetDefaultWhisper(), "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(s.partyTemplate or GetDefaultParty(), "[Example Item]"))
-
-  -- Options heading
-  local optionsHeading = panel:CreateFontString(nil, "OVERLAY")
-  optionsHeading:SetFont(LuckyUI.TITLE_FONT, 14)
-  optionsHeading:SetTextColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
-  optionsHeading:SetPoint("TOPLEFT", example, "BOTTOMLEFT", 0, -20)
-  optionsHeading:SetText("Options")
-
-  -- Minimap button checkbox
-  local minimapState = (LootWishlistDB and LootWishlistDB.minimap) or {}
-  local minimapCB = LuckyUI.CreateCheckbox(panel, 16)
-  minimapCB:SetPoint("TOPLEFT", optionsHeading, "BOTTOMLEFT", 0, -10)
-  minimapCB:SetChecked(not minimapState.hide)
-  minimapCB:SetScript("OnClick", function(self)
-    if LootWishlist.minimapButton then
-      LootWishlist.minimapButton:SetShown_Persisted(self:GetChecked())
+    box:SetBackdropBorderColor(Theme.border2[1], Theme.border2[2], Theme.border2[3], 1)
+    local text = edit:GetText()
+    if text == "" then
+      text = defaultTemplate(key)
+      edit:SetText(text)
     end
+    write(key, text)
+    showOverlay()
   end)
 
-  local minimapLabel = panel:CreateFontString(nil, "OVERLAY")
-  minimapLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  minimapLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  minimapLabel:SetPoint("LEFT", minimapCB, "RIGHT", 8, 0)
-  minimapLabel:SetText("Minimap button")
-
-  -- Minimap left-click actions
-  local plainLabel, plainDD = CreateMinimapClickRow(panel, "Left-click opens:", "minimapClick")
-  plainLabel:SetPoint("TOPLEFT", minimapCB, "BOTTOMLEFT", 8, -12)
-  plainDD:SetPoint("LEFT", plainLabel, "RIGHT", 8, 0)
-
-  local ctrlLabel, ctrlDD = CreateMinimapClickRow(panel, "Ctrl-click opens:", "minimapCtrlClick")
-  ctrlLabel:SetPoint("TOPLEFT", plainLabel, "BOTTOMLEFT", 0, -12)
-  ctrlDD:SetPoint("LEFT", ctrlLabel, "RIGHT", 8, 0)
-
-  local shiftLabel, shiftDD = CreateMinimapClickRow(panel, "Shift-click opens:", "minimapShiftClick")
-  shiftLabel:SetPoint("TOPLEFT", ctrlLabel, "BOTTOMLEFT", 0, -12)
-  shiftDD:SetPoint("LEFT", shiftLabel, "RIGHT", 8, 0)
-
-  -- Raid roll alert checkbox
-  local rollCB = LuckyUI.CreateCheckbox(panel, 16)
-  rollCB:SetPoint("TOPLEFT", shiftLabel, "BOTTOMLEFT", -8, -14)
-  rollCB:SetChecked(s.enableRaidRollAlert ~= false)
-
-  local rollLabel = panel:CreateFontString(nil, "OVERLAY")
-  rollLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  rollLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  rollLabel:SetPoint("LEFT", rollCB, "RIGHT", 8, 0)
-  rollLabel:SetText("Enable raid roll alert")
-
-  -- Drop sound checkbox
-  local soundCB = LuckyUI.CreateCheckbox(panel, 16)
-  soundCB:SetPoint("TOPLEFT", rollCB, "BOTTOMLEFT", 0, -10)
-  soundCB:SetChecked(s.enableDropSound ~= false)
-  soundCB:SetScript("OnClick", function(self)
-    local val = self:GetChecked() and true or false
-    if LootWishlistDB and LootWishlistDB.settings then
-      LootWishlistDB.settings.enableDropSound = val
-    end
+  edit:SetScript("OnTextChanged", function()
+    if not edit:HasFocus() then showOverlay() end
+    if onChanged then onChanged() end
   end)
 
-  local soundLabel = panel:CreateFontString(nil, "OVERLAY")
-  soundLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  soundLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  soundLabel:SetPoint("LEFT", soundCB, "RIGHT", 8, 0)
-  soundLabel:SetText("Play a sound when a tracked item drops")
+  edit:SetText(read(key, defaultTemplate(key)))
 
-  local soundHint = panel:CreateFontString(nil, "OVERLAY")
-  soundHint:SetFont(LuckyUI.BODY_FONT, 11)
-  soundHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  soundHint:SetPoint("TOPLEFT", soundCB, "BOTTOMLEFT", 0, -2)
-  soundHint:SetText("One sound for your own drop, another when it drops for someone else.")
-
-  -- Hide summary checkbox
-  local summaryCB = LuckyUI.CreateCheckbox(panel, 16)
-  summaryCB:SetPoint("TOPLEFT", soundHint, "BOTTOMLEFT", 0, -10)
-  summaryCB:SetChecked(s.hideSummaryWindow == true)
-  summaryCB:SetScript("OnClick", function(self)
-    local val = self:GetChecked() and true or false
-    if LootWishlistDB and LootWishlistDB.settings then
-      LootWishlistDB.settings.hideSummaryWindow = val
-    end
-    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
-  end)
-
-  local summaryLabel = panel:CreateFontString(nil, "OVERLAY")
-  summaryLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  summaryLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  summaryLabel:SetPoint("LEFT", summaryCB, "RIGHT", 8, 0)
-  summaryLabel:SetText("Hide summary window")
-
-  -- Auto-hide summary in combat / Mythic+ checkbox
-  local autoHideCB = LuckyUI.CreateCheckbox(panel, 16)
-  autoHideCB:SetPoint("TOPLEFT", summaryCB, "BOTTOMLEFT", 0, -10)
-  autoHideCB:SetChecked(s.hideSummaryInCombatAndMythicPlus ~= false)
-  autoHideCB:SetScript("OnClick", function(self)
-    local val = self:GetChecked() and true or false
-    if LootWishlistDB and LootWishlistDB.settings then
-      LootWishlistDB.settings.hideSummaryInCombatAndMythicPlus = val
-    end
-    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
-  end)
-
-  local autoHideLabel = panel:CreateFontString(nil, "OVERLAY")
-  autoHideLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  autoHideLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  autoHideLabel:SetPoint("LEFT", autoHideCB, "RIGHT", 8, 0)
-  autoHideLabel:SetText("Hide summary while in combat or a Mythic+ run")
-
-  -- Track higher difficulties checkbox
-  local higherDiffCB = LuckyUI.CreateCheckbox(panel, 16)
-  higherDiffCB:SetPoint("TOPLEFT", autoHideCB, "BOTTOMLEFT", 0, -10)
-  higherDiffCB:SetChecked(s.addHigherDifficulties ~= false)
-  higherDiffCB:SetScript("OnClick", function(self)
-    local val = self:GetChecked() and true or false
-    if LootWishlistDB and LootWishlistDB.settings then
-      LootWishlistDB.settings.addHigherDifficulties = val
-    end
-  end)
-
-  local higherDiffLabel = panel:CreateFontString(nil, "OVERLAY")
-  higherDiffLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  higherDiffLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  higherDiffLabel:SetPoint("LEFT", higherDiffCB, "RIGHT", 8, 0)
-  higherDiffLabel:SetText("Also track higher difficulties when adding an item")
-
-  local higherDiffHint = panel:CreateFontString(nil, "OVERLAY")
-  higherDiffHint:SetFont(LuckyUI.BODY_FONT, 11)
-  higherDiffHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  higherDiffHint:SetPoint("TOPLEFT", higherDiffCB, "BOTTOMLEFT", 0, -2)
-  higherDiffHint:SetText("e.g. adding a dungeon item on Normal also adds Heroic, Mythic and Mythic+.")
-
-  -- Great Vault overlay checkbox
-  local vaultCB = LuckyUI.CreateCheckbox(panel, 16)
-  vaultCB:SetPoint("TOPLEFT", higherDiffHint, "BOTTOMLEFT", 0, -10)
-  vaultCB:SetChecked(s.enableVaultOverlay ~= false)
-  vaultCB:SetScript("OnClick", function(self)
-    local val = self:GetChecked() and true or false
-    if LootWishlistDB and LootWishlistDB.settings then
-      LootWishlistDB.settings.enableVaultOverlay = val
-    end
-  end)
-
-  local vaultLabel = panel:CreateFontString(nil, "OVERLAY")
-  vaultLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  vaultLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  vaultLabel:SetPoint("LEFT", vaultCB, "RIGHT", 8, 0)
-  vaultLabel:SetText("Highlight wishlist items in the Great Vault")
-
-  -- Open Wishlist button
-  local openBtn = LuckyUI.CreateButton(panel, "Open Wishlist", 110, 22, "secondary")
-  openBtn:SetPoint("LEFT", higherDiffLabel, "RIGHT", 12, 0)
-  openBtn:SetScript("OnClick", function()
-    if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
-  end)
-
-  -- Lucky's Wardrobe preview checkbox: only offered when that addon is
-  -- installed, since the preview it hides belongs to it. The panel is built on
-  -- PLAYER_LOGIN, so every installed addon has loaded by the time this runs.
-  local wardrobePreviewCB
-  local afterVault = vaultCB
-  if LuckysWardrobe and LuckysWardrobe.TooltipModel then
-    wardrobePreviewCB = LuckyUI.CreateCheckbox(panel, 16)
-    wardrobePreviewCB:SetPoint("TOPLEFT", vaultCB, "BOTTOMLEFT", 0, -10)
-    wardrobePreviewCB:SetChecked(s.hideWardrobePreview == true)
-    wardrobePreviewCB:SetScript("OnClick", function(self)
-      local val = self:GetChecked() and true or false
-      if LootWishlistDB and LootWishlistDB.settings then
-        LootWishlistDB.settings.hideWardrobePreview = val
-      end
-    end)
-
-    local wardrobePreviewLabel = panel:CreateFontString(nil, "OVERLAY")
-    wardrobePreviewLabel:SetFont(LuckyUI.BODY_FONT, 13)
-    wardrobePreviewLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-    wardrobePreviewLabel:SetPoint("LEFT", wardrobePreviewCB, "RIGHT", 8, 0)
-    wardrobePreviewLabel:SetText("Hide Lucky's Wardrobe item preview in wishlist windows")
-
-    local wardrobePreviewHint = panel:CreateFontString(nil, "OVERLAY")
-    wardrobePreviewHint:SetFont(LuckyUI.BODY_FONT, 11)
-    wardrobePreviewHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-    wardrobePreviewHint:SetPoint("TOPLEFT", wardrobePreviewCB, "BOTTOMLEFT", 0, -2)
-    wardrobePreviewHint:SetText("Applies to the wishlist and the Loot Browser. The model stays on everywhere else.")
-    afterVault = wardrobePreviewHint
+  local function reset()
+    local text = defaultTemplate(key)
+    write(key, text)
+    edit:SetText(text)
   end
 
-  -- Bonus roll reminder checkbox
-  local bonusRollCB = LuckyUI.CreateCheckbox(panel, 16)
-  bonusRollCB:SetPoint("TOPLEFT", afterVault, "BOTTOMLEFT", 0, -10)
-  bonusRollCB:SetChecked(s.enableBonusRollReminders ~= false)
-  bonusRollCB:SetScript("OnClick", function(self)
-    local val = self:GetChecked() and true or false
-    if LootWishlistDB and LootWishlistDB.settings then
-      LootWishlistDB.settings.enableBonusRollReminders = val
-    end
-  end)
+  return title, box, edit, reset
+end
 
-  local bonusRollLabel = panel:CreateFontString(nil, "OVERLAY")
-  bonusRollLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  bonusRollLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  bonusRollLabel:SetPoint("LEFT", bonusRollCB, "RIGHT", 8, 0)
-  bonusRollLabel:SetText("Bonus roll reminders (Nebulous Voidcore)")
+-------------------------------------------------------------------------------
+-- Groups
+-------------------------------------------------------------------------------
 
-  local bonusRollHint = panel:CreateFontString(nil, "OVERLAY")
-  bonusRollHint:SetFont(LuckyUI.BODY_FONT, 11)
-  bonusRollHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  bonusRollHint:SetPoint("TOPLEFT", bonusRollCB, "BOTTOMLEFT", 0, -2)
-  bonusRollHint:SetText("Popup after a M+ 10+ run or H/M raid boss kill if a flagged item drops here.")
+local function buildWishlist(g)
+  g:Toggle({
+    label    = "Track higher difficulties",
+    desc     = "Adding a dungeon item on Normal tracks it on Heroic, Mythic and Mythic+ too, so the drop is recognised whichever difficulty you run.",
+    checked  = function() return isOn("addHigherDifficulties") end,
+    onToggle = function(checked) write("addHigherDifficulties", checked) end,
+  })
 
-  -- Bonus roll sound checkbox
-  local bonusSoundCB = LuckyUI.CreateCheckbox(panel, 16)
-  bonusSoundCB:SetPoint("TOPLEFT", bonusRollHint, "BOTTOMLEFT", 0, -8)
-  bonusSoundCB:SetChecked(s.bonusRollSound ~= false)
-  bonusSoundCB:SetScript("OnClick", function(self)
-    local val = self:GetChecked() and true or false
-    if LootWishlistDB and LootWishlistDB.settings then
-      LootWishlistDB.settings.bonusRollSound = val
-    end
-  end)
+  g:Toggle({
+    label    = "Highlight items in the Great Vault",
+    desc     = "Marks any Great Vault reward that is on your wishlist, so the pick is obvious before you take it.",
+    checked  = function() return isOn("enableVaultOverlay") end,
+    onToggle = function(checked) write("enableVaultOverlay", checked) end,
+  })
 
-  local bonusSoundLabel = panel:CreateFontString(nil, "OVERLAY")
-  bonusSoundLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  bonusSoundLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  bonusSoundLabel:SetPoint("LEFT", bonusSoundCB, "RIGHT", 8, 0)
-  bonusSoundLabel:SetText("Play sound on bonus roll reminder")
+  g:Toggle({
+    label    = "Hide the Wardrobe preview",
+    desc     = "Lucky's Wardrobe puts a model wearing the item beside its tooltip. This leaves it off the wishlist and the Loot Browser, where the rows are tight. The model stays on everywhere else.",
+    requires = { addon = "Luckys_Wardrobe" },
+    checked  = function() return isOff("hideWardrobePreview") end,
+    onToggle = function(checked) write("hideWardrobePreview", checked) end,
+  })
 
-  -- Debug mode checkbox
-  local debugCB = LuckyUI.CreateCheckbox(panel, 16)
-  debugCB:SetPoint("TOPLEFT", bonusSoundCB, "BOTTOMLEFT", 0, -10)
-  debugCB:SetChecked(s.debug == true)
-  debugCB:SetScript("OnClick", function(self)
-    local val = self:GetChecked() and true or false
-    if LootWishlist.SetDebug then LootWishlist.SetDebug(val) end
-  end)
+  g:Button({
+    label   = "Open the wishlist",
+    desc    = "Opens the wishlist window on the items you are tracking.",
+    onClick = function()
+      if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
+    end,
+  })
+end
 
-  local debugLabel = panel:CreateFontString(nil, "OVERLAY")
-  debugLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  debugLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  debugLabel:SetPoint("LEFT", debugCB, "RIGHT", 8, 0)
-  debugLabel:SetText("Debug mode")
+local function buildSummary(g)
+  g:Toggle({
+    label    = "Hide the summary window",
+    desc     = "Keeps the small summary window off the screen entirely. The wishlist window is not affected.",
+    checked  = function() return isOff("hideSummaryWindow") end,
+    onToggle = function(checked)
+      write("hideSummaryWindow", checked)
+      refreshSummary()
+    end,
+  })
 
-  local debugHint = panel:CreateFontString(nil, "OVERLAY")
-  debugHint:SetFont(LuckyUI.BODY_FONT, 11)
-  debugHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  debugHint:SetPoint("TOPLEFT", debugCB, "BOTTOMLEFT", 0, -2)
-  debugHint:SetText("Print performance logs and diagnostics to chat.")
+  g:Toggle({
+    label    = "Hide it in combat and Mythic+",
+    desc     = "Takes the summary window off the screen while you are fighting or running a Mythic+ key, and brings it back when you are done.",
+    checked  = function() return isOn("hideSummaryInCombatAndMythicPlus") end,
+    onToggle = function(checked)
+      write("hideSummaryInCombatAndMythicPlus", checked)
+      refreshSummary()
+    end,
+  })
 
-  -- Boss kill reminder delay slider
-  local delayLabel = panel:CreateFontString(nil, "OVERLAY")
-  delayLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  delayLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  delayLabel:SetPoint("TOPLEFT", debugHint, "BOTTOMLEFT", 0, -16)
-  delayLabel:SetText("Spec reminder delay after boss kill")
+  g:Slider({
+    label     = "Opacity when not hovered",
+    desc      = "How solid the summary window is while your mouse is elsewhere. At 0 it is invisible until you hover it.",
+    min       = 0,
+    max       = 100,
+    step      = 5,
+    suffix    = "%",
+    value     = function() return math.floor(read("summaryUnhoveredAlpha", 1) * 100 + 0.5) end,
+    onChanged = function(value)
+      write("summaryUnhoveredAlpha", value / 100)
+      refreshSummary()
+    end,
+  })
+end
 
-  local delayValue = panel:CreateFontString(nil, "OVERLAY")
-  delayValue:SetFont(LuckyUI.BODY_FONT, 13)
-  delayValue:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
+local function buildAlerts(g)
+  g:Section("When a wishlist item drops")
 
-  local delaySlider = CreateFrame("Slider", "LootWishlistDelaySlider", panel, "OptionsSliderTemplate")
-  delaySlider:SetPoint("TOPLEFT", delayLabel, "BOTTOMLEFT", 0, -12)
-  delaySlider:SetSize(240, 16)
-  delaySlider:SetMinMaxValues(0, 30)
-  delaySlider:SetValueStep(1)
-  delaySlider:SetObeyStepOnDrag(true)
-  delaySlider:SetValue(s.bossKillReminderDelay or 10)
-  delaySlider.Low:SetText("0s")
-  delaySlider.High:SetText("30s")
-  delaySlider.Text:SetText("")
+  g:Toggle({
+    label    = "Play a sound",
+    desc     = "One sound when the drop is yours, another when it drops for someone else in the group.",
+    since    = "1.12.0",
+    checked  = function() return isOn("enableDropSound") end,
+    onToggle = function(checked) write("enableDropSound", checked) end,
+  })
 
-  delayValue:SetPoint("LEFT", delaySlider, "RIGHT", 10, 0)
-  delayValue:SetText(tostring(math.floor(delaySlider:GetValue())) .. "s")
+  g:Toggle({
+    label    = "Alert on a group roll",
+    desc     = "Speaks up in a raid when an item you are tracking goes to a group roll, so the roll window is not the first you hear of it.",
+    checked  = function() return isOn("enableRaidRollAlert") end,
+    onToggle = function(checked) write("enableRaidRollAlert", checked) end,
+  })
 
-  delaySlider:SetScript("OnValueChanged", function(self, value)
-    value = math.floor(value + 0.5)
-    delayValue:SetText(tostring(value) .. "s")
-    local st = GetSettings()
-    if st then st.bossKillReminderDelay = value end
-  end)
+  g:Section("Bonus rolls")
 
-  local delayHint = panel:CreateFontString(nil, "OVERLAY")
-  delayHint:SetFont(LuckyUI.BODY_FONT, 11)
-  delayHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  delayHint:SetPoint("TOPLEFT", delaySlider, "BOTTOMLEFT", 0, -4)
-  delayHint:SetText("How long to wait after a boss dies before showing the next spec reminder.")
+  g:Toggle({
+    label    = "Bonus roll reminders",
+    desc     = "Reminds you to spend a Nebulous Voidcore after a Mythic+ 10 or higher run, or a Heroic or Mythic raid boss, when something on your wishlist drops there.",
+    checked  = function() return isOn("enableBonusRollReminders") end,
+    onToggle = function(checked) write("enableBonusRollReminders", checked) end,
+  })
 
-  -- Summary window unhovered alpha slider
-  local alphaLabel = panel:CreateFontString(nil, "OVERLAY")
-  alphaLabel:SetFont(LuckyUI.BODY_FONT, 13)
-  alphaLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
-  alphaLabel:SetPoint("TOPLEFT", delayHint, "BOTTOMLEFT", 0, -16)
-  alphaLabel:SetText("Summary window opacity when not hovered")
+  g:Toggle({
+    label    = "Play a sound with the reminder",
+    desc     = "Adds a sound to the bonus roll reminder, for a popup that is easy to miss just after a kill.",
+    parent   = "Bonus roll reminders",
+    checked  = function() return isOn("bonusRollSound") end,
+    onToggle = function(checked) write("bonusRollSound", checked) end,
+  })
 
-  local alphaValue = panel:CreateFontString(nil, "OVERLAY")
-  alphaValue:SetFont(LuckyUI.BODY_FONT, 13)
-  alphaValue:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
+  g:Section("Spec reminders")
 
-  local alphaSlider = CreateFrame("Slider", "LootWishlistAlphaSlider", panel, "OptionsSliderTemplate")
-  alphaSlider:SetPoint("TOPLEFT", alphaLabel, "BOTTOMLEFT", 0, -12)
-  alphaSlider:SetSize(240, 16)
-  alphaSlider:SetMinMaxValues(0, 100)
-  alphaSlider:SetValueStep(5)
-  alphaSlider:SetObeyStepOnDrag(true)
-  alphaSlider:SetValue(math.floor(((s.summaryUnhoveredAlpha ~= nil) and s.summaryUnhoveredAlpha or 1.0) * 100 + 0.5))
-  alphaSlider.Low:SetText("0%")
-  alphaSlider.High:SetText("100%")
-  alphaSlider.Text:SetText("")
+  g:Slider({
+    label     = "Delay after a boss kill",
+    desc      = "How long to wait after a boss dies before the reminder for the bosses ahead appears.",
+    min       = 0,
+    max       = 30,
+    suffix    = "s",
+    value     = function() return read("bossKillReminderDelay", 10) end,
+    onChanged = function(value) write("bossKillReminderDelay", value) end,
+  })
+end
 
-  alphaValue:SetPoint("LEFT", alphaSlider, "RIGHT", 10, 0)
-  alphaValue:SetText(tostring(math.floor(alphaSlider:GetValue())) .. "%")
+local function buildMinimap(g)
+  local function clickRow(label, desc, key)
+    g:Select({
+      label    = label,
+      desc     = desc,
+      since    = "1.12.3",
+      options  = LootWishlist.Const.MINIMAP_CLICK_ACTIONS,
+      value    = function() return read(key) end,
+      onSelect = function(action) write(key, action) end,
+    })
+  end
 
-  alphaSlider:SetScript("OnValueChanged", function(self, value)
-    value = math.floor(value + 0.5)
-    alphaValue:SetText(tostring(value) .. "%")
-    local st = GetSettings()
-    if st then st.summaryUnhoveredAlpha = value / 100 end
-    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
-  end)
+  clickRow("Left-click opens",
+    "What a plain left-click on the minimap button opens. Clicking again closes what it opened.",
+    "minimapClick")
+  clickRow("Ctrl-click opens",
+    "What a left-click with Ctrl held opens.",
+    "minimapCtrlClick")
+  clickRow("Shift-click opens",
+    "What a left-click with Shift held opens.",
+    "minimapShiftClick")
 
-  local alphaHint = panel:CreateFontString(nil, "OVERLAY")
-  alphaHint:SetFont(LuckyUI.BODY_FONT, 11)
-  alphaHint:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  alphaHint:SetPoint("TOPLEFT", alphaSlider, "BOTTOMLEFT", 0, -4)
-  alphaHint:SetText("The summary window fades to this opacity when your mouse is not over it.")
+  g:Section("Other clicks")
+  g:Label({ label = "Right-click", value = "Settings" })
+  g:Label({ label = "Middle-click", value = "Debug mode" })
+  g:Label({ label = "Drag", value = "Move the button" })
+end
+
+local function buildMessages(g)
+  local resetWhisper, resetParty
+
+  g:Button({
+    label   = "Reset messages",
+    desc    = "Puts both messages back to the wording the addon ships with.",
+    onClick = function()
+      if resetWhisper then resetWhisper() end
+      if resetParty then resetParty() end
+    end,
+  })
+
+  local content = g:Fill()
+  -- Fill scrolls whatever it is given, so the height is set rather than measured.
+  content:SetHeight(340)
+
+  local hint = content:CreateFontString(nil, "OVERLAY")
+  hint:SetFont(FONT, 11, "")
+  hint:SetTextColor(Theme.textDim[1], Theme.textDim[2], Theme.textDim[3])
+  hint:SetPoint("TOPLEFT", 4, -4)
+  hint:SetPoint("RIGHT", -4, 0)
+  hint:SetJustifyH("LEFT")
+  hint:SetSpacing(3)
+  hint:SetText("What you send when you ask for a drop. The variables fill themselves in: %item% is the item link, %looter% is whoever looted it. A message is saved when you click away from its box.")
+
+  local wEdit, pEdit, example
 
   local function updateExample()
-    local wText = wEdit:GetText()
-    local pText = pEdit:GetText()
-    if wText == "" then wText = GetDefaultWhisper() end
-    if pText == "" then pText = GetDefaultParty() end
-    example:SetText("Example whisper: " .. applyPlaceholders(wText, "[Example Item]", "Teammate") .. "\nExample party: " .. applyPlaceholders(pText, "[Example Item]"))
+    if not (wEdit and pEdit and example) then return end
+    local whisper = wEdit:GetText()
+    local party = pEdit:GetText()
+    if whisper == "" then whisper = defaultTemplate("whisperTemplate") end
+    if party == "" then party = defaultTemplate("partyTemplate") end
+    example:SetText("Whisper: " .. applyPlaceholders(whisper, "[Example Item]", "Teammate")
+      .. "\nParty: " .. applyPlaceholders(party, "[Example Item]"))
   end
 
-  -- Save button
-  local save = LuckyUI.CreateButton(panel, "Save", 120, 28, "primary")
-  save:SetPoint("TOPLEFT", alphaHint, "BOTTOMLEFT", 0, -12)
-  save:SetScript("OnClick", function()
-    local st = GetSettings()
-    if st then
-      local wText = wEdit:GetText()
-      local pText = pEdit:GetText()
-      st.whisperTemplate = (wText ~= "") and wText or GetDefaultWhisper()
-      st.partyTemplate = (pText ~= "") and pText or GetDefaultParty()
-      st.enableRaidRollAlert = rollCB:GetChecked() and true or false
-      st.enableDropSound = soundCB:GetChecked() and true or false
-      st.hideSummaryWindow = summaryCB:GetChecked() and true or false
-      st.hideSummaryInCombatAndMythicPlus = autoHideCB:GetChecked() and true or false
-      st.addHigherDifficulties = higherDiffCB:GetChecked() and true or false
-      st.enableVaultOverlay = vaultCB:GetChecked() and true or false
-      if wardrobePreviewCB then st.hideWardrobePreview = wardrobePreviewCB:GetChecked() and true or false end
-      if LootWishlist.SetDebug then LootWishlist.SetDebug(debugCB:GetChecked() and true or false) end
-      updateExample()
-      if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
-    end
-  end)
+  local wTitle, wBox
+  wTitle, wBox, wEdit, resetWhisper =
+    CreateTemplateEditor(content, "Whisper message", "whisperTemplate", updateExample)
+  wTitle:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -14)
+  wBox:SetPoint("TOPLEFT", wTitle, "BOTTOMLEFT", 0, -6)
+  wBox:SetPoint("RIGHT", content, "RIGHT", -4, 0)
 
-  -- Reset to Defaults button
-  local resetBtn = LuckyUI.CreateButton(panel, "Reset to Defaults", 140, 28, "secondary")
-  resetBtn:SetPoint("LEFT", save, "RIGHT", 10, 0)
-  resetBtn:SetScript("OnClick", function()
-    local defWhisper = GetDefaultWhisper()
-    local defParty = GetDefaultParty()
-    DevLog("Reset: Const=", tostring(LootWishlist.Const ~= nil), "whisper=", defWhisper, "party=", defParty)
-    wEdit:SetText(defWhisper)
-    pEdit:SetText(defParty)
-    local st = GetSettings()
-    if st then
-      st.whisperTemplate = defWhisper
-      st.partyTemplate = defParty
-    end
-    updateExample()
-  end)
+  local pTitle, pBox
+  pTitle, pBox, pEdit, resetParty =
+    CreateTemplateEditor(content, "Party message", "partyTemplate", updateExample)
+  pTitle:SetPoint("TOPLEFT", wBox, "BOTTOMLEFT", 0, -14)
+  pBox:SetPoint("TOPLEFT", pTitle, "BOTTOMLEFT", 0, -6)
+  pBox:SetPoint("RIGHT", content, "RIGHT", -4, 0)
 
-  -- Refresh values when panel is shown
-  outerPanel:SetScript("OnShow", function()
-    local st = GetSettings() or {}
-    wEdit:SetText(st.whisperTemplate or GetDefaultWhisper())
-    pEdit:SetText(st.partyTemplate or GetDefaultParty())
-    local ms = (LootWishlistDB and LootWishlistDB.minimap) or {}
-    minimapCB:SetChecked(not ms.hide)
-    rollCB:SetChecked(st.enableRaidRollAlert ~= false)
-    soundCB:SetChecked(st.enableDropSound ~= false)
-    summaryCB:SetChecked(st.hideSummaryWindow == true)
-    autoHideCB:SetChecked(st.hideSummaryInCombatAndMythicPlus ~= false)
-    higherDiffCB:SetChecked(st.addHigherDifficulties ~= false)
-    vaultCB:SetChecked(st.enableVaultOverlay ~= false)
-    if wardrobePreviewCB then wardrobePreviewCB:SetChecked(st.hideWardrobePreview == true) end
-    debugCB:SetChecked(st.debug == true)
-    delaySlider:SetValue(st.bossKillReminderDelay or 10)
-    delayValue:SetText(tostring(math.floor(delaySlider:GetValue())) .. "s")
-    local a = (st.summaryUnhoveredAlpha ~= nil) and st.summaryUnhoveredAlpha or 1.0
-    alphaSlider:SetValue(math.floor(a * 100 + 0.5))
-    alphaValue:SetText(tostring(math.floor(alphaSlider:GetValue())) .. "%")
-    updateExample()
-  end)
+  example = content:CreateFontString(nil, "OVERLAY")
+  example:SetFont(FONT, 11, "")
+  example:SetTextColor(Theme.textDim[1], Theme.textDim[2], Theme.textDim[3])
+  example:SetPoint("TOPLEFT", pBox, "BOTTOMLEFT", 0, -12)
+  example:SetPoint("RIGHT", content, "RIGHT", -4, 0)
+  example:SetJustifyH("LEFT")
+  example:SetSpacing(3)
+  updateExample()
+end
 
-  -- Register with game settings
-  settingsCategory = LuckySettings:Register(outerPanel, outerPanel.name)
-  return outerPanel
+local function buildPanel(p)
+  -- Debug mode and the minimap button live in the title bar, so the first group
+  -- is free to host the What's New list.
+  local whatsNew = p:Group("What's New")
+  whatsNew:BottomSection("Version info")
+  whatsNew:BottomLabel({
+    label = "Lucky's Loot Wishlist",
+    value = "v" .. (C_AddOns.GetAddOnMetadata(ADDON_FOLDER, "Version") or "?"),
+  })
+  whatsNew:BottomLabel({
+    label = "Lucky's Utils",
+    value = "v" .. (C_AddOns.GetAddOnMetadata("Luckys_Utils", "Version")
+      or ("1.0 r" .. LibStub.minors["LuckysUtils-1.0"])),
+  })
+  LuckyPromo:AddToRichGroup(whatsNew, ADDON_FOLDER)
+
+  p:Group("Wishlist", buildWishlist)
+  p:Group("Summary", buildSummary)
+  p:Group("Alerts", buildAlerts)
+  p:Group("Minimap", buildMinimap)
+  p:Group("Messages", buildMessages)
+end
+
+local function CreatePanel()
+  if panel then return panel end
+
+  panel = LuckySettings:NewRichPanel("Lucky's Loot Wishlist", {
+    addonFolder   = ADDON_FOLDER,
+    minVersion    = LootWishlist.WHATS_NEW_MIN_VERSION,
+    devMode       = {
+      label    = "Debug mode",
+      desc     = "Print performance logs and diagnostics to chat.",
+      checked  = function() return LootWishlist.IsDebug() end,
+      onToggle = function(checked) LootWishlist.SetDebug(checked) end,
+    },
+    minimapButton = {
+      label    = "Minimap button",
+      desc     = "Show the Loot Wishlist button on the minimap.",
+      checked  = function() return not (LootWishlistDB and LootWishlistDB.minimap or {}).hide end,
+      onToggle = function(checked)
+        if LootWishlist.minimapButton then
+          LootWishlist.minimapButton:SetShown_Persisted(checked)
+        end
+      end,
+    },
+  }, buildPanel)
+
+  return panel
 end
 
 function Options.Open()
-  CreateOptionsPanel()
-  LuckySettings:Open(settingsCategory)
+  CreatePanel():Open()
 end
 
--- Ensure panel is created on login
-local f = CreateFrame("Frame")
-f:RegisterEvent("PLAYER_LOGIN")
-f:SetScript("OnEvent", function()
-  CreateOptionsPanel()
-end)
+local loader = CreateFrame("Frame")
+loader:RegisterEvent("PLAYER_LOGIN")
+loader:SetScript("OnEvent", CreatePanel)
