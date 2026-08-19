@@ -51,6 +51,10 @@ local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceNam
 
 local scheduleRefresh        -- forward: defined with the UI, used by the scanner
 
+local DevLog = LuckyLog and LuckyLog:New("[Lwl-Browser][debug]", function()
+  return LootWishlist.IsDebug and LootWishlist.IsDebug()
+end) or function() end
+
 local function charDB()
   LootWishlistCharDB.browser = LootWishlistCharDB.browser or {}
   return LootWishlistCharDB.browser
@@ -148,6 +152,10 @@ local function snapshotEJ()
     local ok, cls, spec = pcall(EJ_GetLootFilter)
     if ok then snapshot.classF, snapshot.specF = cls, spec end
   end
+  if C_EncounterJournal and C_EncounterJournal.GetSlotFilter then
+    local ok, slot = pcall(C_EncounterJournal.GetSlotFilter)
+    if ok then snapshot.slotF = slot end
+  end
   if EJ_GetDifficulty then
     local ok, d = pcall(EJ_GetDifficulty)
     if ok then snapshot.diff = d end
@@ -160,6 +168,9 @@ end
 
 local function restoreEJ()
   if not snapshot then return end
+  if snapshot.slotF and C_EncounterJournal and C_EncounterJournal.SetSlotFilter then
+    pcall(C_EncounterJournal.SetSlotFilter, snapshot.slotF)
+  end
   if snapshot.instanceID and EJ_SelectInstance then pcall(EJ_SelectInstance, snapshot.instanceID) end
   if snapshot.diff and EJ_SetDifficulty then pcall(EJ_SetDifficulty, snapshot.diff) end
   if snapshot.encounterID and EJ_SelectEncounter then pcall(EJ_SelectEncounter, snapshot.encounterID) end
@@ -178,10 +189,15 @@ local function applyDifficulty(scan)
 
   local function sticks(d)
     if not d then return false end
-    pcall(EJ_SetDifficulty, d)
-    if type(EJ_GetDifficulty) ~= "function" then return true end
+    if type(EJ_GetDifficulty) ~= "function" then
+      pcall(EJ_SetDifficulty, d)
+      return true
+    end
     local ok, actual = pcall(EJ_GetDifficulty)
-    return ok and actual == d
+    if ok and actual == d then return true end
+    pcall(EJ_SetDifficulty, d)
+    local settled, now = pcall(EJ_GetDifficulty)
+    return settled and now == d
   end
 
   if sticks(scan.diffID) then return scan.diffID end
@@ -223,15 +239,45 @@ local function isNonGearLoot(itemID)
   return false
 end
 
--- Point the journal at what this scan wants to read. Idempotent, so it doubles
--- as clobber defense: EJ selection is global, and this addon's own UI and
--- Summary refreshes can move it mid-wait.
+local function selectedInstanceIs(instanceID)
+  local okWant, want = pcall(EJ_GetInstanceInfo, instanceID)
+  local okHave, have = pcall(EJ_GetInstanceInfo)
+  return okWant and okHave and want ~= nil and want == have
+end
+
+-- The journal's slot filter is global and gates EJ_GetNumLoot, so a slot left
+-- chosen in the Adventure Guide hides most of a scan's loot, or all of it.
+-- Blizzard's own whole-table reads clear it the same way and put it back.
+local function clearSlotFilter()
+  local CEJ = C_EncounterJournal
+  if not (CEJ and CEJ.GetSlotFilter and CEJ.ResetSlotFilter) then return end
+  local none = Enum.ItemSlotFilterType and Enum.ItemSlotFilterType.NoFilter
+  local ok, filter = pcall(CEJ.GetSlotFilter)
+  if ok and none and filter == none then return end
+  pcall(CEJ.ResetSlotFilter)
+end
+
+-- Point the journal at what this scan wants to read, before every read, since
+-- EJ selection is global and this addon's own UI and Summary refreshes can
+-- move it mid-wait. Only what has actually drifted is written: selecting an
+-- instance or a difficulty again restarts the server's loot query, so writing
+-- unconditionally would reset the table each time an item arrived and leave a
+-- slow instance stuck at zero until the scan timed out.
 local function assertSelection(scan)
-  pcall(EJ_SelectInstance, scan.instanceID)
+  -- The first select goes by ID, so the right instance is always what gets
+  -- read; the name check afterwards only asks whether it is still selected.
+  if not (scan.selected and selectedInstanceIs(scan.instanceID)) then
+    pcall(EJ_SelectInstance, scan.instanceID)
+    scan.selected = true
+  end
   local diff = applyDifficulty(scan)
   if not diff then return nil end
   scan.scannedDiff = diff
-  pcall(EJ_SetLootFilter, scan.classID, scan.specID)
+  local ok, cls, spec = pcall(EJ_GetLootFilter)
+  if not ok or cls ~= scan.classID or spec ~= scan.specID then
+    pcall(EJ_SetLootFilter, scan.classID, scan.specID)
+  end
+  clearSlotFilter()
   return diff
 end
 
@@ -241,6 +287,7 @@ local function readLoot(scan)
   local diff = assertSelection(scan)
   if not diff then return {}, true end
   local n = (type(EJ_GetNumLoot) == "function") and (EJ_GetNumLoot() or 0) or 0
+  scan.lastN = n
   if n == 0 then return nil, false end
   local items, complete = {}, true
   for i = 1, n do
@@ -264,7 +311,15 @@ end
 
 local function finishScan(scan, items)
   if scan.timer then scan.timer:Cancel(); scan.timer = nil end
-  lootCache[scan.key] = { items = items or {}, diffID = scan.scannedDiff or scan.diffID }
+  local count = items and #items or 0
+  DevLog("scan", scan.key, "read", count, "of", scan.lastN or 0, "journal entries",
+    scan.timedOut and "(timed out)" or "")
+  -- An empty read is kept for this browsing session so the queue does not spin
+  -- on it, but flagged: reopening the browser rescans it, since nothing came
+  -- back is as often a lost race with the journal as a genuinely empty table.
+  lootCache[scan.key] = {
+    items = items or {}, diffID = scan.scannedDiff or scan.diffID, empty = count == 0,
+  }
   pendingKeys[scan.key] = nil
   current = nil
   if LuckyItem and items then
@@ -309,6 +364,7 @@ local function startScan(scan)
     if current ~= scan then return end
     if journalShown() then requeueCurrent(); pump(); return end
     -- Accept what resolved; stragglers fall back to LuckyItem base links.
+    scan.timedOut = true
     finishScan(scan, scan.partial or {})
   end)
   -- Point the journal first, then read a frame later. Reading straight after
@@ -370,6 +426,10 @@ local function requestLoot(instanceID, isRaid, diffID)
   end
   return nil
 end
+
+-- The scan pipeline runs headless, so the test drives it without building the
+-- window that normally does.
+LootWishlist.Browser.testScanner = { state = state, requestLoot = requestLoot }
 
 ------------------------------------------------------------------------
 -- Row building
@@ -1429,6 +1489,9 @@ end
 ------------------------------------------------------------------------
 function LootWishlist.Browser.open()
   ensureFrame()
+  for key, entry in pairs(lootCache) do
+    if entry.empty then lootCache[key] = nil end
+  end
   frame:Show()
   frame:Raise()
   sidebarList:SetData(buildSidebarRows())
