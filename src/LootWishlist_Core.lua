@@ -112,6 +112,9 @@ local function InitializeDB()
   if acctS.summaryUnhoveredAlpha == nil then acctS.summaryUnhoveredAlpha = 1.0 end
   if acctS.addHigherDifficulties == nil then acctS.addHigherDifficulties = true end
   if acctS.enableVaultOverlay == nil then acctS.enableVaultOverlay = true end
+  if acctS.minimapClick == nil then acctS.minimapClick = "both" end
+  if acctS.minimapCtrlClick == nil then acctS.minimapCtrlClick = "wishlist" end
+  if acctS.minimapShiftClick == nil then acctS.minimapShiftClick = "browser" end
   -- Renamed when the toggle grew to cover the wishlist window as well
   if acctS.hideWardrobePreviewInBrowser ~= nil and acctS.hideWardrobePreview == nil then
     acctS.hideWardrobePreview = acctS.hideWardrobePreviewInBrowser
@@ -419,6 +422,30 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
   end)
 end
 
+-- Minimap left-click ---------------------------------------------------------
+local function minimapClickAction()
+  local s = LootWishlist.GetSettings() or {}
+  if IsShiftKeyDown() then return s.minimapShiftClick or "browser" end
+  if IsControlKeyDown() then return s.minimapCtrlClick or "wishlist" end
+  return s.minimapClick or "both"
+end
+
+local function runMinimapClick()
+  local UI, Browser = LootWishlist.UI, LootWishlist.Browser
+  local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked()
+  local wishlist, browser = LootWishlist.Const.MinimapClickPlan(
+    minimapClickAction(),
+    UI and UI.isOpen,
+    Browser and Browser.isShown and Browser.isShown(),
+    tracked and next(tracked) ~= nil)
+
+  if wishlist == "open" and UI and UI.open then UI.open()
+  elseif wishlist == "close" and UI and UI.hide then UI.hide() end
+
+  if browser == "open" and Browser and Browser.open then Browser.open()
+  elseif browser == "close" and Browser and Browser.hide then Browser.hide() end
+end
+
 -- Events ---------------------------------------------------------------------
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
@@ -453,24 +480,7 @@ f:SetScript("OnEvent", function(self, event, ...)
         db      = LootWishlistDB,
         onClick = function(_, mouseBtn)
           if mouseBtn == "LeftButton" then
-            local browserShown = LootWishlist.Browser and LootWishlist.Browser.isShown and LootWishlist.Browser.isShown()
-            local wishlistShown = LootWishlist.UI and LootWishlist.UI.isOpen
-            if browserShown or wishlistShown then
-              if wishlistShown and LootWishlist.UI.hide then LootWishlist.UI.hide() end
-              if browserShown and LootWishlist.Browser.hide then LootWishlist.Browser.hide() end
-            else
-              -- Wishlist only opens alongside the browser when it has items;
-              -- an empty list adds nothing to a browsing session.
-              local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked()
-              if tracked and next(tracked) and LootWishlist.UI and LootWishlist.UI.open then
-                LootWishlist.UI.open()
-              end
-              if LootWishlist.Browser and LootWishlist.Browser.open then
-                LootWishlist.Browser.open()
-              else
-                if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
-              end
-            end
+            runMinimapClick()
           elseif mouseBtn == "RightButton" then
             if LootWishlist.Options and LootWishlist.Options.Open then
               LootWishlist.Options.Open()
@@ -480,9 +490,13 @@ f:SetScript("OnEvent", function(self, event, ...)
           end
         end,
         tooltip = function(tt)
+          local s = LootWishlist.GetSettings() or {}
+          local label = LootWishlist.Const.MinimapActionLabel
           tt:AddLine("|cffffd100Lucky's Loot Wishlist|r")
           tt:AddLine(" ")
-          tt:AddLine("Left-click: Toggle wishlist and loot browser", 0.91, 0.86, 0.78)
+          tt:AddLine("Left-click: " .. label(s.minimapClick), 0.91, 0.86, 0.78)
+          tt:AddLine("Ctrl-click: " .. label(s.minimapCtrlClick), 0.91, 0.86, 0.78)
+          tt:AddLine("Shift-click: " .. label(s.minimapShiftClick), 0.91, 0.86, 0.78)
           tt:AddLine("Right-click: Open settings", 0.91, 0.86, 0.78)
           tt:AddLine("Middle-click: Toggle dev mode", 0.54, 0.49, 0.42)
           tt:AddLine("Drag: Move button", 0.54, 0.49, 0.42)

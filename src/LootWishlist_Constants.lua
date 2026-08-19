@@ -128,3 +128,33 @@ LootWishlist.Const = {
     -- nothing to gate and no entry to keep.
   },
 }
+
+-- Minimap left-click: what a plain, Ctrl- or Shift-click acts on. Settings
+-- store the key; the label is what the options panel and tooltip show.
+LootWishlist.Const.MINIMAP_CLICK_ACTIONS = {
+  { key = "both",     label = "Wishlist and loot browser" },
+  { key = "wishlist", label = "Wishlist only" },
+  { key = "browser",  label = "Loot browser only" },
+}
+
+function LootWishlist.Const.MinimapActionLabel(key)
+  for _, action in ipairs(LootWishlist.Const.MINIMAP_CLICK_ACTIONS) do
+    if action.key == key then return action.label end
+  end
+  return LootWishlist.Const.MINIMAP_CLICK_ACTIONS[1].label
+end
+
+-- What a minimap left-click does to each window: "open", "close" or nil.
+-- Pure, so the toggle rules can be checked without the game running.
+function LootWishlist.Const.MinimapClickPlan(action, wishlistShown, browserShown, wishlistHasItems)
+  if action == "wishlist" then
+    return wishlistShown and "close" or "open", nil
+  elseif action == "browser" then
+    return nil, browserShown and "close" or "open"
+  end
+  if wishlistShown or browserShown then
+    return wishlistShown and "close" or nil, browserShown and "close" or nil
+  end
+  -- An empty wishlist adds nothing to a browsing session, so it stays shut.
+  return wishlistHasItems and "open" or nil, "open"
+end

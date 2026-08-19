@@ -24,6 +24,33 @@ local function ColorizeVariables(text)
   return text:gsub("(%%[%w_]+%%)", "|cff" .. VARIABLE_COLOR .. "%1|r")
 end
 
+-- One row of the minimap click settings: a label and a dropdown of the actions
+-- a left-click can take, writing the chosen key straight into settings.
+local function CreateMinimapClickRow(parent, labelText, settingKey)
+  local label = parent:CreateFontString(nil, "OVERLAY")
+  label:SetFont(LuckyUI.BODY_FONT, 13)
+  label:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  label:SetText(labelText)
+
+  local dropdown = CreateFrame("DropdownButton", nil, parent, "WowStyle1DropdownTemplate")
+  dropdown:SetSize(210, 22)
+  dropdown:SetupMenu(function(_, root)
+    for _, action in ipairs(LootWishlist.Const.MINIMAP_CLICK_ACTIONS) do
+      root:CreateRadio(action.label,
+        function() return (GetSettings() or {})[settingKey] == action.key end,
+        function()
+          if LootWishlistDB and LootWishlistDB.settings then
+            LootWishlistDB.settings[settingKey] = action.key
+          end
+          dropdown:SetDefaultText(action.label)
+        end)
+    end
+  end)
+  dropdown:SetDefaultText(LootWishlist.Const.MinimapActionLabel((GetSettings() or {})[settingKey]))
+
+  return label, dropdown
+end
+
 local function CreateMultiLineEditBox(parent, label, width, height)
   local title = parent:CreateFontString(nil, "OVERLAY")
   title:SetFont(LuckyUI.TITLE_FONT, 14)
@@ -185,9 +212,22 @@ local function CreateOptionsPanel()
   minimapLabel:SetPoint("LEFT", minimapCB, "RIGHT", 8, 0)
   minimapLabel:SetText("Minimap button")
 
+  -- Minimap left-click actions
+  local plainLabel, plainDD = CreateMinimapClickRow(panel, "Left-click opens:", "minimapClick")
+  plainLabel:SetPoint("TOPLEFT", minimapCB, "BOTTOMLEFT", 8, -12)
+  plainDD:SetPoint("LEFT", plainLabel, "RIGHT", 8, 0)
+
+  local ctrlLabel, ctrlDD = CreateMinimapClickRow(panel, "Ctrl-click opens:", "minimapCtrlClick")
+  ctrlLabel:SetPoint("TOPLEFT", plainLabel, "BOTTOMLEFT", 0, -12)
+  ctrlDD:SetPoint("LEFT", ctrlLabel, "RIGHT", 8, 0)
+
+  local shiftLabel, shiftDD = CreateMinimapClickRow(panel, "Shift-click opens:", "minimapShiftClick")
+  shiftLabel:SetPoint("TOPLEFT", ctrlLabel, "BOTTOMLEFT", 0, -12)
+  shiftDD:SetPoint("LEFT", shiftLabel, "RIGHT", 8, 0)
+
   -- Raid roll alert checkbox
   local rollCB = LuckyUI.CreateCheckbox(panel, 16)
-  rollCB:SetPoint("TOPLEFT", minimapCB, "BOTTOMLEFT", 0, -10)
+  rollCB:SetPoint("TOPLEFT", shiftLabel, "BOTTOMLEFT", -8, -14)
   rollCB:SetChecked(s.enableRaidRollAlert ~= false)
 
   local rollLabel = panel:CreateFontString(nil, "OVERLAY")
