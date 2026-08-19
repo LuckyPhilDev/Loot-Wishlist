@@ -1,3 +1,9 @@
+## [1.12.1] - 2026-08-19
+
+### Fixed
+- The Loot Browser lists a dungeon or raid's loot again instead of reporting no items, including when the Adventure Guide has been left filtered to a single gear slot. (Thanks for the report Zallario and Serroc)
+- Logging in no longer announces wishlist items that were already sitting in your bags.
+
 ## [1.12.0] - 2026-08-18
 
 ### Added
