@@ -97,24 +97,6 @@ else
   DevLog = function() end
 end
 
--- Difficulty tag helpers (mirrors Summary.lua logic) --------------------------
-
-local function diffTag(name, id)
-  if name and name ~= "" then
-    local n = name:lower()
-    if n:find("raid finder") or n:find("lfr") then return "LFR" end
-    if n:find("normal") then return "N" end
-    if n:find("heroic") then return "H" end
-    if n:find("mythic%+") or n:find("keystone") then return "+" end
-    if n:find("mythic") then return "M" end
-  end
-  if id then
-    local map = { [1]="N", [2]="H", [8]="+", [23]="M", [24]="TW", [14]="N", [15]="H", [16]="M", [17]="LFR" }
-    return map[id]
-  end
-  return nil
-end
-
 local function joinTags(set)
   local arr = {}
   for k in pairs(set) do table.insert(arr, k) end
@@ -147,7 +129,7 @@ local function addMatchLines(tooltip, matches)
   for _, m in ipairs(matches) do
     local boss = m.boss or "Unknown"
     local dungeon = m.dungeon or "Unknown"
-    local tag = diffTag(m.difficultyName, m.difficultyID)
+    local tag = LootWishlist.Const.DiffTag(m.difficultyName, m.difficultyID)
     local lineKey = boss .. "|" .. dungeon
     if not seen[lineKey] then
       seen[lineKey] = { boss = boss, dungeon = dungeon, diffs = {} }

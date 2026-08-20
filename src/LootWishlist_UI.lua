@@ -46,27 +46,6 @@ local perfRefreshCount = 0
 local PerfLog = LuckyLog:New("|cffff8800[LWL-perf]|r", function() return LootWishlist.IsDebug and LootWishlist.IsDebug() end)
 
 ------------------------------------------------------------------------
--- diffTag
-------------------------------------------------------------------------
-local function diffTag(id, name)
-  if name and name ~= "" then
-    local n = name:lower()
-    if n:find("raid finder") or n:find("lfr") then return "LFR" end
-    if n:find("normal")             then return "N"   end
-    if n:find("heroic")             then return "H"   end
-    if n:find("mythic%+") or n:find("keystone") then return "+" end
-    if n:find("mythic")             then return "M"   end
-  end
-  if id then
-    local map = {
-      [1]="N",[2]="H",[8]="+",[23]="M",[24]="TW",
-      [14]="N",[15]="H",[16]="M",[17]="LFR",
-    }
-    return map[id]
-  end
-end
-
-------------------------------------------------------------------------
 -- trackKeyForEntry: which gear track a wishlist entry is stored at.
 -- Raids carry one difficulty per track. Dungeon Veteran and Champion own
 -- a difficulty each; Hero and Myth share the keystone difficulty and are
@@ -175,7 +154,7 @@ local function mergeItemsByID(items)
       byID[id] = { id = id, info = it.info, diffs = {} }
       table.insert(merged, byID[id])
     end
-    local tag = diffTag(it.info.difficultyID, it.info.difficultyName)
+    local tag = LootWishlist.Const.DiffTag(it.info.difficultyName, it.info.difficultyID)
     table.insert(byID[id].diffs, {
       diffID = it.info.difficultyID, diffName = it.info.difficultyName,
       tag = tag, track = trackKeyForEntry(it.info),

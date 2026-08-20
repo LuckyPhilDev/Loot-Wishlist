@@ -49,9 +49,9 @@ LootWishlist.Const = {
     [16] = "Mythic",      -- raid
     [17] = "Raid Finder", -- LFR
   },
-  -- Display order for difficulty tags. Raids never carry "+" so both source
+  -- Display order for difficulty tags. Raids never carry "M+" so both source
   -- types read low → high with M0 before M+.
-  DIFF_TAG_ORDER = { LFR=1, N=2, H=3, M=4, ["+"]=5 },
+  DIFF_TAG_ORDER = { LFR=1, N=2, H=3, M=4, ["M+"]=5 },
 
   -- Gear-track picker for the Loot Browser, Midnight-era track model.
   --
@@ -162,4 +162,22 @@ function LootWishlist.Const.MinimapClickPlan(action, wishlistShown, browserShown
   end
   -- An empty wishlist adds nothing to a browsing session, so it stays shut.
   return wishlistHasItems and "open" or nil, "open"
+end
+
+-- The short difficulty tag shown beside an item, from the difficulty name where
+-- one was recorded and the difficulty ID otherwise.
+function LootWishlist.Const.DiffTag(name, id)
+  if name and name ~= "" then
+    local n = name:lower()
+    if n:find("raid finder") or n:find("lfr") then return "LFR" end
+    if n:find("normal") then return "N" end
+    if n:find("heroic") then return "H" end
+    if n:find("mythic%+") or n:find("keystone") then return "M+" end
+    if n:find("mythic") then return "M" end
+  end
+  if id then
+    local map = { [1]="N", [2]="H", [8]="M+", [23]="M", [24]="TW", [14]="N", [15]="H", [16]="M", [17]="LFR" }
+    return map[id]
+  end
+  return nil
 end
