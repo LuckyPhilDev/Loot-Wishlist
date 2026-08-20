@@ -19,7 +19,7 @@ local ITEM_ROW_H     = 44
 local SCROLLBAR_W    = 16
 local DEFAULT_W      = 520
 local DEFAULT_H      = 500
-local MIN_W          = 380
+local MIN_W          = 440
 local MIN_H          = 300
 
 ------------------------------------------------------------------------
@@ -684,11 +684,11 @@ local function refresh()
   end
   if statusCountLabel then
     if count == 0 then
-      statusCountLabel:SetText("|cff8a7e6aNo items in wishlist|r")
+      statusCountLabel:SetText("No items")
     elseif count == 1 then
-      statusCountLabel:SetText("|cffe8dcc81 item|r in wishlist")
+      statusCountLabel:SetText("1 item")
     else
-      statusCountLabel:SetText(string.format("|cffe8dcc8%d items|r in wishlist", count))
+      statusCountLabel:SetText(string.format("%d items", count))
     end
   end
   if clearBtn then
@@ -737,6 +737,15 @@ local function createMainFrame()
       child:SetScript("OnClick", function() f:Hide(); LootWishlist.UI.isOpen = false end)
     end
   end
+
+  -- Item count beside the title, where every window width has room for it
+  statusCountLabel = header:CreateFontString(nil, "OVERLAY")
+  statusCountLabel:SetFont(UI.BODY_FONT, 11)
+  statusCountLabel:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  statusCountLabel:SetPoint("LEFT", f.titleText, "RIGHT", 10, -1)
+  statusCountLabel:SetPoint("RIGHT", header, "RIGHT", -36, -1)
+  statusCountLabel:SetJustifyH("LEFT")
+  statusCountLabel:SetWordWrap(false)
 
   -- Drag the header to move
   header:EnableMouse(true)
@@ -832,6 +841,19 @@ local function createMainFrame()
     StaticPopup_Show("LOOTWISHLIST_CLEAR_ALL")
   end)
 
+  -- Export / Import share-string buttons
+  local exportBtn = UI.CreateButton(statusBar, "Export", 60, 22, "secondary")
+  exportBtn:SetPoint("LEFT", clearBtn, "RIGHT", 4, 0)
+  exportBtn:SetScript("OnClick", function()
+    if LootWishlist.Share and LootWishlist.Share.Export then LootWishlist.Share.Export() end
+  end)
+
+  local importBtn = UI.CreateButton(statusBar, "Import", 60, 22, "secondary")
+  importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 4, 0)
+  importBtn:SetScript("OnClick", function()
+    if LootWishlist.Share and LootWishlist.Share.Import then LootWishlist.Share.Import() end
+  end)
+
   -- Close button (secondary)
   closeBtn2 = UI.CreateButton(statusBar, "Close", 80, 22, "secondary")
   closeBtn2:SetPoint("RIGHT", statusBar, "RIGHT", -4, -2)
@@ -844,18 +866,13 @@ local function createMainFrame()
     if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() end
   end)
 
-  -- Item count label
-  statusCountLabel = statusBar:CreateFontString(nil, "OVERLAY")
-  statusCountLabel:SetFont(UI.BODY_FONT, 11)
-  statusCountLabel:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  statusCountLabel:SetPoint("CENTER", statusBar, "CENTER")
-
-  -- Restore saved position
+  -- Restore saved position, clamped so a size saved under an older, smaller
+  -- minimum cannot restore with the status bar buttons overlapping
   local pos = LootWishlistCharDB.windowPos
   if pos and pos.point then
     f:ClearAllPoints()
     f:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
-    if pos.w and pos.h then f:SetSize(pos.w, pos.h) end
+    if pos.w and pos.h then f:SetSize(math.max(pos.w, MIN_W), math.max(pos.h, MIN_H)) end
   end
 
   -- ESC to close

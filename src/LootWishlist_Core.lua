@@ -754,7 +754,11 @@ SlashCmdList.WISHLIST = function(msg)
   elseif msg == "clear" then
     if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end
     print("Loot Wishlist: cleared all tracked items")
+  elseif msg == "export" then
+    if LootWishlist.Share and LootWishlist.Share.Export then LootWishlist.Share.Export() else print("Loot Wishlist: share module not loaded.") end
+  elseif msg == "import" then
+    if LootWishlist.Share and LootWishlist.Share.Import then LootWishlist.Share.Import() else print("Loot Wishlist: share module not loaded.") end
   else
-    print("/wishlist commands: show | hide | browse | settings | add <ID> | remove <ID> | list | clear | debug | reset-spec | raidinfo")
+    print("/wishlist commands: show | hide | browse | settings | add <ID> | remove <ID> | list | clear | export | import | debug | reset-spec | raidinfo")
   end
 end

@@ -11,6 +11,7 @@
 Libs\LuckysUtils\embeds.xml
 LootWishlist_Constants.lua
 LootWishlist_Core.lua
+LootWishlist_Share.lua
 LootWishlist_Options.lua
 LootWishlist_UI.lua
 LootWishlist_EncounterJournal.lua
