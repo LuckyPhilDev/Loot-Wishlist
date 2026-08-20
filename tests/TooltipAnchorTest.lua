@@ -1,8 +1,9 @@
 -- luacheck: ignore 111 112 113 121 122 131
--- Drives the comparison anchoring in LootWishlist_UI.lua with stub frames, so the
--- Equipped tooltips are placed by the addon's own hook rather than by Blizzard's
--- guess. Frames clamp to the screen the way the client clamps them, and the check
--- is the one that matters: the comparisons never land on the wishlist window.
+-- Drives LootWishlist_Tooltips.lua with stub frames: the side
+-- the window's centre picks, and where the Equipped comparison tooltips end up
+-- once the comparison manager has run. Frames clamp on screen the way the client
+-- clamps them, and the check that matters is that neither the tooltip nor its
+-- comparisons land on the wishlist window.
 
 local screenWidth = 1366
 local WINDOW_W = 520
@@ -15,35 +16,28 @@ local function noop() end
 local stubMeta = { __index = function() return noop end }
 
 local function edgeOf(frame, point)
-  if point:find("LEFT") then return frame.left end
-  return frame.right
+  return point:find("LEFT") and frame.left or frame.right
 end
 
--- The span frame the addon anchors to the window and tooltip: two points set its
--- edges, so it has no width of its own.
-local function spanFrame()
+-- A tooltip: fixed width, one anchor point, clamped on screen like GameTooltip
+-- and ShoppingTooltip1/2 are.
+local function box(width)
   return setmetatable({
-    ClearAllPoints = function(self) self.left, self.right = nil, nil end,
-    SetPoint = function(self, point, rel, relPoint)
-      if point == "TOPLEFT" then self.left = rel.left end
-      if point == "RIGHT" then self.right = edgeOf(rel, relPoint or point) end
-    end,
-    GetLeft = function(self) return self.left end,
-    GetRight = function(self) return self.right end,
-  }, stubMeta)
-end
-
--- A comparison tooltip: fixed width, clamped on screen like ShoppingTooltip1/2.
-local function comparisonFrame()
-  return setmetatable({
+    width = width,
     shown = true,
     IsShown = function(self) return self.shown end,
-    GetWidth = function() return COMPARISON_W end,
-    SetPoint = function(self, point, rel, relPoint)
-      local left = edgeOf(rel, relPoint)
-      if point:find("RIGHT") then left = left - COMPARISON_W end
-      left = math.max(0, math.min(left, screenWidth - COMPARISON_W))
-      self.left, self.right = left, left + COMPARISON_W
+    GetWidth = function(self) return self.width end,
+    SetOwner = function(self, owner, anchor)
+      self.owner, self.anchor = owner, anchor
+      self.left, self.right = nil, nil
+    end,
+    GetOwner = function(self) return self.owner end,
+    ClearAllPoints = function(self) self.left, self.right = nil, nil end,
+    SetPoint = function(self, point, rel, relPoint, x)
+      local edge = edgeOf(rel, relPoint) + (x or 0)
+      local left = point:find("LEFT") and edge or edge - self.width
+      left = math.max(0, math.min(left, screenWidth - self.width))
+      self.left, self.right = left, left + self.width
     end,
   }, stubMeta)
 end
@@ -63,16 +57,16 @@ end
 -- Load the addon's hooks
 ------------------------------------------------------------------------
 local hooks = {}
-LootWishlist = { Const = setmetatable({}, stubMeta) }
-LuckyUI = setmetatable({ C = setmetatable({}, { __index = function() return { 0, 0, 0, 1 } end }) }, stubMeta)
 LuckyLog = { New = function() return noop end }
 UIParent = frame()
+GameTooltip = box(TOOLTIP_W)
 TooltipComparisonManager = { Initialize = noop, AnchorShoppingTooltips = noop }
-function CreateFrame() return spanFrame() end
+function CreateFrame() return setmetatable({}, stubMeta) end
 function hooksecurefunc(target, name, fn) hooks[name] = fn end
 
-dofile("src/LootWishlist_UI.lua")
+dofile("src/LootWishlist_Tooltips.lua")
 assert(hooks.Initialize and hooks.AnchorShoppingTooltips, "the UI hooks the comparison manager")
+assert(LootWishlist.UI.AnchorItemTooltip, "the UI exposes the tooltip anchor")
 
 ------------------------------------------------------------------------
 -- Hover a row with the window at each position on screen
@@ -80,27 +74,23 @@ assert(hooks.Initialize and hooks.AnchorShoppingTooltips, "the UI hooks the comp
 local function hoverRow(windowLeft, comparisonCount)
   local window = frame({ left = windowLeft, right = windowLeft + WINDOW_W, lootWishlistWindow = true })
   local row = frame({ left = windowLeft, right = window.right, parent = window })
-  -- The row tooltip on ANCHOR_RIGHT, clamped on screen as the client clamps it.
-  local tooltipLeft = math.min(window.right, screenWidth - TOOLTIP_W)
-  local comparisons = { comparisonFrame(), comparisonFrame() }
-  comparisons[2].shown = comparisonCount > 1
-  local tooltip = frame({
-    left = tooltipLeft,
-    right = tooltipLeft + TOOLTIP_W,
-    shoppingTooltips = comparisons,
-    GetOwner = function() return row end,
-  })
 
-  local mgr = { tooltip = tooltip, anchorFrame = tooltip }
+  local comparisons = { box(COMPARISON_W), box(COMPARISON_W) }
+  comparisons[2].shown = comparisonCount > 1
+  GameTooltip.shoppingTooltips = comparisons
+
+  LootWishlist.UI.AnchorItemTooltip(row)
+
+  local mgr = { tooltip = GameTooltip, anchorFrame = GameTooltip }
   hooks.Initialize(mgr)
-  assert(mgr.anchorFrame ~= tooltip and mgr.anchorFrame:GetLeft() == window.left,
-    "the manager is handed a span covering the window, so it cannot slide the tooltip over it")
+  assert(mgr.anchorFrame ~= GameTooltip,
+    "the manager gets a stand-in anchor, so its slide cannot drag the tooltip over the window")
   hooks.AnchorShoppingTooltips(mgr)
   return window, comparisons
 end
 
-local function covers(comparison, window)
-  return comparison.shown and comparison.left < window.right and comparison.right > window.left
+local function covers(tooltip, window)
+  return tooltip.left < window.right and tooltip.right > window.left
 end
 
 local checks = 0
@@ -109,11 +99,20 @@ for _, width in ipairs({ 1366, 1024 }) do
   for _, windowLeft in ipairs({ 0, 48, 200, 420, screenWidth - WINDOW_W }) do
     for comparisonCount = 1, 2 do
       local window, comparisons = hoverRow(windowLeft, comparisonCount)
+      local onTheLeftHalf = (window.left + window.right) / 2 < screenWidth / 2
+      local where = string.format("at %dx, window left %d, %d shown", screenWidth, windowLeft, comparisonCount)
+
+      assert(onTheLeftHalf == (GameTooltip.left >= window.right),
+        "the window's centre picks the side the tooltip opens on, " .. where)
+      assert(not covers(GameTooltip, window), "the tooltip stays off the window, " .. where)
+      checks = checks + 2
+
       for i, comparison in ipairs(comparisons) do
-        assert(not covers(comparison, window),
-          string.format("comparison %d stays off the window at %dx, window left %d, %d shown",
-            i, screenWidth, windowLeft, comparisonCount))
-        checks = checks + 1
+        if comparison.shown then
+          assert(not covers(comparison, window),
+            string.format("comparison %d stays off the window, %s", i, where))
+          checks = checks + 1
+        end
       end
     end
   end
@@ -121,11 +120,11 @@ end
 
 -- A tooltip owned by anything else is left to Blizzard.
 screenWidth = 1366
-local outsider = frame({ left = 400, right = 640, shoppingTooltips = { comparisonFrame() },
-  GetOwner = function() return frame({ left = 0, right = 100 }) end })
-local mgr = { tooltip = outsider, anchorFrame = outsider }
+LootWishlist.UI.AnchorItemTooltip(frame({ left = 0, right = 100 }))
+assert(GameTooltip.anchor == "ANCHOR_RIGHT", "a row outside our windows keeps Blizzard's anchor")
+local mgr = { tooltip = GameTooltip, anchorFrame = GameTooltip }
 hooks.Initialize(mgr)
-assert(mgr.anchorFrame == outsider, "a tooltip outside our windows keeps Blizzard's anchor")
-checks = checks + 1
+assert(mgr.anchorFrame == GameTooltip, "and the manager is left alone with it")
+checks = checks + 2
 
 print(string.format("TooltipAnchorTest: %d checks passed", checks))

@@ -976,7 +976,7 @@ local function createLootRow(parent)
   row:SetScript("OnEnter", function(self)
     if self._link then
       LootWishlist.ApplyWardrobePreviewFlag(self)
-      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      LootWishlist.UI.AnchorItemTooltip(self)
       GameTooltip:SetHyperlink(self._link)
       -- With no donor resolved yet the link is still the Mythic one, so say
       -- what the track this row is being browsed on is actually worth rather

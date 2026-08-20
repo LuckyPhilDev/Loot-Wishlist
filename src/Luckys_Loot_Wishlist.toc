@@ -14,6 +14,7 @@ LootWishlist_Core.lua
 LootWishlist_Share.lua
 LootWishlist_Options.lua
 LootWishlist_UI.lua
+LootWishlist_Tooltips.lua
 LootWishlist_EncounterJournal.lua
 LootWishlist_Browser.lua
 LootWishlist_Summary.lua
