@@ -50,6 +50,9 @@ local function newFrame(kind, parent)
 
   if kind == "ScrollFrame" then
     frame.ScrollBar = stub({ SetShown = function(self, shown) self.shown = shown end })
+  elseif kind == "DropdownButton" then
+    frame.SetupMenu = function(self, fn) self.menu = fn end
+    frame.SetDefaultText = function(self, text) self.text = text end
   elseif kind == "CheckButton" then
     frame.checked = false
     frame.SetChecked = function(self, v) self.checked = v and true or false end
@@ -105,15 +108,6 @@ LuckyMedia = function(file) return file end
 LuckyPromo = stub()
 LuckyDeps = stub({ Check = function() return false end })
 C_AddOns = stub({ GetAddOnMetadata = function() return "1.12.3" end })
-
-local menuButtons = {}
-UIDropDownMenu_SetWidth = noop
-UIDropDownMenu_SetText = function(dd, text) dd.text = text end
-UIDropDownMenu_CreateInfo = function() return {} end
-UIDropDownMenu_Initialize = function(dd, fn) dd.initialize = fn end
-UIDropDownMenu_AddButton = function(info) menuButtons[#menuButtons + 1] = info end
-UIDropDownMenu_EnableDropDown = noop
-UIDropDownMenu_DisableDropDown = noop
 
 local ns = {}
 dofile("src/Luckys_Utils/LibStub.lua")
@@ -190,9 +184,13 @@ end
 local function pickOption(label, index)
   local row = findRow(label)
   assert(row and row.dropdown, label .. " has no dropdown")
-  menuButtons = {}
-  row.dropdown.initialize(row.dropdown, 1)
-  menuButtons[index].func()
+  local entries = {}
+  row.dropdown.menu(row.dropdown, stub({
+    CreateRadio = function(_, text, isSelected, setSelected)
+      entries[#entries + 1] = { text = text, checked = isSelected(), func = setSelected }
+    end,
+  }))
+  entries[index].func()
 end
 
 -------------------------------------------------------------------------------
@@ -249,7 +247,7 @@ check(settings.minimapClick == LootWishlist.Const.MINIMAP_CLICK_ACTIONS[2].key,
 -- Hovering a row renders it in the About rail. The rail is the library's work;
 -- this only proves no row type the panel uses trips it up.
 -------------------------------------------------------------------------------
-for _, label in ipairs({ "Left-click opens", "Delay after a boss kill", "Play a sound", "Open the wishlist" }) do
+for _, label in ipairs({ "Left-click opens", "Delay after a boss kill", "Play a sound", "Reset messages" }) do
   builder:UpdateAbout(findRow(label))
 end
 check(true, "every row type renders in the About rail")
