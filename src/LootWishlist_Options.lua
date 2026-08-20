@@ -161,14 +161,6 @@ local function buildWishlist(g)
     checked  = function() return isOff("hideWardrobePreview") end,
     onToggle = function(checked) write("hideWardrobePreview", checked) end,
   })
-
-  g:Button({
-    label   = "Open the wishlist",
-    desc    = "Opens the wishlist window.",
-    onClick = function()
-      if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
-    end,
-  })
 end
 
 local function buildSummary(g)
@@ -288,7 +280,6 @@ local function buildMessages(g)
 
   g:Button({
     label   = "Reset messages",
-    desc    = "Puts both messages back to the default wording.",
     onClick = function()
       if resetWhisper then resetWhisper() end
       if resetParty then resetParty() end
@@ -364,7 +355,9 @@ local function buildPanel(p)
   p:Group("Summary", buildSummary)
   p:Group("Alerts", buildAlerts)
   p:Group("Minimap", buildMinimap)
-  p:Group("Messages", buildMessages)
+  -- The message boxes want every pixel of width, and the hint above them says
+  -- what the About rail would have.
+  p:Group("Messages", { showAbout = false }, buildMessages)
 end
 
 local function CreatePanel()
