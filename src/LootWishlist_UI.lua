@@ -13,17 +13,18 @@ local C  = UI.C
 ------------------------------------------------------------------------
 -- Comparison tooltips: keep them off our windows
 ------------------------------------------------------------------------
--- Blizzard anchors the Equipped comparison tooltips to the sides of the
--- GameTooltip itself, so a row tooltip on ANCHOR_RIGHT gets its comparisons
--- stacked back across the window, burying the hovered row. The comparison
--- manager accepts a custom anchor frame and keeps the comparisons outside
--- its edges (how the Encounter Journal stays clear), so whenever the
--- tooltip belongs to a row in one of our windows, hand it a frame spanning
--- window plus tooltip.
+-- Blizzard picks a side for the Equipped comparison tooltips from the
+-- GameTooltip alone, before the tooltip has been sized, so a row tooltip on
+-- ANCHOR_RIGHT gets its comparisons stacked back across the window, burying
+-- the hovered row. The manager takes a custom anchor frame, so hand it one
+-- spanning window plus tooltip, then place the comparisons against that span
+-- once the manager is done and every rect has settled.
 local obstacle = CreateFrame("Frame", nil, UIParent)
 -- The manager slides a tooltip sideways when comparisons don't fit, which
 -- would shove the row tooltip off its row; a no-op absorbs the slide.
 obstacle.SetAnchorType = function() end
+
+local TipLog = LuckyLog:New("|cff88ff88[LWL-tip]|r", function() return LootWishlist.IsDebug and LootWishlist.IsDebug() end)
 
 local function comparisonWindowFor(region)
   while region do
@@ -32,14 +33,55 @@ local function comparisonWindowFor(region)
   end
 end
 
-hooksecurefunc(TooltipComparisonManager, "Initialize", function(mgr)
-  local win = comparisonWindowFor(mgr.tooltip:GetOwner())
-  if not win then return end
+local function spanWindowAndTooltip(win, tooltip)
   obstacle:ClearAllPoints()
   obstacle:SetPoint("TOPLEFT", win)
   obstacle:SetPoint("BOTTOM", win)
-  obstacle:SetPoint("RIGHT", mgr.tooltip, "RIGHT")
+  obstacle:SetPoint("RIGHT", tooltip, "RIGHT")
+end
+
+hooksecurefunc(TooltipComparisonManager, "Initialize", function(mgr)
+  local win = comparisonWindowFor(mgr.tooltip:GetOwner())
+  if not win then return end
+  spanWindowAndTooltip(win, mgr.tooltip)
   mgr.anchorFrame = obstacle
+end)
+
+hooksecurefunc(TooltipComparisonManager, "AnchorShoppingTooltips", function(mgr)
+  local win = mgr.tooltip and comparisonWindowFor(mgr.tooltip:GetOwner())
+  if not win then return end
+  spanWindowAndTooltip(win, mgr.tooltip)
+
+  local stack, stackWidth = {}, 0
+  for _, comparison in ipairs(mgr.tooltip.shoppingTooltips) do
+    if comparison:IsShown() then
+      stack[#stack + 1] = comparison
+      stackWidth = stackWidth + comparison:GetWidth()
+    end
+  end
+  if #stack == 0 then return end
+
+  local roomLeft  = obstacle:GetLeft() or 0
+  local roomRight = GetScreenWidth() - (obstacle:GetRight() or 0)
+  -- Right of the tooltip when the stack fits there, otherwise left of the window,
+  -- where whatever overflows clamps against the screen edge and away from the
+  -- window. Too tight on the left for even one, and the right edge is the least
+  -- bad landing spot: it covers the tooltip rather than the list.
+  local toRight   = roomRight >= stackWidth
+    or (roomLeft < stackWidth and roomLeft < stack[1]:GetWidth())
+
+  local point, relativePoint = "TOPRIGHT", "TOPLEFT"
+  if toRight then point, relativePoint = "TOPLEFT", "TOPRIGHT" end
+
+  local relativeTo = obstacle
+  for _, comparison in ipairs(stack) do
+    comparison:ClearAllPoints()
+    comparison:SetPoint(point, relativeTo, relativePoint, 0, relativeTo == obstacle and -10 or 0)
+    relativeTo = comparison
+  end
+
+  TipLog(string.format("%d comparisons %s of the window, room %d left / %d right, stack %d",
+    #stack, toRight and "right" or "left", roomLeft, roomRight, stackWidth))
 end)
 
 ------------------------------------------------------------------------
