@@ -204,24 +204,24 @@ check(table.concat(names, "|") == "What's New|Wishlist|Summary|Alerts|Minimap|Me
 -------------------------------------------------------------------------------
 -- Toggles read the value they write.
 -------------------------------------------------------------------------------
-check(findRow("Track higher difficulties").checkbox:GetChecked() == true,
+check(findRow("Also track higher difficulties").checkbox:GetChecked() == true,
   "a default-on toggle opens checked")
 
-clickToggle("Track higher difficulties", false)
+clickToggle("Also track higher difficulties", false)
 check(settings.addHigherDifficulties == false, "unchecking writes false")
-clickToggle("Track higher difficulties", true)
+clickToggle("Also track higher difficulties", true)
 check(settings.addHigherDifficulties == true, "checking writes true")
 
 clickToggle("Hide the summary window", true)
 check(settings.hideSummaryWindow == true, "a default-off toggle writes true when checked")
 
-check(findRow("Play a sound with the reminder").parentSetting == findRow("Bonus roll reminders"),
+check(findRow("Play a sound with the reminder").parentSetting == findRow("Remind me after an eligible run"),
   "the bonus roll sound hangs off the reminder toggle")
 
 -------------------------------------------------------------------------------
 -- A row whose addon is missing locks rather than lying about what it does.
 -------------------------------------------------------------------------------
-check(findRow("Hide the Wardrobe preview").disabled == true,
+check(findRow("Hide the Wardrobe model preview").disabled == true,
   "the Wardrobe row is disabled while Lucky's Wardrobe is absent")
 
 -------------------------------------------------------------------------------
@@ -230,16 +230,16 @@ check(findRow("Hide the Wardrobe preview").disabled == true,
 findRow("Delay after a boss kill").slider:SetValue(20)
 check(settings.bossKillReminderDelay == 20, "the delay slider writes seconds")
 
-findRow("Opacity when not hovered").slider:SetValue(50)
+findRow("Summary opacity when not hovered").slider:SetValue(50)
 check(settings.summaryUnhoveredAlpha == 0.5, "the opacity slider writes a fraction")
 
 -------------------------------------------------------------------------------
 -- The minimap click rows pick from the shared action list.
 -------------------------------------------------------------------------------
-check(findRow("Left-click opens").dropdown.text == "Wishlist and loot browser",
+check(findRow("Left-click").dropdown.text == "Wishlist and Loot Browser",
   "the row shows the label of the saved action")
 
-pickOption("Left-click opens", 2)
+pickOption("Left-click", 2)
 check(settings.minimapClick == LootWishlist.Const.MINIMAP_CLICK_ACTIONS[2].key,
   "picking an option writes its key")
 
@@ -247,7 +247,7 @@ check(settings.minimapClick == LootWishlist.Const.MINIMAP_CLICK_ACTIONS[2].key,
 -- Hovering a row renders it in the About rail. The rail is the library's work;
 -- this only proves no row type the panel uses trips it up.
 -------------------------------------------------------------------------------
-for _, label in ipairs({ "Left-click opens", "Delay after a boss kill", "Play a sound", "Reset messages" }) do
+for _, label in ipairs({ "Left-click", "Delay after a boss kill", "Play a sound on a drop", "Reset both messages" }) do
   builder:UpdateAbout(findRow(label))
 end
 check(true, "every row type renders in the About rail")

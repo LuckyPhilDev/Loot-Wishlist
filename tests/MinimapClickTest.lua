@@ -33,8 +33,8 @@ check("both", true, true, true, "close", "close", "both close when both are show
 check("both", false, true, true, nil, "close", "only what is shown gets closed")
 check("both", true, false, true, "close", nil, "one shown window closes rather than the other opening")
 
-assert(LootWishlist.Const.MinimapActionLabel("browser") == "Loot browser only", "labels resolve by key")
-assert(LootWishlist.Const.MinimapActionLabel(nil) == "Wishlist and loot browser", "an unset action reads as both")
+assert(LootWishlist.Const.MinimapActionLabel("browser") == "Loot Browser only", "labels resolve by key")
+assert(LootWishlist.Const.MinimapActionLabel(nil) == "Wishlist and Loot Browser", "an unset action reads as both")
 checks = checks + 2
 
 print(string.format("MinimapClickTest: %d checks passed", checks))

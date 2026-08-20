@@ -137,9 +137,9 @@ LootWishlist.Const = {
 -- Minimap left-click: what a plain, Ctrl- or Shift-click acts on. Settings
 -- store the key; the label is what the options panel and tooltip show.
 LootWishlist.Const.MINIMAP_CLICK_ACTIONS = {
-  { key = "both",     label = "Wishlist and loot browser" },
+  { key = "both",     label = "Wishlist and Loot Browser" },
   { key = "wishlist", label = "Wishlist only" },
-  { key = "browser",  label = "Loot browser only" },
+  { key = "browser",  label = "Loot Browser only" },
 }
 
 function LootWishlist.Const.MinimapActionLabel(key)

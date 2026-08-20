@@ -141,22 +141,22 @@ end
 
 local function buildWishlist(g)
   g:Toggle({
-    label    = "Track higher difficulties",
-    desc     = "Tracking an item on one difficulty tracks it on every higher one too.",
+    label    = "Also track higher difficulties",
+    desc     = "Adding a dungeon item on Normal also tracks it on Heroic, Mythic and Mythic+. Turn this off to track only the difficulty you picked.",
     checked  = function() return isOn("addHigherDifficulties") end,
     onToggle = function(checked) write("addHigherDifficulties", checked) end,
   })
 
   g:Toggle({
-    label    = "Highlight items in the Great Vault",
-    desc     = "Marks the Great Vault rewards that are on your wishlist.",
+    label    = "Star wishlist items in the Great Vault",
+    desc     = "Puts a pulsing star on any Great Vault reward you track. Hover the star to see which wishlist entries it matches.",
     checked  = function() return isOn("enableVaultOverlay") end,
     onToggle = function(checked) write("enableVaultOverlay", checked) end,
   })
 
   g:Toggle({
-    label    = "Hide the Wardrobe preview",
-    desc     = "Leaves Lucky's Wardrobe model preview off the wishlist and the Loot Browser. It stays on everywhere else.",
+    label    = "Hide the Wardrobe model preview",
+    desc     = "Stops Lucky's Wardrobe showing your character wearing an item when you hover a row in the wishlist or the Loot Browser. The preview still works everywhere else in the game.",
     requires = { addon = "Luckys_Wardrobe" },
     checked  = function() return isOff("hideWardrobePreview") end,
     onToggle = function(checked) write("hideWardrobePreview", checked) end,
@@ -166,7 +166,7 @@ end
 local function buildSummary(g)
   g:Toggle({
     label    = "Hide the summary window",
-    desc     = "Keeps the small summary window off the screen. Your wishlist is not affected.",
+    desc     = "The summary window is the small note listing what you track, grouped by dungeon and boss. Ticking this keeps it off the screen without changing your wishlist.",
     checked  = function() return isOff("hideSummaryWindow") end,
     onToggle = function(checked)
       write("hideSummaryWindow", checked)
@@ -175,8 +175,8 @@ local function buildSummary(g)
   })
 
   g:Toggle({
-    label    = "Hide it in combat and Mythic+",
-    desc     = "Hides the summary window while you are in combat or running a key.",
+    label    = "Hide the summary in combat and Mythic+",
+    desc     = "The summary window disappears while you are in combat or inside a Mythic+ run, then comes back when you leave.",
     checked  = function() return isOn("hideSummaryInCombatAndMythicPlus") end,
     onToggle = function(checked)
       write("hideSummaryInCombatAndMythicPlus", checked)
@@ -185,8 +185,8 @@ local function buildSummary(g)
   })
 
   g:Slider({
-    label     = "Opacity when not hovered",
-    desc      = "How solid the summary window is until you hover it. At 0 it is invisible.",
+    label     = "Summary opacity when not hovered",
+    desc      = "How solid the summary window looks while your mouse is away from it. At 0% it vanishes, and reappears when you hover where it sits.",
     min       = 0,
     max       = 100,
     step      = 5,
@@ -203,16 +203,16 @@ local function buildAlerts(g)
   g:Section("When a wishlist item drops")
 
   g:Toggle({
-    label    = "Play a sound",
-    desc     = "One sound for your own drop, another for someone else's.",
+    label    = "Play a sound on a drop",
+    desc     = "A sound plays when a tracked item drops, a bigger one when you looted it yourself. The on-screen alert shows either way.",
     since    = "1.12.0",
     checked  = function() return isOn("enableDropSound") end,
     onToggle = function(checked) write("enableDropSound", checked) end,
   })
 
   g:Toggle({
-    label    = "Alert on a group roll",
-    desc     = "Tells you when a wishlist item goes to a group roll in a raid.",
+    label    = "Alert on a raid group roll",
+    desc     = "A banner across the top of the screen when a tracked item goes up for a group roll. Raid groups only.",
     checked  = function() return isOn("enableRaidRollAlert") end,
     onToggle = function(checked) write("enableRaidRollAlert", checked) end,
   })
@@ -220,16 +220,16 @@ local function buildAlerts(g)
   g:Section("Bonus rolls")
 
   g:Toggle({
-    label    = "Bonus roll reminders",
-    desc     = "Reminds you to spend a Nebulous Voidcore after a Mythic+ 10, or a Heroic or Mythic raid boss.",
+    label    = "Remind me after an eligible run",
+    desc     = "A popup after a Mythic+ 10 or a Heroic or Mythic raid boss, listing the wishlist items you flagged for a bonus roll there. Only when you hold enough Nebulous Voidcore.",
     checked  = function() return isOn("enableBonusRollReminders") end,
     onToggle = function(checked) write("enableBonusRollReminders", checked) end,
   })
 
   g:Toggle({
     label    = "Play a sound with the reminder",
-    desc     = "Adds a sound to the bonus roll reminder.",
-    parent   = "Bonus roll reminders",
+    desc     = "A raid warning sound plays alongside the bonus roll popup.",
+    parent   = "Remind me after an eligible run",
     checked  = function() return isOn("bonusRollSound") end,
     onToggle = function(checked) write("bonusRollSound", checked) end,
   })
@@ -238,7 +238,7 @@ local function buildAlerts(g)
 
   g:Slider({
     label     = "Delay after a boss kill",
-    desc      = "How long after a boss dies before the next reminder appears.",
+    desc      = "A spec reminder warns you when something you track on an upcoming boss needs a different loot spec. This is how long after a kill the check runs.",
     min       = 0,
     max       = 30,
     suffix    = "s",
@@ -248,10 +248,11 @@ local function buildAlerts(g)
 end
 
 local function buildMinimap(g)
-  local function clickRow(label, desc, key)
+  local function clickRow(label, desc, key, note)
     g:Select({
       label    = label,
       desc     = desc,
+      note     = note,
       since    = "1.12.3",
       options  = LootWishlist.Const.MINIMAP_CLICK_ACTIONS,
       value    = function() return read(key) end,
@@ -259,19 +260,20 @@ local function buildMinimap(g)
     })
   end
 
-  clickRow("Left-click opens",
-    "What a plain left-click on the minimap button opens.",
-    "minimapClick")
-  clickRow("Ctrl-click opens",
-    "What a left-click with Ctrl held opens.",
+  clickRow("Left-click",
+    "Which windows a plain left-click on the minimap button toggles. Click again to close them.",
+    "minimapClick",
+    "An empty wishlist stays shut, so \"Wishlist and Loot Browser\" opens the browser alone until you track something.")
+  clickRow("Ctrl-click",
+    "Which windows a left-click with Ctrl held toggles.",
     "minimapCtrlClick")
-  clickRow("Shift-click opens",
-    "What a left-click with Shift held opens.",
+  clickRow("Shift-click",
+    "Which windows a left-click with Shift held toggles.",
     "minimapShiftClick")
 
   g:Section("Other clicks")
   g:Label({ label = "Right-click", value = "Settings" })
-  g:Label({ label = "Middle-click", value = "Debug mode" })
+  g:Label({ label = "Middle-click", value = "Toggle debug mode" })
   g:Label({ label = "Drag", value = "Move the button" })
 end
 
@@ -279,7 +281,7 @@ local function buildMessages(g)
   local resetWhisper, resetParty
 
   g:Button({
-    label   = "Reset messages",
+    label   = "Reset both messages",
     onClick = function()
       if resetWhisper then resetWhisper() end
       if resetParty then resetParty() end
@@ -297,7 +299,7 @@ local function buildMessages(g)
   hint:SetPoint("RIGHT", -4, 0)
   hint:SetJustifyH("LEFT")
   hint:SetSpacing(3)
-  hint:SetText("%item% is the item link, %looter% is whoever looted it. A message saves when you click away from its box.")
+  hint:SetText("When someone else loots an item you track, the alert offers a Whisper and a Party button. These are what they send. %item% becomes the item link, %looter% the person who looted it. A box saves when you click away from it.")
 
   local wEdit, pEdit, example
 
@@ -313,14 +315,14 @@ local function buildMessages(g)
 
   local wTitle, wBox
   wTitle, wBox, wEdit, resetWhisper =
-    CreateTemplateEditor(content, "Whisper message", "whisperTemplate", updateExample)
+    CreateTemplateEditor(content, "Whisper to the looter", "whisperTemplate", updateExample)
   wTitle:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -14)
   wBox:SetPoint("TOPLEFT", wTitle, "BOTTOMLEFT", 0, -6)
   wBox:SetPoint("RIGHT", content, "RIGHT", -4, 0)
 
   local pTitle, pBox
   pTitle, pBox, pEdit, resetParty =
-    CreateTemplateEditor(content, "Party message", "partyTemplate", updateExample)
+    CreateTemplateEditor(content, "Message to your group", "partyTemplate", updateExample)
   pTitle:SetPoint("TOPLEFT", wBox, "BOTTOMLEFT", 0, -14)
   pBox:SetPoint("TOPLEFT", pTitle, "BOTTOMLEFT", 0, -6)
   pBox:SetPoint("RIGHT", content, "RIGHT", -4, 0)
@@ -368,13 +370,13 @@ local function CreatePanel()
     minVersion    = LootWishlist.WHATS_NEW_MIN_VERSION,
     devMode       = {
       label    = "Debug mode",
-      desc     = "Print performance logs and diagnostics to chat.",
+      desc     = "Prints what the addon is doing to chat. Useful when reporting a problem.",
       checked  = function() return LootWishlist.IsDebug() end,
       onToggle = function(checked) LootWishlist.SetDebug(checked) end,
     },
     minimapButton = {
       label    = "Minimap button",
-      desc     = "Show the Loot Wishlist button on the minimap.",
+      desc     = "Show the Loot Wishlist button on the minimap. The Minimap group sets what each click opens.",
       checked  = function() return not (LootWishlistDB and LootWishlistDB.minimap or {}).hide end,
       onToggle = function(checked)
         if LootWishlist.minimapButton then
