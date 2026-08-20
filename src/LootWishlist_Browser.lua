@@ -987,6 +987,7 @@ local function createLootRow(parent)
           0.788, 0.659, 0.298)
       end
       GameTooltip:Show()
+      LootWishlist.UI.PlaceComparisonTooltips()
     end
   end)
   row:SetScript("OnLeave", function() GameTooltip:Hide() end)

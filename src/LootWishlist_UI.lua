@@ -381,6 +381,7 @@ local function createPoolFrame(parent)
       LootWishlist.UI.AnchorItemTooltip(self)
       GameTooltip:SetHyperlink(self.itemLink)
       GameTooltip:Show()
+      LootWishlist.UI.PlaceComparisonTooltips()
     end
     if self.rowType == "item" then
       self.bg:SetColorTexture(C.highlight[1], C.highlight[2], C.highlight[3], C.highlight[4])

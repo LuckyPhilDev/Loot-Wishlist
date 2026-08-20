@@ -1,8 +1,8 @@
 -- luacheck: ignore 111 112 113 121 122 131
--- Drives LootWishlist_Tooltips.lua with stub frames: the side
--- the window's centre picks, and where the Equipped comparison tooltips end up
--- once the comparison manager has run. Frames clamp on screen the way the client
--- clamps them, and the check that matters is that neither the tooltip nor its
+-- Drives LootWishlist_Tooltips.lua with stub frames: the side the window's centre
+-- picks for the tooltip, and where the Equipped comparison tooltips end up once
+-- the addon has placed them. Frames clamp on screen the way the client clamps
+-- them, and the check that matters is that neither the tooltip nor its
 -- comparisons land on the wishlist window.
 
 local screenWidth = 1366
@@ -20,7 +20,7 @@ local function edgeOf(frame, point)
 end
 
 -- A tooltip: fixed width, one anchor point, clamped on screen like GameTooltip
--- and ShoppingTooltip1/2 are.
+-- and the comparison tooltips are.
 local function box(width)
   return setmetatable({
     width = width,
@@ -54,19 +54,26 @@ local function frame(fields)
 end
 
 ------------------------------------------------------------------------
--- Load the addon's hooks
+-- Load the module
 ------------------------------------------------------------------------
-local hooks = {}
+local hooks, timers, shownScripts = {}, {}, {}
 LuckyLog = { New = function() return noop end }
 UIParent = frame()
 GameTooltip = box(TOOLTIP_W)
+GameTooltip.shoppingTooltips = { box(COMPARISON_W), box(COMPARISON_W) }
+GameTooltip.shoppingTooltips[1].HookScript = function(self, script, fn) shownScripts[script] = fn end
+GameTooltip.shoppingTooltips[2].HookScript = function() end
+C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
 TooltipComparisonManager = { Initialize = noop, AnchorShoppingTooltips = noop }
 function CreateFrame() return setmetatable({}, stubMeta) end
 function hooksecurefunc(target, name, fn) hooks[name] = fn end
 
 dofile("src/LootWishlist_Tooltips.lua")
-assert(hooks.Initialize and hooks.AnchorShoppingTooltips, "the UI hooks the comparison manager")
-assert(LootWishlist.UI.AnchorItemTooltip, "the UI exposes the tooltip anchor")
+assert(LootWishlist.UI.AnchorItemTooltip and LootWishlist.UI.PlaceComparisonTooltips,
+  "the module exposes the tooltip anchor and the comparison placement")
+assert(hooks.Initialize and hooks.AnchorShoppingTooltips,
+  "the comparison manager is still hooked where the client has one")
+assert(shownScripts.OnShow, "comparisons that appear on their own are caught as they show")
 
 ------------------------------------------------------------------------
 -- Hover a row with the window at each position on screen
@@ -74,19 +81,11 @@ assert(LootWishlist.UI.AnchorItemTooltip, "the UI exposes the tooltip anchor")
 local function hoverRow(windowLeft, comparisonCount)
   local window = frame({ left = windowLeft, right = windowLeft + WINDOW_W, lootWishlistWindow = true })
   local row = frame({ left = windowLeft, right = window.right, parent = window })
-
-  local comparisons = { box(COMPARISON_W), box(COMPARISON_W) }
-  comparisons[2].shown = comparisonCount > 1
-  GameTooltip.shoppingTooltips = comparisons
+  GameTooltip.shoppingTooltips[2].shown = comparisonCount > 1
 
   LootWishlist.UI.AnchorItemTooltip(row)
-
-  local mgr = { tooltip = GameTooltip, anchorFrame = GameTooltip }
-  hooks.Initialize(mgr)
-  assert(mgr.anchorFrame ~= GameTooltip,
-    "the manager gets a stand-in anchor, so its slide cannot drag the tooltip over the window")
-  hooks.AnchorShoppingTooltips(mgr)
-  return window, comparisons
+  LootWishlist.UI.PlaceComparisonTooltips()
+  return window
 end
 
 local function covers(tooltip, window)
@@ -98,7 +97,7 @@ for _, width in ipairs({ 1366, 1024 }) do
   screenWidth = width
   for _, windowLeft in ipairs({ 0, 48, 200, 420, screenWidth - WINDOW_W }) do
     for comparisonCount = 1, 2 do
-      local window, comparisons = hoverRow(windowLeft, comparisonCount)
+      local window = hoverRow(windowLeft, comparisonCount)
       local onTheLeftHalf = (window.left + window.right) / 2 < screenWidth / 2
       local where = string.format("at %dx, window left %d, %d shown", screenWidth, windowLeft, comparisonCount)
 
@@ -107,7 +106,7 @@ for _, width in ipairs({ 1366, 1024 }) do
       assert(not covers(GameTooltip, window), "the tooltip stays off the window, " .. where)
       checks = checks + 2
 
-      for i, comparison in ipairs(comparisons) do
+      for i, comparison in ipairs(GameTooltip.shoppingTooltips) do
         if comparison.shown then
           assert(not covers(comparison, window),
             string.format("comparison %d stays off the window, %s", i, where))
@@ -118,13 +117,30 @@ for _, width in ipairs({ 1366, 1024 }) do
   end
 end
 
--- A tooltip owned by anything else is left to Blizzard.
+-- The comparisons chain outwards from the tooltip, not back across it.
 screenWidth = 1366
+hoverRow(0, 2)
+assert(GameTooltip.shoppingTooltips[1].left == GameTooltip.right
+  and GameTooltip.shoppingTooltips[2].left == GameTooltip.shoppingTooltips[1].right,
+  "with the window on the left the comparisons run rightwards from the tooltip")
+hoverRow(screenWidth - WINDOW_W, 2)
+assert(GameTooltip.shoppingTooltips[1].right == GameTooltip.left
+  and GameTooltip.shoppingTooltips[2].right == GameTooltip.shoppingTooltips[1].left,
+  "with the window on the right they run leftwards")
+checks = checks + 2
+
+-- A comparison raised on its own, with no row hovered since, is placed a frame later.
+shownScripts.OnShow()
+assert(#timers == 1, "showing a comparison queues the placement")
+timers[1]()
+checks = checks + 1
+
+-- A tooltip owned by anything else is left to Blizzard.
 LootWishlist.UI.AnchorItemTooltip(frame({ left = 0, right = 100 }))
 assert(GameTooltip.anchor == "ANCHOR_RIGHT", "a row outside our windows keeps Blizzard's anchor")
-local mgr = { tooltip = GameTooltip, anchorFrame = GameTooltip }
-hooks.Initialize(mgr)
-assert(mgr.anchorFrame == GameTooltip, "and the manager is left alone with it")
+local before = GameTooltip.shoppingTooltips[1].left
+LootWishlist.UI.PlaceComparisonTooltips()
+assert(GameTooltip.shoppingTooltips[1].left == before, "and its comparisons are left where they were")
 checks = checks + 2
 
 print(string.format("TooltipAnchorTest: %d checks passed", checks))
