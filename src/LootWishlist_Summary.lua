@@ -242,10 +242,22 @@ local function refresh()
   f:Show()
 end
 
-Summary.refresh = refresh
+-- Coalesce refresh bursts (a bulk import calls this once per item) into a
+-- single rebuild on the next frame.
+local refreshPending = false
+local function scheduleRefresh()
+  if refreshPending then return end
+  refreshPending = true
+  C_Timer.After(0, function()
+    refreshPending = false
+    refresh()
+  end)
+end
+
+Summary.refresh = scheduleRefresh
 
 function Summary.showIfNeeded()
-  refresh()
+  scheduleRefresh()
 end
 
 -- Auto-hide on combat / Mythic+ transitions
