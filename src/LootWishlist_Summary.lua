@@ -115,21 +115,6 @@ end
 local function buildSummaryLines()
   local items = LootWishlist.GetTracked()
   if not items or not next(items) then return {} end
-  local function diffTag(name, id)
-    if name and name ~= "" then
-      local n = name:lower()
-      if n:find("raid finder") or n:find("lfr") then return "LFR" end
-      if n:find("normal") then return "N" end
-      if n:find("heroic") then return "H" end
-      if n:find("mythic%+") or n:find("keystone") then return "+" end
-      if n:find("mythic") then return "M" end
-    end
-    if id then
-      local map = { [1] = "N", [2] = "H", [8] = "+", [23] = "M", [24] = "TW", [14] = "N", [15] = "H", [16] = "M", [17] = "LFR" }
-      return map[id]
-    end
-    return nil
-  end
   local function joinTags(set)
     local arr = {}
     for k in pairs(set) do table.insert(arr, k) end
@@ -188,7 +173,7 @@ local function buildSummaryLines()
       for _, b in ipairs(bossOrdered) do
         local diffs = {}
         for _, it in ipairs(b.items) do
-          local tag = diffTag(it.info.difficultyName, it.info.difficultyID)
+          local tag = LootWishlist.Const.DiffTag(it.info.difficultyName, it.info.difficultyID)
           if tag then diffs[tag] = true end
         end
         local tagText = next(diffs) and (" " .. WC.textMuted .. "[" .. joinTags(diffs) .. "]" .. WC.reset) or ""
@@ -197,7 +182,7 @@ local function buildSummaryLines()
     else
       local diffs = {}
       for _, it in ipairs(g.items) do
-        local tag = diffTag(it.info.difficultyName, it.info.difficultyID)
+        local tag = LootWishlist.Const.DiffTag(it.info.difficultyName, it.info.difficultyID)
         if tag then diffs[tag] = true end
       end
       local tagText = next(diffs) and (" " .. WC.textMuted .. "[" .. joinTags(diffs) .. "]" .. WC.reset) or ""
