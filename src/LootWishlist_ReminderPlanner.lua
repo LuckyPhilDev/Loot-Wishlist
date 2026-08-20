@@ -4,6 +4,7 @@ LootWishlist = LootWishlist or {}
 LootWishlist.ReminderPlanner = LootWishlist.ReminderPlanner or {}
 
 local Planner = LootWishlist.ReminderPlanner
+local S = LootWishlist.Strings.planner
 
 function Planner:NormalizeName(value)
     if type(value) ~= "string" then return value end
@@ -58,7 +59,7 @@ local function specLabel(specs, getSpecName)
         if name and name ~= "" then table.insert(names, name) end
     end
     table.sort(names)
-    return #names > 0 and table.concat(names, " or ") or "appropriate spec"
+    return #names > 0 and table.concat(names, " or ") or S.appropriateSpec
 end
 
 local function classifyItem(item, context, bucket)
@@ -105,22 +106,22 @@ function Planner:BuildDungeonSpecLines(trackedItems, context)
 
     if not hasSwitch then return nil end
 
-    local lines = { "Wrong loot spec for wishlist items:" }
+    local lines = { S.wrongSpecItems }
     local labels = {}
     for label in pairs(bucket.bySpec) do table.insert(labels, label) end
     table.sort(labels)
     for _, label in ipairs(labels) do
         table.sort(bucket.bySpec[label])
-        table.insert(lines, string.format("- Switch %s for %s", label, table.concat(bucket.bySpec[label], ", ")))
+        table.insert(lines, S.switchFor:format(label, table.concat(bucket.bySpec[label], ", ")))
     end
     if context.lootSpecID and #bucket.stayStrict > 0 then
         table.sort(bucket.stayStrict)
-        local currentName = context.getSpecName(context.lootSpecID) or "current spec"
-        table.insert(lines, string.format("- Stay %s for %s", currentName, table.concat(bucket.stayStrict, ", ")))
+        local currentName = context.getSpecName(context.lootSpecID) or S.currentSpec
+        table.insert(lines, S.stayFor:format(currentName, table.concat(bucket.stayStrict, ", ")))
     end
     if #bucket.stayAny > 0 then
         table.sort(bucket.stayAny)
-        table.insert(lines, "- OK in any spec: " .. table.concat(bucket.stayAny, ", "))
+        table.insert(lines, S.okAnySpec .. table.concat(bucket.stayAny, ", "))
     end
     return lines
 end
@@ -143,7 +144,7 @@ function Planner:BuildRaidSpecLines(trackedItems, context)
 
     if not hasSwitch then return nil end
 
-    local lines = { "Wrong loot spec for upcoming bosses:" }
+    local lines = { S.wrongSpecBosses }
     local bossNames = {}
     for bossName in pairs(perBoss) do table.insert(bossNames, bossName) end
     table.sort(bossNames)
@@ -154,30 +155,19 @@ function Planner:BuildRaidSpecLines(trackedItems, context)
         table.sort(labels)
         for _, label in ipairs(labels) do
             table.sort(boss.bySpec[label])
-            table.insert(lines, string.format(
-                "- %s: switch %s for %s",
-                bossName,
-                label,
-                table.concat(boss.bySpec[label], ", ")
-            ))
+            table.insert(lines, S.bossSwitchFor:format(
+                bossName, label, table.concat(boss.bySpec[label], ", ")))
         end
         if context.lootSpecID and #boss.stayStrict > 0 then
             table.sort(boss.stayStrict)
-            local currentName = context.getSpecName(context.lootSpecID) or "current spec"
-            table.insert(lines, string.format(
-                "- %s: stay %s for %s",
-                bossName,
-                currentName,
-                table.concat(boss.stayStrict, ", ")
-            ))
+            local currentName = context.getSpecName(context.lootSpecID) or S.currentSpec
+            table.insert(lines, S.bossStayFor:format(
+                bossName, currentName, table.concat(boss.stayStrict, ", ")))
         end
         if #boss.stayAny > 0 then
             table.sort(boss.stayAny)
-            table.insert(lines, string.format(
-                "- %s: OK in any spec: %s",
-                bossName,
-                table.concat(boss.stayAny, ", ")
-            ))
+            table.insert(lines, S.bossOkAnySpec:format(
+                bossName, table.concat(boss.stayAny, ", ")))
         end
     end
     return lines
@@ -223,12 +213,11 @@ function Planner:BuildAssistSuggestions(trackedItems, context)
     for name in pairs(suggestions) do table.insert(names, name) end
     table.sort(names)
 
-    local lines = { "Ask group to help with wishlist items:" }
+    local lines = { S.askGroup }
     for _, name in ipairs(names) do
         local suggestion = suggestions[name]
         table.sort(suggestion.items)
-        table.insert(lines, string.format(
-            "- %s (%s): %s",
+        table.insert(lines, S.askGroupLine:format(
             name,
             suggestion.specName or "Spec",
             table.concat(suggestion.items, ", ")

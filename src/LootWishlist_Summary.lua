@@ -5,6 +5,7 @@ LootWishlist = LootWishlist or {}
 LootWishlist.Summary = LootWishlist.Summary or {}
 
 local Summary = LootWishlist.Summary
+local S = LootWishlist.Strings.wishlist
 local frame, textFS
 local isDragging = false
 
@@ -153,7 +154,7 @@ local function buildSummaryLines()
       table.insert(lines, string.format("%s%s%s", WC.goldPrimary, entry.name, WC.reset))
       local bossGroups = {}
       for _, it in ipairs(g.items) do
-        local bname = (it.info.boss and it.info.boss ~= "") and it.info.boss or "Unknown Boss"
+        local bname = (it.info.boss and it.info.boss ~= "") and it.info.boss or S.unknownBoss
         local encID = it.info.encounterID or -1
         if not bossGroups[bname] then bossGroups[bname] = {encounterID = encID, items = {}} end
         if encID ~= -1 then bossGroups[bname].encounterID = encID end

@@ -112,6 +112,8 @@ C_AddOns = stub({ GetAddOnMetadata = function() return "1.12.3" end })
 local ns = {}
 dofile("src/Luckys_Utils/LibStub.lua")
 loadfile("src/Luckys_Utils/VersionGate.lua")("Luckys_Utils")
+dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("src/Luckys_Utils/Strings.lua")
 loadfile("src/Luckys_Utils/LuckyRichSettings/Core.lua")("Luckys_Utils", ns)
 loadfile("src/Luckys_Utils/LuckyRichSettings/About.lua")("Luckys_Utils", ns)
 loadfile("src/Luckys_Utils/LuckyRichSettings/Rows.lua")("Luckys_Utils", ns)
@@ -129,6 +131,7 @@ local debugMode = false
 LootWishlistDB = { settings = {}, minimap = { hide = true } }
 LootWishlistCharDB = { settings = {} }
 
+dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Constants.lua")
 
 LootWishlist.IsDebug = function() return debugMode end

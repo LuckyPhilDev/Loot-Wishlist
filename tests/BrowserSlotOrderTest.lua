@@ -35,6 +35,8 @@ INVTYPE_RANGEDRIGHT = "Ranged"
 INVTYPE_THROWN = "Thrown"
 INVTYPE_RELIC = "Relic"
 
+dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Browser.lua")
 
 local sorted = LootWishlist.Browser.sortSlots({

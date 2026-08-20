@@ -4,6 +4,7 @@ LootWishlist = LootWishlist or {}
 LootWishlist.Reminders = LootWishlist.Reminders or {}
 
 local Reminders = LootWishlist.Reminders
+local S = LootWishlist.Strings.reminders
 local Planner = LootWishlist.ReminderPlanner
 
 local db
@@ -277,14 +278,12 @@ local function showReminder(specLines, assistLines, targetName, targetSpec, item
 
     assistTargetName = targetName
     if targetName and targetSpec and items then
-        assistWhisperMessage = string.format(
-            "Hey %s, could you set your loot spec to %s for %s? It's on my wishlist.",
+        assistWhisperMessage = S.assistWhisper:format(
             targetName,
             targetSpec,
             items
         )
-        assistPartyMessage = string.format(
-            "%s, could you set loot spec to %s for %s?",
+        assistPartyMessage = S.assistParty:format(
             targetName,
             targetSpec,
             items

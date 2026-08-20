@@ -5,7 +5,8 @@ LootWishlist.Share = {}
 
 local Share = LootWishlist.Share
 
-local P = "|cffC9A84CLoot Wishlist|r: "
+local S = LootWishlist.Strings.share
+local P = LootWishlist.Strings.addon.prefix
 
 -- Envelope stamped onto every export so a share string from another Lucky
 -- addon, or a newer wishlist format, is refused with a clear message.
@@ -75,10 +76,10 @@ end
 function Share.SanitizePayload(decoded)
   if type(decoded) ~= "table" or decoded.addon ~= ADDON_TAG
   or type(decoded.format) ~= "number" or type(decoded.items) ~= "table" then
-    return nil, "that string is not a Loot Wishlist export."
+    return nil, S.notAnExport
   end
   if decoded.format > FORMAT then
-    return nil, "that string was made by a newer version of Loot Wishlist. Please update the addon."
+    return nil, S.newerVersion
   end
   local items, seen = {}, {}
   for _, raw in pairs(decoded.items) do
@@ -92,10 +93,10 @@ function Share.SanitizePayload(decoded)
     end
   end
   if #items == 0 then
-    return nil, "that string contains no wishlist items."
+    return nil, S.noItems
   end
   if #items > MAX_ITEMS then
-    return nil, "that string holds more than " .. MAX_ITEMS .. " items and cannot be imported."
+    return nil, S.tooManyItems:format(MAX_ITEMS)
   end
   return items
 end
@@ -116,21 +117,21 @@ function Share.ApplyImport(items, replace)
 end
 
 local function countText(n)
-  return n == 1 and "1 item" or (n .. " items")
+  return n == 1 and S.oneItem or S.manyItems:format(n)
 end
 
 local function finishImport(items, replace)
   local added, existing = Share.ApplyImport(items, replace)
   if replace then
-    print(P .. "imported " .. countText(added) .. ", replacing your old wishlist.")
+    print(P .. S.imported:format(countText(added)))
   elseif added == 0 then
-    print(P .. "every item in the import was already on your wishlist.")
+    print(P .. S.allAlreadyTracked)
   elseif existing == 1 then
-    print(P .. "added " .. countText(added) .. " to your wishlist. 1 item from the import was already tracked.")
+    print(P .. S.addedOneExisting:format(countText(added)))
   elseif existing > 1 then
-    print(P .. "added " .. countText(added) .. " to your wishlist. " .. existing .. " items from the import were already tracked.")
+    print(P .. S.addedManyExisting:format(countText(added), existing))
   else
-    print(P .. "added " .. countText(added) .. " to your wishlist.")
+    print(P .. S.added:format(countText(added)))
   end
   if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
 end
@@ -138,14 +139,14 @@ end
 function Share.Export()
   local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked()
   if not tracked or not next(tracked) then
-    print(P .. "your wishlist is empty, nothing to export.")
+    print(P .. S.nothingToExport)
     return
   end
-  LuckyProfiles:ShowExport("Export Wishlist", Share.BuildPayload(tracked))
+  LuckyProfiles:ShowExport(S.exportTitle, Share.BuildPayload(tracked))
 end
 
 function Share.Import()
-  LuckyProfiles:ShowImport("Import Wishlist", function(decoded)
+  LuckyProfiles:ShowImport(S.importTitle, function(decoded)
     local items, err = Share.SanitizePayload(decoded)
     if not items then
       print(P .. err)
@@ -157,10 +158,10 @@ function Share.Import()
       return
     end
     StaticPopupDialogs["LOOTWISHLIST_IMPORT_MODE"] = {
-      text = "Import %s: add to this character's wishlist, or replace it?",
-      button1 = "Add",
-      button3 = "Replace",
-      button2 = "Cancel",
+      text = S.importPrompt,
+      button1 = S.importAdd,
+      button3 = S.importReplace,
+      button2 = S.importCancel,
       OnAccept = function(_, data) finishImport(data, false) end,
       OnAlt = function(_, data) finishImport(data, true) end,
       timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
@@ -169,7 +170,7 @@ function Share.Import()
     if dialog then
       dialog.data = items
     else
-      print(P .. "could not ask how to import, too many popups are on screen. Close them and import again.")
+      print(P .. S.tooManyPopups)
     end
   end)
 end

@@ -6,6 +6,8 @@ SOUNDKIT = { UI_LEGENDARY_LOOT_TOAST = 1, UI_EPICLOOT_TOAST = 2 }
 local now = 0
 function GetTime() return now end
 
+dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Alerts.lua")
 
 local settings = {}

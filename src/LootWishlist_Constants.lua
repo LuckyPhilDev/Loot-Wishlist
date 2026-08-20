@@ -2,14 +2,16 @@
 
 LootWishlist = LootWishlist or {}
 
+local S = LootWishlist.Strings
+
 -- Settings added in this version or later carry a NEW badge and a What's New
 -- card in the settings panel.
 LootWishlist.WHATS_NEW_MIN_VERSION = "1.12.0"
 
 LootWishlist.Const = {
   -- Defaults for templates
-  DEFAULT_WHISPER_TEMPLATE = "Hey %looter%. If %item% is tradeable and you don't need it, could I roll on it? Been after that one.",
-  DEFAULT_PARTY_TEMPLATE = "If %item% can be traded and isn't an upgrade for you, I'd really appreciate it.",
+  DEFAULT_WHISPER_TEMPLATE = S.templates.defaultWhisper,
+  DEFAULT_PARTY_TEMPLATE = S.templates.defaultParty,
 
   -- Alert frame layout
   ALERT_FRAME_INITIAL_WIDTH = 480,
@@ -19,11 +21,11 @@ LootWishlist.Const = {
   ALERT_BORDER_COLOR_DEFAULT  = {0.788, 0.659, 0.298, 0.8},   -- goldAccent
   ALERT_BORDER_COLOR_WISHLIST = {0.412, 0.859, 0.486, 0.9},    -- success
   ALERT_BORDER_COLOR_NOT      = {0.541, 0.494, 0.416, 0.9},    -- textMuted
-  ALERT_TEXT_PREFIX_WISHLIST = "Wishlist item dropped:",
+  ALERT_TEXT_PREFIX_WISHLIST = S.alerts.dropped,
   -- Shown when the drop is the wishlisted item at a track below the one you
   -- track, which is why the alert offers nothing to do with it.
-  ALERT_TEXT_LOWER_TRACK = "Same item, on a lower track than the %s copy on your wishlist.",
-  ALERT_TEXT_LOWER_TRACK_UNNAMED = "Same item, on a lower track than the copy on your wishlist.",
+  ALERT_TEXT_LOWER_TRACK = S.alerts.lowerTrack,
+  ALERT_TEXT_LOWER_TRACK_UNNAMED = S.alerts.lowerTrackUnnamed,
   ALERT_AUTOHIDE_SECONDS = 6,
   ALERT_WIDTH_MIN_DEFAULT = 360,
   ALERT_WIDTH_MAX_DEFAULT = 700,
@@ -137,9 +139,9 @@ LootWishlist.Const = {
 -- Minimap left-click: what a plain, Ctrl- or Shift-click acts on. Settings
 -- store the key; the label is what the options panel and tooltip show.
 LootWishlist.Const.MINIMAP_CLICK_ACTIONS = {
-  { key = "both",     label = "Wishlist and Loot Browser" },
-  { key = "wishlist", label = "Wishlist only" },
-  { key = "browser",  label = "Loot Browser only" },
+  { key = "both",     label = S.minimap.actionBoth },
+  { key = "wishlist", label = S.minimap.actionWishlist },
+  { key = "browser",  label = S.minimap.actionBrowser },
 }
 
 function LootWishlist.Const.MinimapActionLabel(key)

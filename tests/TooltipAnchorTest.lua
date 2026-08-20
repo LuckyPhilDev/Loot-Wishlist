@@ -68,6 +68,8 @@ TooltipComparisonManager = { Initialize = noop, AnchorShoppingTooltips = noop }
 function CreateFrame() return setmetatable({}, stubMeta) end
 function hooksecurefunc(target, name, fn) hooks[name] = fn end
 
+dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Tooltips.lua")
 assert(LootWishlist.UI.AnchorItemTooltip and LootWishlist.UI.PlaceComparisonTooltips,
   "the module exposes the tooltip anchor and the comparison placement")

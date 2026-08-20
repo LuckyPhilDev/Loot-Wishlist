@@ -50,6 +50,8 @@ local printed = {}
 local realPrint = print
 print = function(...) printed[#printed + 1] = table.concat({ ... }, " ") end
 
+dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Constants.lua")
 dofile("src/LootWishlist_ReminderPlanner.lua")
 dofile("src/LootWishlist_Reminders.lua")

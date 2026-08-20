@@ -4,6 +4,7 @@ LootWishlist = LootWishlist or {}
 LootWishlist.Alerts = LootWishlist.Alerts or {}
 
 local Alerts = LootWishlist.Alerts
+local S = LootWishlist.Strings.alerts
 local LootParser = LootWishlist.LootParser
 local db
 local eventFrame
@@ -147,9 +148,9 @@ local function ShowRaidRollAlert(itemLink)
   -- Accumulate unique items into the roll list
   local exists = false
   for _, l in ipairs(rollAlertItems) do if l == itemLink then exists = true; break end end
-  if not exists then table.insert(rollAlertItems, itemLink or "[unknown]") end
-  local lines = { "Roll now if needed!" }
-  for _, l in ipairs(rollAlertItems) do table.insert(lines, "- " .. (l or "[unknown]")) end
+  if not exists then table.insert(rollAlertItems, itemLink or S.unknownItem) end
+  local lines = { S.rollNow }
+  for _, l in ipairs(rollAlertItems) do table.insert(lines, "- " .. (l or S.unknownItem)) end
   local text = table.concat(lines, "\n")
   rollAlertFS:SetText(text)
   -- Ensure wrapping width for height calculation
@@ -248,8 +249,8 @@ end
 local function ShowDropAlert(itemLink, note)
   local C = LootWishlist.Const or {}
   local f = ensureAlertFrame()
-  local prefix = C.ALERT_TEXT_PREFIX_WISHLIST or "Wishlist item dropped:"
-  local text = string.format("%s\n%s", prefix, itemLink or "[unknown]")
+  local prefix = C.ALERT_TEXT_PREFIX_WISHLIST or S.dropped
+  local text = string.format("%s\n%s", prefix, itemLink or S.unknownItem)
   if note then text = text .. "\n" .. note end
   alertFS:SetText(text)
 
@@ -381,16 +382,16 @@ local function configureOtherActions(looterName, itemID, itemLink)
   local st = LootWishlist.GetSettings and LootWishlist.GetSettings() or (LootWishlistDB and LootWishlistDB.settings) or {}
   local function applyTemplate(tpl)
     if not tpl or tpl == "" then return "" end
-    local out = tpl:gsub("%%item%%", itemLink or "[item]")
+    local out = tpl:gsub("%%item%%", itemLink or S.fallbackItem)
     out = out:gsub("%%looter%%", looterName)
     return out
   end
-  local whisperText = applyTemplate(st.whisperTemplate) ~= "" and applyTemplate(st.whisperTemplate) or string.format("Hi %s, grats! If %s is tradeable, could I please have it? It's on my wishlist.", looterName, itemLink)
-  local partyText = applyTemplate(st.partyTemplate) ~= "" and applyTemplate(st.partyTemplate) or string.format("If %s is tradeable, I'd love it (wishlist). Thanks!", itemLink)
+  local whisperText = applyTemplate(st.whisperTemplate) ~= "" and applyTemplate(st.whisperTemplate) or S.fallbackWhisper:format(looterName, itemLink)
+  local partyText = applyTemplate(st.partyTemplate) ~= "" and applyTemplate(st.partyTemplate) or S.fallbackParty:format(itemLink)
   if btnWhisper and btnParty and btnDismiss then
-    btnWhisper:SetText("Whisper")
-    btnParty:SetText("Party")
-    btnDismiss:SetText("Dismiss")
+    btnWhisper:SetText(S.whisper)
+    btnParty:SetText(S.party)
+    btnDismiss:SetText(S.dismiss)
     btnWhisper:SetScript("OnClick", function()
       if not looterName then alertFrame:Hide(); return end
       if ChatEdit_ChooseBoxForSend and ChatEdit_SendText and ChatEdit_ActivateChat then
@@ -398,7 +399,7 @@ local function configureOtherActions(looterName, itemID, itemLink)
         if eb then
           local prevShown = eb:IsShown()
           ChatEdit_ActivateChat(eb)
-          eb:SetText(string.format("/w %s %s", looterName, whisperText))
+          eb:SetText(S.whisperCommand:format(looterName, whisperText))
           ChatEdit_SendText(eb, 0)
           eb:SetText("")
           if not prevShown then eb:Hide() end
@@ -500,9 +501,9 @@ local function trackShortfallText(itemID, droppedLink, simulatedIlvl)
   if not lowestThreshold or droppedIlvl >= lowestThreshold then return nil end
   local C = LootWishlist.Const or {}
   if trackKey then
-    return (C.ALERT_TEXT_LOWER_TRACK or "Same item, on a lower track than the %s copy on your wishlist."):format(trackKey)
+    return (C.ALERT_TEXT_LOWER_TRACK or S.lowerTrack):format(trackKey)
   end
-  return C.ALERT_TEXT_LOWER_TRACK_UNNAMED or "Same item, on a lower track than the copy on your wishlist."
+  return C.ALERT_TEXT_LOWER_TRACK_UNNAMED or S.lowerTrackUnnamed
 end
 
 Alerts.TrackShortfallText = trackShortfallText

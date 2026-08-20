@@ -2,6 +2,7 @@
 
 LootWishlist = LootWishlist or {}
 LootWishlist.EJ = LootWishlist.EJ or {}
+local S = LootWishlist.Strings.journal
 
 local function IsRaidInstance(instanceID)
   if not instanceID then return false end
@@ -152,7 +153,7 @@ local function AddTrackButtonToLootButton(lootButton)
       self:SetBackdropBorderColor(Cl.goldAccent[1], Cl.goldAccent[2], Cl.goldAccent[3])
       lbl:SetTextColor(Cl.goldPrimary[1], Cl.goldPrimary[2], Cl.goldPrimary[3])
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      GameTooltip:SetText("Track this item")
+      GameTooltip:SetText(S.trackItem)
       GameTooltip:Show()
     end)
     btn:SetScript("OnLeave", function(self)
@@ -177,7 +178,7 @@ local function AddTrackButtonToLootButton(lootButton)
         LootWishlist.AddTrackedItemWithChain(idNow, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, diffID, diffName)
         if LootWishlist.IsDebug and LootWishlist.IsDebug() then print("Loot Wishlist: Tracked", idNow, isRaid and ("boss="..tostring(bossName)) or "") end
       else
-        print("Loot Wishlist: Could not find item ID for this item")
+        print(S.noItemID)
       end
     end)
 
@@ -219,10 +220,10 @@ local function AddTrackButtonToLootButton(lootButton)
 
     brBtn:SetScript("OnEnter", function(self)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      GameTooltip:SetText("Mark as bonus roll target", 1, 1, 1)
-      GameTooltip:AddLine("Reminds you to spend a Nebulous Voidcore charge", 0.8, 0.8, 0.8, true)
-      GameTooltip:AddLine("after running this dungeon (M+ 10+) or killing", 0.8, 0.8, 0.8, true)
-      GameTooltip:AddLine("this raid boss (Heroic / Mythic).", 0.8, 0.8, 0.8, true)
+      GameTooltip:SetText(S.bonusRollTitle, 1, 1, 1)
+      GameTooltip:AddLine(S.bonusRollLine1, 0.8, 0.8, 0.8, true)
+      GameTooltip:AddLine(S.bonusRollLine2, 0.8, 0.8, 0.8, true)
+      GameTooltip:AddLine(S.bonusRollLine3, 0.8, 0.8, 0.8, true)
       GameTooltip:Show()
     end)
     brBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)

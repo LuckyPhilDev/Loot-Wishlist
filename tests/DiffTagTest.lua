@@ -2,6 +2,8 @@
 
 LootWishlist = {}
 
+dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Constants.lua")
 
 local tag = LootWishlist.Const.DiffTag

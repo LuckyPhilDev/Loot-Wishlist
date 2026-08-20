@@ -17,6 +17,7 @@ local PerfLog = LuckyLog:New("|cffff8800[LWL-perf]|r", function() return DEBUG e
 
 -- Public API table (preserve fields set by earlier files, e.g. Const)
 LootWishlist = LootWishlist or {}
+local S = LootWishlist.Strings
 LootWishlist.DEBUG = function() return DEBUG end
 
 -- Local state
@@ -225,7 +226,7 @@ function LootWishlist.AddTrackedItem(itemID, bossName, instanceName, isRaid, ite
   if LootWishlist.UI and LootWishlist.UI.open then
     LootWishlist.UI.open()
   else
-    print("Loot Wishlist: UI module not loaded. Item tracked.")
+    print(S.slash.uiNotLoadedItem)
   end
   PerfLog("AddTrackedItem END total=" .. string.format("%.1f", debugprofilestop() - t0) .. "ms")
 end
@@ -322,7 +323,7 @@ end
 -- Manually add an item to the wishlist from a slash command.
 -- Accepts a bare itemID (e.g. 12345) or a full item link.
 function LootWishlist.AddByInput(input)
-  local P = "|cffC9A84CLoot Wishlist|r: "
+  local P = S.addon.prefix
   local itemID
   if type(input) == "number" then
     itemID = input
@@ -331,19 +332,19 @@ function LootWishlist.AddByInput(input)
     itemID = tonumber(input) or tonumber(input:match("item:(%d+)"))
   end
   if not itemID then
-    print(P .. "usage: /wishlist add <itemID or item link>")
+    print(P .. S.slash.addUsage)
     return
   end
   if C_Item and C_Item.DoesItemExistByID and not C_Item.DoesItemExistByID(itemID) then
-    print(P .. "no item found with ID " .. tostring(itemID) .. ".")
+    print(P .. S.slash.noItemWithID:format(tostring(itemID)))
     return
   end
 
   -- Manual adds have no boss/instance/difficulty context; group them under
   -- "Manually Added" so they read sensibly in the list.
   local function track(link, name)
-    LootWishlist.AddTrackedItem(itemID, nil, "Manually Added", false, link, nil, nil, nil, nil)
-    print(P .. "added " .. (link or name or ("item:" .. tostring(itemID))) .. " to your wishlist.")
+    LootWishlist.AddTrackedItem(itemID, nil, S.wishlist.manuallyAdded, false, link, nil, nil, nil, nil)
+    print(P .. S.slash.addedToWishlist:format(link or name or ("item:" .. tostring(itemID))))
   end
 
   local item = Item and Item.CreateFromItemID and Item:CreateFromItemID(itemID)
@@ -467,7 +468,7 @@ f:SetScript("OnEvent", function(self, event, ...)
       if LootWishlist.EJ and LootWishlist.EJ.hook then LootWishlist.EJ.hook() end
     end
   elseif event == "PLAYER_LOGIN" then
-    print("Loot Wishlist loaded. Track loot from the Adventure Guide! Use /wishlist for help.")
+    print(S.addon.loaded)
     -- Minimap button
     local function CreateMinimapButton()
       if LootWishlist.minimapButton then return end
@@ -492,14 +493,14 @@ f:SetScript("OnEvent", function(self, event, ...)
         tooltip = function(tt)
           local s = LootWishlist.GetSettings() or {}
           local label = LootWishlist.Const.MinimapActionLabel
-          tt:AddLine("|cffffd100Lucky's Loot Wishlist|r")
+          tt:AddLine(S.minimap.tooltipTitle)
           tt:AddLine(" ")
-          tt:AddLine("Left-click: " .. label(s.minimapClick), 0.91, 0.86, 0.78)
-          tt:AddLine("Ctrl-click: " .. label(s.minimapCtrlClick), 0.91, 0.86, 0.78)
-          tt:AddLine("Shift-click: " .. label(s.minimapShiftClick), 0.91, 0.86, 0.78)
-          tt:AddLine("Right-click: Open settings", 0.91, 0.86, 0.78)
-          tt:AddLine("Middle-click: Toggle dev mode", 0.54, 0.49, 0.42)
-          tt:AddLine("Drag: Move button", 0.54, 0.49, 0.42)
+          tt:AddLine(S.minimap.leftClick:format(label(s.minimapClick)), 0.91, 0.86, 0.78)
+          tt:AddLine(S.minimap.ctrlClick:format(label(s.minimapCtrlClick)), 0.91, 0.86, 0.78)
+          tt:AddLine(S.minimap.shiftClick:format(label(s.minimapShiftClick)), 0.91, 0.86, 0.78)
+          tt:AddLine(S.minimap.rightClick, 0.91, 0.86, 0.78)
+          tt:AddLine(S.minimap.middleClick, 0.54, 0.49, 0.42)
+          tt:AddLine(S.minimap.drag, 0.54, 0.49, 0.42)
         end,
       })
     end
@@ -553,17 +554,17 @@ SlashCmdList.WISHLIST = function(msg)
   local raw = msg or ""
   msg = raw:lower()
   if msg == "show" then
-    if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() else print("Loot Wishlist: UI module not loaded.") end
+    if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() else print(S.slash.uiNotLoaded) end
   elseif msg == "hide" then
     if LootWishlist.UI and LootWishlist.UI.hide then LootWishlist.UI.hide() end
   elseif msg == "trackinfo" then
     if LootWishlist.Browser and LootWishlist.Browser.DiagnoseTracks then
       LootWishlist.Browser.DiagnoseTracks()
     else
-      print("Loot Wishlist: browser module not loaded.")
+      print(S.slash.browserNotLoaded)
     end
   elseif msg == "browse" or msg == "browser" then
-    if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() else print("Loot Wishlist: browser module not loaded.") end
+    if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() else print(S.slash.browserNotLoaded) end
   elseif msg == "debug" then
     LootWishlist.SetDebug(not LootWishlist.IsDebug())
     if EncounterJournal and EncounterJournal:IsShown() then
@@ -576,33 +577,33 @@ SlashCmdList.WISHLIST = function(msg)
     if arg then
       LootWishlist.AddByInput(arg)
     else
-      print("Loot Wishlist: usage /wishlist add <itemID or item link>")
+      print(S.slash.addUsagePrefixed)
     end
   elseif msg:match("^remove ") then
     local idStr = msg:match("^remove%s+(%d+)") or msg:match("item:(%d+)")
     local itemID = idStr and tonumber(idStr)
     if itemID and trackedItems[itemID] then
       LootWishlist.RemoveTrackedItem(itemID)
-      print("Loot Wishlist: removed", itemID)
+      print(S.slash.removed, itemID)
     else
-      print("Loot Wishlist: item not tracked; usage /wishlist remove <itemID>")
+      print(S.slash.notTracked)
     end
   elseif msg == "list" then
     local n = 0
     for _ in pairs(trackedItems) do n = n + 1 end
-    print("Loot Wishlist: tracking", n, "item(s)")
+    print(S.slash.tracking, n, S.slash.itemsSuffix)
   elseif msg == "options" or msg == "settings" then
     if LootWishlist.Options and LootWishlist.Options.Open then
       LootWishlist.Options.Open()
     else
-      print("Open Interface Options and look for 'Loot Wishlist'.")
+      print(S.slash.openOptions)
     end
   elseif msg == "reset-spec" or msg == "resetspec" then
     if LootWishlist.Reminders and LootWishlist.Reminders.ResetDebounce then
       LootWishlist.Reminders:ResetDebounce()
-      print("Loot Wishlist: spec reminder reset. Target a boss or re-enter to trigger again.")
+      print(S.slash.specReset)
     else
-      print("Loot Wishlist: alerts module not ready.")
+      print(S.slash.alertsNotReady)
     end
   elseif msg:match("^testdrop ") then
     local arg = msg:match("^testdrop%s+(.+)$")
@@ -638,7 +639,7 @@ SlashCmdList.WISHLIST = function(msg)
     if LootWishlist.Reminders and LootWishlist.Reminders.TestNextBoss then
       LootWishlist.Reminders:TestNextBoss(instanceID, bossFragments)
     else
-      print("Loot Wishlist: reminders module not loaded.")
+      print(S.slash.remindersNotLoaded)
     end
   elseif msg == "testlogin" then
     if LootWishlist.Alerts and LootWishlist.Alerts.TestLogin then
@@ -648,7 +649,7 @@ SlashCmdList.WISHLIST = function(msg)
     if LootWishlist.Vault and LootWishlist.Vault.Diagnose then
       LootWishlist.Vault.Diagnose()
     else
-      print("Loot Wishlist: vault module not loaded.")
+      print(S.slash.vaultNotLoaded)
     end
   elseif msg == "raidinfo" then
     local P = "|cffC9A84CLoot Wishlist|r: "
@@ -753,12 +754,12 @@ SlashCmdList.WISHLIST = function(msg)
     end
   elseif msg == "clear" then
     if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end
-    print("Loot Wishlist: cleared all tracked items")
+    print(S.slash.clearedAll)
   elseif msg == "export" then
-    if LootWishlist.Share and LootWishlist.Share.Export then LootWishlist.Share.Export() else print("Loot Wishlist: share module not loaded.") end
+    if LootWishlist.Share and LootWishlist.Share.Export then LootWishlist.Share.Export() else print(S.slash.shareNotLoaded) end
   elseif msg == "import" then
-    if LootWishlist.Share and LootWishlist.Share.Import then LootWishlist.Share.Import() else print("Loot Wishlist: share module not loaded.") end
+    if LootWishlist.Share and LootWishlist.Share.Import then LootWishlist.Share.Import() else print(S.slash.shareNotLoaded) end
   else
-    print("/wishlist commands: show | hide | browse | settings | add <ID> | remove <ID> | list | clear | export | import | debug | reset-spec | raidinfo")
+    print(S.slash.usage)
   end
 end

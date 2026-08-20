@@ -5,6 +5,7 @@ LootWishlist = LootWishlist or {}
 LootWishlist.Vault = LootWishlist.Vault or {}
 
 local Vault = LootWishlist.Vault
+local S = LootWishlist.Strings.vault
 local hooked = false
 
 -- Register Diagnose EARLY so it survives any later load-time errors.
@@ -181,8 +182,8 @@ local function ensureBadge(parent)
     local matches = self.wishlistMatches
     if not matches or #matches == 0 then return end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:AddLine("Loot Wishlist", C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
-    GameTooltip:AddLine("This reward matches an item on your wishlist:", C.textLight[1], C.textLight[2], C.textLight[3])
+    GameTooltip:AddLine(S.title, C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
+    GameTooltip:AddLine(S.matchesLine, C.textLight[1], C.textLight[2], C.textLight[3])
     addMatchLines(GameTooltip, matches)
     GameTooltip:Show()
   end)
@@ -209,7 +210,7 @@ end
 
 local function appendWishlistLines(tooltip, matches)
   tooltip:AddLine(" ")
-  tooltip:AddLine("On your Wishlist:", C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
+  tooltip:AddLine(S.onWishlist, C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
   addMatchLines(tooltip, matches)
   tooltip:Show()
 end

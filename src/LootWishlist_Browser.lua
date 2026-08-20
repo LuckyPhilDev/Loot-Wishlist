@@ -9,6 +9,7 @@ LootWishlist = LootWishlist or {}
 LootWishlist.Browser = LootWishlist.Browser or {}
 
 local UI = LuckyUI
+local S = LootWishlist.Strings.browser
 local C  = UI.C
 local WC = UI.WC
 
@@ -31,10 +32,10 @@ local CROSS = "\195\151"     -- ×
 
 -- %d is the track's lowest key level, filled in from the track entry.
 local TRACK_TIPS = {
-  Veteran  = "Heroic dungeons, Raid Finder raids",
-  Champion = "Mythic dungeons, Normal raids",
-  Hero     = "Mythic+ dungeons from +%d, Heroic raids",
-  Myth     = "Mythic+ vault from +%d, Mythic raids",
+  Veteran  = S.trackVeteran,
+  Champion = S.trackChampion,
+  Hero     = S.trackHero,
+  Myth     = S.trackMyth,
 }
 
 ------------------------------------------------------------------------
@@ -604,7 +605,7 @@ end
 local function buildRows()
   local insts = instancesForView()
   if not insts then
-    return { { kind = "note", text = "Journal data is not available yet. Try again in a moment." } }, 0, 0
+    return { { kind = "note", text = S.journalNotReady } }, 0, 0
   end
   local rows, shown, onList = {}, 0, 0
   local readAt  -- difficulty actually applied, when it is not the one asked for
@@ -627,7 +628,7 @@ local function buildRows()
     if cache and cache.diffID and cache.diffID ~= diffID then readAt = cache.diffID end
     local section, any = {}, false
     if not cache then
-      local waiting = journalShown() and "Waiting for the Adventure Guide to close..." or "Loading..."
+      local waiting = journalShown() and S.waitingForJournal or S.loading
       section[#section + 1] = {
         kind = "note",
         text = (hideHeaders or slotGrouping) and (inst.name .. ": " .. waiting) or waiting,
@@ -685,14 +686,14 @@ local function buildRows()
           b[#b + 1] = it
         end
         for _, encID in ipairs(order) do
-          section[#section + 1] = { kind = "boss", name = (encID ~= -1 and bossName(encID)) or "Unknown Boss" }
+          section[#section + 1] = { kind = "boss", name = (encID ~= -1 and bossName(encID)) or S.unknownBoss }
           for _, it in ipairs(buckets[encID]) do addItem(it) end
         end
       else
         for _, it in ipairs(matched) do addItem(it) end
       end
       if not any and not filtering and not slotGrouping then
-        section[#section + 1] = { kind = "note", text = "No items." }
+        section[#section + 1] = { kind = "note", text = S.noItems }
       end
     end
     if slotGrouping then
@@ -717,7 +718,7 @@ local function buildRows()
     end
   end
   if #rows == 0 then
-    rows[#rows + 1] = { kind = "note", text = "No matches." }
+    rows[#rows + 1] = { kind = "note", text = S.noMatches }
   end
   return rows, shown, onList, readAt
 end
@@ -756,20 +757,18 @@ end
 ------------------------------------------------------------------------
 local function updateStatus(shown, onList, readAt)
   if not statusLabel then return end
-  local text = string.format(
-    "|cffe8dcc8%d|r item%s shown%s|cffe8dcc8%d|r on wishlist",
+  local text = S.status:format(
     shown, shown == 1 and "" or "s", DOT, onList)
   if not browsingOwnClass() then
-    text = text .. DOT .. coloredClassName(state.classID) .. " loot"
-      .. DOT .. WC.textMuted .. "view only, switch back to your class to add" .. WC.reset
+    text = text .. DOT .. coloredClassName(state.classID) .. S.classLoot
+      .. DOT .. WC.textMuted .. S.viewOnly .. WC.reset
   end
   -- The journal does not carry a table for every track. Say which one the
   -- items on screen actually came from rather than let the track button imply
   -- something the data cannot back up.
   if readAt then
     local name = LootWishlist.Const.DIFFICULTY_NAMES[readAt] or tostring(readAt)
-    text = text .. DOT .. WC.textMuted .. "journal has no " .. state.track
-      .. " table, showing " .. name .. WC.reset
+    text = text .. DOT .. WC.textMuted .. S.noTrackTable:format(state.track, name) .. WC.reset
   end
   statusLabel:SetText(text)
 end
@@ -818,9 +817,9 @@ end
 
 local function buildSidebarRows()
   local rows = {
-    { kind = "view", view = "season",   label = "Entire Season" },
-    { kind = "view", view = "dungeons", label = "All Dungeons" },
-    { kind = "view", view = "raids",    label = "All Raids" },
+    { kind = "view", view = "season",   label = S.entireSeason },
+    { kind = "view", view = "dungeons", label = S.allDungeons },
+    { kind = "view", view = "raids",    label = S.allRaids },
   }
   local s = getSeason()
   if s then
@@ -965,7 +964,7 @@ local function createLootRow(parent)
   row.btn:SetScript("OnEnter", function(self)
     self:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3])
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText((row._r and row._r.tracked) and "Remove from wishlist" or "Add to wishlist", 1, 1, 1)
+    GameTooltip:SetText((row._r and row._r.tracked) and S.removeFromWishlist or S.addToWishlist, 1, 1, 1)
     GameTooltip:Show()
   end)
   row.btn:SetScript("OnLeave", function(self)
@@ -1090,7 +1089,7 @@ local function updateLootRow(row, r)
   local boss = bossName(it.encounterID)
   if boss then subParts[#subParts + 1] = boss end
   if not r.single and r.instance and r.instance.name then subParts[#subParts + 1] = r.instance.name end
-  if it.veryRare then subParts[#subParts + 1] = WC.purple .. "Very Rare" .. WC.reset end
+  if it.veryRare then subParts[#subParts + 1] = WC.purple .. S.veryRare .. WC.reset end
   if #subParts > 0 then
     row.sub:SetText(table.concat(subParts, DOT))
     row.sub:Show()
@@ -1245,7 +1244,7 @@ local function ensureFrame()
   frame:SetBackdropColor(C.bgDark[1], C.bgDark[2], C.bgDark[3], C.bgDark[4])
   frame:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
 
-  local header = UI.CreateHeader(frame, "Loot Browser")
+  local header = UI.CreateHeader(frame, S.title)
   header:EnableMouse(true)
   header:RegisterForDrag("LeftButton")
   header:SetScript("OnDragStart", function() frame:StartMoving() end)
@@ -1335,7 +1334,7 @@ local function ensureFrame()
   local groupDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
   groupDropdown:SetPoint("TOPRIGHT", -4, -4)
   groupDropdown:SetWidth(110)
-  groupDropdown:SetDefaultText(state.group == "slot" and "By Slot" or "By Source")
+  groupDropdown:SetDefaultText(state.group == "slot" and S.bySlot or S.bySource)
   groupDropdown:SetupMenu(function(_, root)
     local function groupRadio(label, value)
       root:CreateRadio(label,
@@ -1346,8 +1345,8 @@ local function ensureFrame()
           refreshNow()
         end)
     end
-    groupRadio("By Source", "source")
-    groupRadio("By Slot", "slot")
+    groupRadio(S.bySource, "source")
+    groupRadio(S.bySlot, "slot")
   end)
 
   -- Slot filter: every slot present in the current view's loot. The menu is
@@ -1355,9 +1354,9 @@ local function ensureFrame()
   local slotDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
   slotDropdown:SetPoint("BOTTOMRIGHT", -4, 3)
   slotDropdown:SetWidth(130)
-  slotDropdown:SetDefaultText("All Slots")
+  slotDropdown:SetDefaultText(S.allSlots)
   slotDropdown:SetupMenu(function(_, root)
-    root:CreateRadio("All Slots",
+    root:CreateRadio(S.allSlots,
       function() return state.slot == nil end,
       function()
         state.slot = nil
@@ -1433,7 +1432,7 @@ local function ensureFrame()
 
   searchBox = UI.CreateSearchBox(toolbar, {
     height = 24,
-    placeholder = "Search items, bosses, slots...",
+    placeholder = S.searchPlaceholder,
     onChange = function(query)
       if query == state.search then return end
       state.search = query

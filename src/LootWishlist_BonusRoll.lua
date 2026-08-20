@@ -5,6 +5,7 @@
 LootWishlist = LootWishlist or {}
 LootWishlist.BonusRoll = LootWishlist.BonusRoll or {}
 local BR = LootWishlist.BonusRoll
+local S = LootWishlist.Strings.bonusRoll
 
 local CURRENCY_ID        = 3418   -- Nebulous Voidcore
 local DUNGEON_COST       = 1
@@ -180,10 +181,9 @@ end
 
 function BR.ShowReminder(opts)
   local p = ensurePopup()
-  p.title:SetText(opts.title or "Bonus Roll Reminder")
+  p.title:SetText(opts.title or S.reminderTitle)
   p.subtitle:SetText(opts.subtitle or "")
-  p.charges:SetText(string.format("Charges: %d  (cost %d per roll)",
-    opts.charges or 0, opts.cost or 1))
+  p.charges:SetText(S.charges:format(opts.charges or 0, opts.cost or 1))
 
   local lines = {}
   for _, e in ipairs(opts.items or {}) do
@@ -245,8 +245,8 @@ local function checkDungeonReminder()
   end
 
   BR.ShowReminder({
-    title = "Bonus Roll Available",
-    subtitle = string.format("Spend a charge in |cffffd100%s|r:", instanceName or "this dungeon"),
+    title = S.available,
+    subtitle = S.spendOne:format(instanceName or S.thisDungeon),
     charges = charges,
     cost = DUNGEON_COST,
     items = items,
@@ -278,8 +278,8 @@ local function checkRaidReminder(encounterID, difficultyID)
   if EJ_GetEncounterInfo then bossName = EJ_GetEncounterInfo(encounterID) end
 
   BR.ShowReminder({
-    title = "Bonus Roll Available",
-    subtitle = string.format("Spend %d charges on |cffffd100%s|r:", RAID_COST, bossName or "this boss"),
+    title = S.available,
+    subtitle = S.spendMany:format(RAID_COST, bossName or S.thisBoss),
     charges = charges,
     cost = RAID_COST,
     items = items,
@@ -297,11 +297,11 @@ function BR.TestPopup()
     if #items >= 5 then break end
   end
   if #items == 0 then
-    items = { { id = 0, link = "(no items flagged for bonus roll)" } }
+    items = { { id = 0, link = S.noneFlagged } }
   end
   BR.ShowReminder({
-    title = "Bonus Roll Reminder (Test)",
-    subtitle = "Test popup",
+    title = S.testTitle,
+    subtitle = S.testSubtitle,
     charges = BR.GetCharges(),
     cost = DUNGEON_COST,
     items = items,

@@ -4,6 +4,8 @@
 -- boss. Typos have to fail here, since in game they look like working code.
 
 LootWishlist = {}
+dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Constants.lua")
 
 local layouts = LootWishlist.Const.RAID_LAYOUTS

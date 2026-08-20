@@ -9,6 +9,7 @@
 ## X-Curse-Project-ID: 1353310
 
 Libs\LuckysUtils\embeds.xml
+LootWishlist_Strings.lua
 LootWishlist_Constants.lua
 LootWishlist_Core.lua
 LootWishlist_Share.lua

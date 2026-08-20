@@ -14,6 +14,8 @@ function UnitName()
     return "Lucky"
 end
 
+dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_LootParser.lua")
 
 local Parser = LootWishlist.LootParser

@@ -8,6 +8,7 @@ LootWishlist.UI = LootWishlist.UI or {}
 -- LuckyUI references
 ------------------------------------------------------------------------
 local UI = LuckyUI
+local S = LootWishlist.Strings.wishlist
 local C  = UI.C
 
 ------------------------------------------------------------------------
@@ -189,7 +190,7 @@ local function buildFlatRows()
     if g.isRaid then
       local bossGroups = {}
       for _, it in ipairs(g.items) do
-        local bname = (it.info.boss and it.info.boss ~= "") and it.info.boss or "Unknown Boss"
+        local bname = (it.info.boss and it.info.boss ~= "") and it.info.boss or S.unknownBoss
         local encID = it.info.encounterID or -1
         if not bossGroups[bname] then bossGroups[bname] = { encounterID = encID, items = {} } end
         if encID ~= -1 then bossGroups[bname].encounterID = encID end
@@ -263,7 +264,7 @@ local function buildSpecText(info)
         if not specSet[sid] then allCovered = false; break end
       end
     end
-    if allCovered then return "|cff8a7e6a{any spec}|r" end
+    if allCovered then return S.anySpec end
   end
 
   if not next(specs) then return nil end
@@ -354,9 +355,9 @@ local function createPoolFrame(parent)
   f.bonusRollBtn.label:SetFont(UI.BODY_FONT, 10)
   f.bonusRollBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText("Mark as bonus roll target", 1, 1, 1)
-    GameTooltip:AddLine("Reminds you to spend a Nebulous Voidcore charge", 0.8, 0.8, 0.8, true)
-    GameTooltip:AddLine("after a M+ 10+ run or Heroic/Mythic raid boss kill.", 0.8, 0.8, 0.8, true)
+    GameTooltip:SetText(S.bonusRollTitle, 1, 1, 1)
+    GameTooltip:AddLine(S.bonusRollLine1, 0.8, 0.8, 0.8, true)
+    GameTooltip:AddLine(S.bonusRollLine2, 0.8, 0.8, 0.8, true)
     GameTooltip:Show()
   end)
   f.bonusRollBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -365,7 +366,7 @@ local function createPoolFrame(parent)
   f.removeBtn:SetScript("OnEnter", function(self)
     self.label:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 1)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText("Remove from wishlist", 1, 1, 1)
+    GameTooltip:SetText(S.removeFromWishlist, 1, 1, 1)
     GameTooltip:Show()
   end)
   f.removeBtn:SetScript("OnLeave", function(self)
@@ -421,9 +422,9 @@ local function populatePoolFrame(f, row, rowIndex)
 
   if row.type == "instance" then
     f:SetHeight(INSTANCE_ROW_H)
-    local raidTag = row.isRaid and ("  |cffff8000[Raid]|r") or ""
+    local raidTag = row.isRaid and S.raidTag or ""
     f.headingLabel:SetFont(UI.TITLE_FONT, 13, "OUTLINE")
-    f.headingLabel:SetText(string.format("|cffffd100%s|r  (%d)%s", row.name, row.count, raidTag))
+    f.headingLabel:SetText(S.instanceHeading:format(row.name, row.count, raidTag))
     f.headingLabel:Show()
     -- Dark warm background for instance headers
     f.bg:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.6)
@@ -434,7 +435,7 @@ local function populatePoolFrame(f, row, rowIndex)
   elseif row.type == "boss" then
     f:SetHeight(BOSS_ROW_H)
     f.headingLabel:SetFont(UI.TITLE_FONT, 11, "")
-    f.headingLabel:SetText(string.format("   |cffc9a84c%s|r  (%d)", row.name, row.count))
+    f.headingLabel:SetText(S.bossHeading:format(row.name, row.count))
     f.headingLabel:Show()
     f.bg:SetColorTexture(C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.5)
     f._bgR, f._bgG, f._bgB, f._bgA = C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.5
@@ -664,11 +665,11 @@ local function refresh()
   end
   if statusCountLabel then
     if count == 0 then
-      statusCountLabel:SetText("No items")
+      statusCountLabel:SetText(S.noItems)
     elseif count == 1 then
-      statusCountLabel:SetText("1 item")
+      statusCountLabel:SetText(S.oneItem)
     else
-      statusCountLabel:SetText(string.format("%d items", count))
+      statusCountLabel:SetText(S.manyItems:format(count))
     end
   end
   if clearBtn then
@@ -710,7 +711,7 @@ local function createMainFrame()
   f:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
 
   -- Header (using LuckyUI.CreateHeader)
-  local header = UI.CreateHeader(f, "Loot Wishlist")
+  local header = UI.CreateHeader(f, S.title)
   -- Override close to track isOpen state
   -- Find the close button (last child of header)
   for _, child in ipairs({ header:GetChildren() }) do
@@ -808,11 +809,11 @@ local function createMainFrame()
   statusLine:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3])
 
   -- Clear All button (danger variant)
-  clearBtn = UI.CreateButton(statusBar, "Clear All", 100, 22, "danger")
+  clearBtn = UI.CreateButton(statusBar, S.clearAll, 100, 22, "danger")
   clearBtn:SetPoint("LEFT", statusBar, "LEFT", 4, -2)
   clearBtn:SetScript("OnClick", function()
     StaticPopupDialogs["LOOTWISHLIST_CLEAR_ALL"] = {
-      text = "This will remove ALL wishlist items for this character. Are you sure?",
+      text = S.clearAllConfirm,
       button1 = "Yes", button2 = "No",
       OnAccept = function()
         if LootWishlist.ClearAllTracked then LootWishlist.ClearAllTracked() end
@@ -823,25 +824,25 @@ local function createMainFrame()
   end)
 
   -- Export / Import share-string buttons
-  local exportBtn = UI.CreateButton(statusBar, "Export", 60, 22, "secondary")
+  local exportBtn = UI.CreateButton(statusBar, S.export, 60, 22, "secondary")
   exportBtn:SetPoint("LEFT", clearBtn, "RIGHT", 4, 0)
   exportBtn:SetScript("OnClick", function()
     if LootWishlist.Share and LootWishlist.Share.Export then LootWishlist.Share.Export() end
   end)
 
-  local importBtn = UI.CreateButton(statusBar, "Import", 60, 22, "secondary")
+  local importBtn = UI.CreateButton(statusBar, S.import, 60, 22, "secondary")
   importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 4, 0)
   importBtn:SetScript("OnClick", function()
     if LootWishlist.Share and LootWishlist.Share.Import then LootWishlist.Share.Import() end
   end)
 
   -- Close button (secondary)
-  closeBtn2 = UI.CreateButton(statusBar, "Close", 80, 22, "secondary")
+  closeBtn2 = UI.CreateButton(statusBar, S.close, 80, 22, "secondary")
   closeBtn2:SetPoint("RIGHT", statusBar, "RIGHT", -4, -2)
   closeBtn2:SetScript("OnClick", function() f:Hide(); LootWishlist.UI.isOpen = false end)
 
   -- Browse Loot button (primary): opens the season drop-table browser
-  local browseBtn = UI.CreateButton(statusBar, "Browse Loot", 100, 22, "primary")
+  local browseBtn = UI.CreateButton(statusBar, S.browseLoot, 100, 22, "primary")
   browseBtn:SetPoint("RIGHT", closeBtn2, "LEFT", -4, 0)
   browseBtn:SetScript("OnClick", function()
     if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() end
