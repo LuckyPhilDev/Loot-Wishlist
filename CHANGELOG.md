@@ -1,3 +1,9 @@
+## [1.13.1] - 2026-08-21
+
+### Fixed
+- Tier tokens in the Loot Browser now sit under the slot they create, so a head token lists under Head in the Slot filter instead of Other.
+- The Loot Browser's class filter now hides tier tokens the selected class cannot use.
+
 ## [1.13.0] - 2026-08-20
 
 ### Added

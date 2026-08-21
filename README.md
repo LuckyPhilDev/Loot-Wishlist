@@ -14,7 +14,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Peek at any other class's loot table, view only, so you can scout for an alt or a friend
   - Pick a gear track (Veteran, Champion, Hero, Myth) and items are tracked at the matching difficulty
   - Group the list by source or by gear slot from the dropdown beside the track buttons
-  - Filter by slot to see every trinket, weapon, or pair of hands in the pool
+  - Filter by slot to see every trinket, weapon, or pair of hands in the pool, with tier tokens under the slot they create
   - Search by item name, boss, slot, or armor type
   - Add or remove wishlist items with one click
 - **Adventure Guide integration** — a "Wishlist" button appears on each loot row in the Encounter Journal; click to track any item across all tiers and difficulties
