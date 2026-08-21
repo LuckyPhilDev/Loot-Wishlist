@@ -300,6 +300,7 @@ local function readLoot(scan)
         name        = info.name,
         icon        = info.icon,
         slot        = info.slot,
+        filterType  = info.filterType,
         armorType   = info.armorType,
         link        = info.link,
         veryRare    = (info.displayAsVeryRare or info.displayAsExtremelyRare) and true or false,
@@ -574,6 +575,23 @@ LootWishlist.Browser.sortSlots = sortSlots
 -- slot it turns into, and the restriction line naming the classes it turns
 -- into it for.
 
+-- The journal sorts its loot into the slot filter's buckets even when the item
+-- carries no slot of its own, so that classification is asked first.
+local FILTER_SLOTS = {}
+do
+  local slotKeys = {
+    Head = "INVTYPE_HEAD", Neck = "INVTYPE_NECK", Shoulder = "INVTYPE_SHOULDER",
+    Cloak = "INVTYPE_CLOAK", Chest = "INVTYPE_CHEST", Wrist = "INVTYPE_WRIST",
+    Hand = "INVTYPE_HAND", Waist = "INVTYPE_WAIST", Legs = "INVTYPE_LEGS",
+    Feet = "INVTYPE_FEET", Finger = "INVTYPE_FINGER", Trinket = "INVTYPE_TRINKET",
+    MainHand = "INVTYPE_WEAPONMAINHAND", OffHand = "INVTYPE_WEAPONOFFHAND",
+  }
+  local filters = Enum.ItemSlotFilterType or {}
+  for name, key in pairs(slotKeys) do
+    if filters[name] and _G[key] then FILTER_SLOTS[filters[name]] = _G[key] end
+  end
+end
+
 -- The Use line names the slot in the singular while the paperdoll labels some
 -- of them in the plural, so a label matches by its stem. Longest stem first,
 -- so "Main Hand" is never read as "Hand".
@@ -661,6 +679,7 @@ end
 
 local function slotOf(it)
   if not isToken(it) then return it.slot end
+  if it.filterType and FILTER_SLOTS[it.filterType] then return FILTER_SLOTS[it.filterType] end
   local facts = factsFor(it.itemID)
   return (facts and facts.slot) or OTHER_SLOT
 end

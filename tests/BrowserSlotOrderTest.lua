@@ -8,6 +8,8 @@ function CreateFrame()
   return setmetatable({}, { __index = function() return noop end })
 end
 
+Enum = { ItemSlotFilterType = {} }
+
 -- The client sets these before addons load; the slot order is keyed off them.
 INVTYPE_HEAD = "Head"
 INVTYPE_NECK = "Neck"
