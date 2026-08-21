@@ -300,6 +300,7 @@ local function readLoot(scan)
         name        = info.name,
         icon        = info.icon,
         slot        = info.slot,
+        filterType  = info.filterType,
         armorType   = info.armorType,
         link        = info.link,
         veryRare    = (info.displayAsVeryRare or info.displayAsExtremelyRare) and true or false,
@@ -516,12 +517,8 @@ local function instancesForView()
   return s.dungeons
 end
 
--- Slot bucket for filtering; tokens and other slotless loot file under Other.
+-- Slot bucket for filtering; loot with no slot of its own files under Other.
 local OTHER_SLOT = "Other"
-
-local function slotOf(it)
-  return (it.slot and it.slot ~= "") and it.slot or OTHER_SLOT
-end
 
 -- Character sheet order for the filter menu. The journal names a slot with the
 -- localised inventory type string, so the ranks come off the same globals the
@@ -570,6 +567,130 @@ local function sortSlots(slots)
 end
 LootWishlist.Browser.sortSlots = sortSlots
 
+------------------------------------------------------------------------
+-- Tier tokens
+------------------------------------------------------------------------
+-- A token carries no equip slot, and the journal's class filter never reaches
+-- one, so both facts come off the token's own tooltip: the Use line naming the
+-- slot it turns into, and the restriction line naming the classes it turns
+-- into it for.
+
+-- The journal sorts its loot into the slot filter's buckets even when the item
+-- carries no slot of its own, so that classification is asked first.
+local FILTER_SLOTS = {}
+do
+  local slotKeys = {
+    Head = "INVTYPE_HEAD", Neck = "INVTYPE_NECK", Shoulder = "INVTYPE_SHOULDER",
+    Cloak = "INVTYPE_CLOAK", Chest = "INVTYPE_CHEST", Wrist = "INVTYPE_WRIST",
+    Hand = "INVTYPE_HAND", Waist = "INVTYPE_WAIST", Legs = "INVTYPE_LEGS",
+    Feet = "INVTYPE_FEET", Finger = "INVTYPE_FINGER", Trinket = "INVTYPE_TRINKET",
+    MainHand = "INVTYPE_WEAPONMAINHAND", OffHand = "INVTYPE_WEAPONOFFHAND",
+  }
+  local filters = Enum.ItemSlotFilterType or {}
+  for name, key in pairs(slotKeys) do
+    if filters[name] and _G[key] then FILTER_SLOTS[filters[name]] = _G[key] end
+  end
+end
+
+-- The Use line names the slot in the singular while the paperdoll labels some
+-- of them in the plural, so a label matches by its stem. Longest stem first,
+-- so "Main Hand" is never read as "Hand".
+local slotStems = {}
+do
+  for label in pairs(slotRank) do
+    slotStems[#slotStems + 1] = { label = label, stem = (label:lower():gsub("s$", "")) }
+  end
+  table.sort(slotStems, function(a, b)
+    if #a.stem ~= #b.stem then return #a.stem > #b.stem end
+    return a.stem < b.stem
+  end)
+end
+
+local function slotFromUseLine(lines)
+  for _, line in ipairs(lines) do
+    local text = line.leftText
+    if text and text:find(ITEM_SPELL_TRIGGER_ONUSE, 1, true) then
+      local lower = text:lower()
+      for _, candidate in ipairs(slotStems) do
+        if lower:find(candidate.stem, 1, true) then return candidate.label end
+      end
+    end
+  end
+  return nil
+end
+
+-- Class names nest, "Hunter" sitting inside "Demon Hunter", so the longest
+-- names are struck out of the list before the shorter ones are looked for.
+local function classesNamedIn(text)
+  local names = {}
+  for i = 1, GetNumClasses() do
+    local name, _, id = GetClassInfo(i)
+    if name and id then names[#names + 1] = { id = id, name = name } end
+  end
+  table.sort(names, function(a, b) return #a.name > #b.name end)
+  local found, rest = {}, text
+  for _, c in ipairs(names) do
+    local from, to = rest:find(c.name, 1, true)
+    if from then
+      found[c.id] = true
+      rest = rest:sub(1, from - 1) .. rest:sub(to + 1)
+    end
+  end
+  return next(found) and found or nil
+end
+
+-- The restriction line covers races as well as classes, so a line naming no
+-- class at all is read as no class restriction rather than as none allowed.
+local function classesFromRestrictionLine(lines)
+  for _, line in ipairs(lines) do
+    if line.type == Enum.TooltipDataLineType.RestrictedRaceClass and line.leftText then
+      local classes = classesNamedIn(line.leftText)
+      if classes then return classes end
+    end
+  end
+  return nil
+end
+
+-- Absent facts record as false rather than nil, so a token whose tooltip says
+-- nothing is still read only once.
+local function readToken(lines)
+  return { slot = slotFromUseLine(lines) or false, classes = classesFromRestrictionLine(lines) or false }
+end
+LootWishlist.Browser.readToken = readToken
+
+local tokenFacts = {}
+
+-- Nil until the item's data has arrived; the scan's own cache warming brings a
+-- redraw with it, so the token sits under Other for that one frame.
+local function factsFor(itemID)
+  local cached = tokenFacts[itemID]
+  if cached then return cached end
+  if not (C_TooltipInfo and C_Item and C_Item.IsItemDataCachedByID(itemID)) then return nil end
+  local ok, data = pcall(C_TooltipInfo.GetItemByID, itemID)
+  if not (ok and data and data.lines) then return nil end
+  local facts = readToken(data.lines)
+  tokenFacts[itemID] = facts
+  return facts
+end
+
+local function isToken(it)
+  return not (it.slot and it.slot ~= "")
+end
+
+local function slotOf(it)
+  if not isToken(it) then return it.slot end
+  if it.filterType and FILTER_SLOTS[it.filterType] then return FILTER_SLOTS[it.filterType] end
+  local facts = factsFor(it.itemID)
+  return (facts and facts.slot) or OTHER_SLOT
+end
+
+local function usableByBrowsedClass(it)
+  if not isToken(it) then return true end
+  local facts = factsFor(it.itemID)
+  if not (facts and facts.classes) then return true end
+  return facts.classes[state.classID] == true
+end
+
 -- Every slot present in the current view's cached loot, for the filter menu.
 local function slotsInView()
   local seen, list = {}, {}
@@ -581,8 +702,8 @@ local function slotsInView()
     local cache = lootCache[key]
     if cache then
       for _, it in ipairs(cache.items) do
-        local s = slotOf(it)
-        if not seen[s] then
+        local s = usableByBrowsedClass(it) and slotOf(it)
+        if s and not seen[s] then
           seen[s] = true
           list[#list + 1] = s
         end
@@ -593,10 +714,11 @@ local function slotsInView()
 end
 
 local function matchesFilters(it, inst)
+  if not usableByBrowsedClass(it) then return false end
   if state.slot and slotOf(it) ~= state.slot then return false end
   if state.search == "" then return true end
   local hay = table.concat({
-    it.name or "", it.slot or "", it.armorType or "",
+    it.name or "", slotOf(it), it.armorType or "",
     bossName(it.encounterID) or "", inst.name or "",
   }, " "):lower()
   return hay:find(state.search:lower(), 1, true) ~= nil
@@ -1078,7 +1200,8 @@ local function updateLootRow(row, r)
   if ilvl and ilvl > 1 then
     rightParts[#rightParts + 1] = WC.goldAccent .. ilvl .. WC.reset
   end
-  if it.slot and it.slot ~= "" then rightParts[#rightParts + 1] = it.slot end
+  local slot = slotOf(it)
+  if slot ~= OTHER_SLOT then rightParts[#rightParts + 1] = slot end
   if it.armorType and it.armorType ~= "" then rightParts[#rightParts + 1] = it.armorType end
   if #rightParts > 0 then
     row.right:SetText(table.concat(rightParts, DOT))
