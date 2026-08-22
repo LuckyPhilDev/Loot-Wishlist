@@ -19,6 +19,7 @@ local HEAD_ROW_H   = 26
 local BOSS_ROW_H   = 22
 local NOTE_ROW_H   = 26
 local SIDE_ROW_H   = 24
+local ICON_SIZE    = 18      -- row action icons, matching the wishlist window
 local TOOLBAR_H    = 62
 local DEFAULT_W    = 720
 local DEFAULT_H    = 540
@@ -28,7 +29,14 @@ local MIN_H        = 400
 local SCAN_TIMEOUT = 3
 
 local DOT   = " \194\183 "   -- ·
-local CROSS = "\195\151"     -- ×
+
+-- The muted tone the right-hand column is drawn in leaves nothing brighter to
+-- promote a part with, so the plain text colour is taken as an escape.
+local function colorEscape(c)
+  local function byte(v) return math.floor(v * 255 + 0.5) end
+  return string.format("|cff%02x%02x%02x", byte(c[1]), byte(c[2]), byte(c[3]))
+end
+local LIGHT = colorEscape(C.textLight)
 
 -- %d is the track's lowest key level, filled in from the track entry.
 local TRACK_TIPS = {
@@ -639,12 +647,18 @@ local function classesNamedIn(text)
   return next(found) and found or nil
 end
 
--- The restriction line covers races as well as classes, so a line naming no
--- class at all is read as no class restriction rather than as none allowed.
+-- The line's own type number has moved between game versions, so the class list
+-- is found by the localised prefix the client formats it with instead. A line
+-- naming races carries a different prefix and is left alone, so a token
+-- restricted by race reads as unrestricted by class rather than as none allowed.
+local CLASSES_PREFIX = ((ITEM_CLASSES_ALLOWED or "Classes: %s"):gsub("%%s.*$", ""))
+
 local function classesFromRestrictionLine(lines)
+  if CLASSES_PREFIX == "" then return nil end
   for _, line in ipairs(lines) do
-    if line.type == Enum.TooltipDataLineType.RestrictedRaceClass and line.leftText then
-      local classes = classesNamedIn(line.leftText)
+    local text = line.leftText
+    if text and text:find(CLASSES_PREFIX, 1, true) == 1 then
+      local classes = classesNamedIn(text)
       if classes then return classes end
     end
   end
@@ -659,18 +673,101 @@ end
 LootWishlist.Browser.readToken = readToken
 
 local tokenFacts = {}
+local factsRequested = {}
 
--- Nil until the item's data has arrived; the scan's own cache warming brings a
--- redraw with it, so the token sits under Other for that one frame.
+-- Nil until the item's data has arrived, which leaves the token under Other
+-- until it does. A scan finishes on the item's link, and that lands before the
+-- tooltip the facts are read from, so the warming the scan already does is not
+-- enough on its own: the first miss asks for the item and redraws once it is
+-- here. Asking only once means a token that never resolves cannot loop.
 local function factsFor(itemID)
   local cached = tokenFacts[itemID]
   if cached then return cached end
-  if not (C_TooltipInfo and C_Item and C_Item.IsItemDataCachedByID(itemID)) then return nil end
+  if not (C_TooltipInfo and C_Item) then return nil end
+  if not C_Item.IsItemDataCachedByID(itemID) then
+    if not factsRequested[itemID] and Item and Item.CreateFromItemID then
+      factsRequested[itemID] = true
+      local obj = Item:CreateFromItemID(itemID)
+      if obj and obj.ContinueOnItemLoad then
+        obj:ContinueOnItemLoad(function() scheduleRefresh() end)
+      end
+    end
+    return nil
+  end
   local ok, data = pcall(C_TooltipInfo.GetItemByID, itemID)
   if not (ok and data and data.lines) then return nil end
   local facts = readToken(data.lines)
   tokenFacts[itemID] = facts
   return facts
+end
+
+------------------------------------------------------------------------
+-- Secondary stats
+------------------------------------------------------------------------
+-- Which secondaries a piece carries is what a player picks between two drops
+-- on, the primary stat and stamina following the item level for everyone. The
+-- larger of the two leads, so a row reads the way the piece would be described.
+local SECONDARY_STATS = {
+  { key = "ITEM_MOD_CRIT_RATING_SHORT",    label = S.statCrit },
+  { key = "ITEM_MOD_HASTE_RATING_SHORT",   label = S.statHaste },
+  { key = "ITEM_MOD_MASTERY_RATING_SHORT", label = S.statMastery },
+  { key = "ITEM_MOD_VERSATILITY",          label = S.statVersatility },
+}
+
+-- A row reads an item's stats and level off its link, and both answer with
+-- nothing until the client holds that link's data. The scan warms the journal's
+-- own links, which never covers a track link the browser rebuilt, so the first
+-- miss asks for the link itself and redraws when it lands. Asking once per link
+-- means one that never resolves cannot loop.
+local linkRequested = {}
+
+local function requestItemData(link)
+  if not link or linkRequested[link] then return end
+  if not (Item and Item.CreateFromItemLink) then return end
+  linkRequested[link] = true
+  local ok, obj = pcall(Item.CreateFromItemLink, Item, link)
+  if ok and obj and obj.ContinueOnItemLoad then
+    pcall(obj.ContinueOnItemLoad, obj, function() scheduleRefresh() end)
+  end
+end
+
+-- Keyed by link, since a dungeon item rebuilt at another track is a different
+-- link for the same item. False means read and carrying nothing, so an item
+-- without secondaries is not looked up on every repaint.
+local statCache = {}
+
+local function statsFor(link)
+  if not link then return nil end
+  local cached = statCache[link]
+  if cached ~= nil then return cached or nil end
+  if not (C_Item and C_Item.GetItemStats) then return nil end
+  -- GetItemStats can answer with a partial table while the link is still
+  -- loading, and caching that would leave the row permanently blank, so the
+  -- item itself has to be here before the answer is kept.
+  if not (C_Item.GetItemInfo and C_Item.GetItemInfo(link)) then
+    requestItemData(link)
+    return nil
+  end
+  local ok, stats = pcall(C_Item.GetItemStats, link)
+  if not (ok and stats) then return nil end
+
+  local found = {}
+  for _, stat in ipairs(SECONDARY_STATS) do
+    local value = stats[stat.key]
+    if type(value) == "number" and value > 0 then
+      found[#found + 1] = { label = stat.label, value = value }
+    end
+  end
+  table.sort(found, function(a, b)
+    if a.value ~= b.value then return a.value > b.value end
+    return a.label < b.label
+  end)
+
+  local labels = {}
+  for _, f in ipairs(found) do labels[#labels + 1] = f.label end
+  local text = (#labels > 0) and table.concat(labels, "/") or false
+  statCache[link] = text
+  return text or nil
 end
 
 local function isToken(it)
@@ -782,6 +879,10 @@ local function buildRows()
         if on then onList = onList + 1 end
         local row = {
           kind = "item", item = it, instance = inst,
+          -- What the headings above the row already name, so the sub line can
+          -- leave it out rather than repeat it on every row of the section.
+          headedByInstance = not (hideHeaders or slotGrouping),
+          headedByBoss = withBoss,
           scannedDiff = trackDiff, tracked = on, single = single, viewOnly = viewOnly,
           trackIlvl = trackIlvl, trackName = trackIlvl and state.track or nil,
           trackLink = trackIlvl and trackItemLink(it.itemID, tr) or nil,
@@ -1058,41 +1159,56 @@ local function createLootRow(parent)
   row.right = row:CreateFontString(nil, "OVERLAY")
   row.right:SetFont(UI.BODY_FONT, 10)
   row.right:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
-  row.right:SetPoint("TOPRIGHT", -36, -7)
+  -- One line against the name and sub line's two, so the box spans the row and
+  -- the text sits in the middle of it rather than up on the name's line. The
+  -- name and sub line hang off this box's left edge, so it is anchored top and
+  -- bottom rather than centred, leaving them an edge that does not move.
+  row.right:SetPoint("TOPRIGHT", -36, 0)
+  row.right:SetPoint("BOTTOMRIGHT", -36, 0)
   row.right:SetJustifyH("RIGHT")
+  row.right:SetJustifyV("MIDDLE")
   row.right:SetWordWrap(false)
 
   row.name = row:CreateFontString(nil, "OVERLAY")
   row.name:SetFont(UI.BODY_FONT, 12)
   row.name:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
   row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 6, -2)
-  row.name:SetPoint("RIGHT", row.right, "LEFT", -8, 0)
+  row.name:SetPoint("TOPRIGHT", row.right, "TOPLEFT", -8, -2)
   row.name:SetJustifyH("LEFT")
   row.name:SetWordWrap(false)
 
   row.sub = row:CreateFontString(nil, "OVERLAY")
   row.sub:SetFont(UI.BODY_FONT, 10)
-  row.sub:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
+  -- The leading half of the line is left in the plain tone and the trailing
+  -- half is muted per part, so the two read as a pair rather than one block.
+  row.sub:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
   row.sub:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMRIGHT", 6, 3)
-  row.sub:SetPoint("RIGHT", -36, 0)
+  row.sub:SetPoint("BOTTOMRIGHT", row.right, "BOTTOMLEFT", -8, 3)
   row.sub:SetJustifyH("LEFT")
   row.sub:SetWordWrap(false)
 
-  row.btn = UI.CreateButton(row, "+", 24, 22, "secondary")
-  row.btn:SetPoint("RIGHT", -4, 0)
-  row.btn:SetScript("OnClick", function()
-    if row._r and row._r.kind == "item" then toggleRow(row._r) end
-  end)
-  row.btn:SetScript("OnEnter", function(self)
-    self:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3])
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText((row._r and row._r.tracked) and S.removeFromWishlist or S.addToWishlist, 1, 1, 1)
-    GameTooltip:Show()
-  end)
-  row.btn:SetScript("OnLeave", function(self)
-    self:SetBackdropBorderColor(C.borderDark[1], C.borderDark[2], C.borderDark[3])
-    GameTooltip:Hide()
-  end)
+  -- Add and remove are one toggle, but each state gets its own borderless icon
+  -- button rather than one that swaps art, so the tooltip and tint are settled
+  -- at build time and the paint only chooses which to show.
+  local function actionIcon(icon, tooltip)
+    local btn = UI.CreateIconButton(row, { icon = icon, size = ICON_SIZE })
+    btn:SetPoint("RIGHT", -8, 0)
+    btn:SetScript("OnClick", function()
+      if row._r and row._r.kind == "item" then toggleRow(row._r) end
+    end)
+    btn:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText(tooltip, 1, 1, 1)
+      GameTooltip:Show()
+    end)
+    btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    btn:Hide()
+    return btn
+  end
+
+  row.addBtn = actionIcon("plus", S.addToWishlist)
+  row.removeBtn = actionIcon("x", S.removeFromWishlist)
+  row.removeBtn:SetIconColor(C.danger[1], C.danger[2], C.danger[3], 0.75)
 
   row:SetScript("OnEnter", function(self)
     if self._link then
@@ -1126,7 +1242,8 @@ local function updateLootRow(row, r)
   row.name:Hide()
   row.sub:Hide()
   row.right:Hide()
-  row.btn:Hide()
+  row.addBtn:Hide()
+  row.removeBtn:Hide()
   row.sep:Show()
   row.bg:SetColorTexture(0, 0, 0, 0)
   row._r = r
@@ -1188,7 +1305,21 @@ local function updateLootRow(row, r)
   row.name:SetText(link or it.name or ("Item " .. tostring(it.itemID)))
   row.name:Show()
 
+  -- "Haste/Crit Head · 344": the secondaries the piece carries, then the slot
+  -- it goes in, the two reading as one description rather than as separate
+  -- facts. Grouped by slot, the section heading the row sits under already
+  -- names it, so the row is left with its stats alone. The item level closes
+  -- the line, being three digits on everything, so the column ends level.
+  -- Where the slot does appear it is the one thing separating rows the headings
+  -- have already told you the source of, so it carries the plain text colour
+  -- against the muted rest of the line.
   local rightParts = {}
+  local slot = state.group ~= "slot" and slotOf(it) or nil
+  local descriptor = (slot and slot ~= OTHER_SLOT) and (LIGHT .. slot .. WC.reset) or nil
+  local stats = statsFor(link)
+  if stats then descriptor = descriptor and (stats .. " " .. descriptor) or stats end
+  if descriptor then rightParts[#rightParts + 1] = descriptor end
+
   -- For raids the journal's link carries the difficulty's own bonus IDs, so it
   -- is already the track's item level. Dungeons above Champion have no table
   -- of their own, so the track's level is used instead of the Mythic link's.
@@ -1196,22 +1327,29 @@ local function updateLootRow(row, r)
   if not ilvl then
     ilvl = link and C_Item and C_Item.GetDetailedItemLevelInfo
       and C_Item.GetDetailedItemLevelInfo(link)
+    if not ilvl then requestItemData(link) end
   end
   if ilvl and ilvl > 1 then
     rightParts[#rightParts + 1] = WC.goldAccent .. ilvl .. WC.reset
   end
-  local slot = slotOf(it)
-  if slot ~= OTHER_SLOT then rightParts[#rightParts + 1] = slot end
-  if it.armorType and it.armorType ~= "" then rightParts[#rightParts + 1] = it.armorType end
   if #rightParts > 0 then
     row.right:SetText(table.concat(rightParts, DOT))
     row.right:Show()
   end
 
+  -- A dungeon is shopped by dungeon and a raid boss by boss, so whichever the
+  -- player is picking from leads and the other follows in the muted tone. The
+  -- instance is left off a single instance's own view, and the boss leads there
+  -- whatever the instance is.
   local subParts = {}
-  local boss = bossName(it.encounterID)
-  if boss then subParts[#subParts + 1] = boss end
-  if not r.single and r.instance and r.instance.name then subParts[#subParts + 1] = r.instance.name end
+  local boss = (not r.headedByBoss) and bossName(it.encounterID) or nil
+  local instance = (not (r.single or r.headedByInstance) and r.instance and r.instance.name) or nil
+  local lead, trail
+  if r.instance and r.instance.isRaid then lead, trail = boss, instance
+  else lead, trail = instance, boss end
+  if not lead then lead, trail = trail, nil end
+  if lead then subParts[#subParts + 1] = lead end
+  if trail then subParts[#subParts + 1] = WC.textMuted .. trail .. WC.reset end
   if it.veryRare then subParts[#subParts + 1] = WC.purple .. S.veryRare .. WC.reset end
   if #subParts > 0 then
     row.sub:SetText(table.concat(subParts, DOT))
@@ -1219,16 +1357,8 @@ local function updateLootRow(row, r)
   end
 
   if not r.viewOnly then
-    if r.tracked then
-      row.btn:SetBackdropColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 0.9)
-      row.btn.label:SetText(CROSS)
-      row.btn.label:SetTextColor(C.bgDark[1], C.bgDark[2], C.bgDark[3])
-    else
-      row.btn:SetBackdropColor(C.bgInput[1], C.bgInput[2], C.bgInput[3], C.bgInput[4])
-      row.btn.label:SetText("+")
-      row.btn.label:SetTextColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
-    end
-    row.btn:Show()
+    local btn = r.tracked and row.removeBtn or row.addBtn
+    btn:Show()
   end
 end
 

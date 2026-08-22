@@ -18,6 +18,21 @@ local INSTANCE_ROW_H = 26
 local BOSS_ROW_H     = 22
 local ITEM_ROW_H     = 44
 local SCROLLBAR_W    = 16
+local ICON_SIZE      = 18
+local ICON_GAP       = 6
+-- The gaps between the row's icons are dead space, and crossing one hands the
+-- mouse back to the row itself, which flashes the item tooltip. Each button's
+-- hit region grows by half a gap to meet its neighbours and by the rest of the
+-- row height, so the whole action strip belongs to the icons.
+local ICON_HIT_X     = ICON_GAP / 2
+local ICON_HIT_Y     = (ITEM_ROW_H - ICON_SIZE) / 2
+-- Borderless row actions, the icon button format Lucky's Wardrobe uses. These
+-- name the shared set in Luckys_Utils, which the button resolves and tints.
+local ICONS = {
+  obtained  = "check",
+  bonusRoll = "dice",
+  remove    = "x",
+}
 local DEFAULT_W      = 520
 local DEFAULT_H      = 500
 local MIN_W          = 440
@@ -117,16 +132,23 @@ end
 ------------------------------------------------------------------------
 local function groupItemsByInstance()
   local groups = {}
-  for key, info in pairs(LootWishlist.GetTracked()) do
-    local inst = info.dungeon or "Unknown"
-    local g = groups[inst]
-    if not g then
-      g = { name = inst, isRaid = info.isRaid and true or false, items = {}, instanceID = info.instanceID }
-      groups[inst] = g
+  local function collect(source, obtained)
+    for key, info in pairs(source) do
+      local inst = info.dungeon or "Unknown"
+      local g = groups[inst]
+      if not g then
+        g = { name = inst, isRaid = info.isRaid and true or false, items = {}, instanceID = info.instanceID }
+        groups[inst] = g
+      end
+      if info.instanceID and not g.instanceID then g.instanceID = info.instanceID end
+      if info.isRaid then g.isRaid = true end
+      table.insert(g.items, { key = key, id = info.id or tonumber(key) or 0, info = info, obtained = obtained })
     end
-    if info.instanceID and not g.instanceID then g.instanceID = info.instanceID end
-    if info.isRaid then g.isRaid = true end
-    table.insert(g.items, { key = key, id = info.id or tonumber(key) or 0, info = info })
+  end
+  collect(LootWishlist.GetTracked())
+  local settings = LootWishlistDB and LootWishlistDB.settings
+  if not (settings and settings.hideObtained) then
+    collect(LootWishlist.GetObtained and LootWishlist.GetObtained() or {}, true)
   end
   local ordered = {}
   for name, g in pairs(groups) do table.insert(ordered, { name = name, g = g }) end
@@ -152,7 +174,7 @@ local function mergeItemsByID(items)
   for _, it in ipairs(items) do
     local id = it.id
     if not byID[id] then
-      byID[id] = { id = id, info = it.info, diffs = {} }
+      byID[id] = { id = id, info = it.info, obtained = it.obtained, diffs = {} }
       table.insert(merged, byID[id])
     end
     local tag = LootWishlist.Const.DiffTag(it.info.difficultyName, it.info.difficultyID)
@@ -174,11 +196,21 @@ end
 ------------------------------------------------------------------------
 local function buildFlatRows()
   local rows = {}
+  -- Headings count what is still being chased, so they agree with the item
+  -- count in the status bar however many obtained rows sit under them.
   local function uniqueItemCount(items)
     local seen = {}
     local n = 0
     for _, it in ipairs(items) do
-      if not seen[it.id] then seen[it.id] = true; n = n + 1 end
+      if not it.obtained and not seen[it.id] then seen[it.id] = true; n = n + 1 end
+    end
+    return n
+  end
+
+  local function activeCount(merged)
+    local n = 0
+    for _, m in ipairs(merged) do
+      if not m.obtained then n = n + 1 end
     end
     return n
   end
@@ -218,9 +250,9 @@ local function buildFlatRows()
           return ((a.info and a.info.difficultyID) or 0) < ((b.info and b.info.difficultyID) or 0)
         end)
         local merged = mergeItemsByID(boss.items)
-        table.insert(rows, { type = "boss", name = boss.name, count = #merged })
+        table.insert(rows, { type = "boss", name = boss.name, count = activeCount(merged) })
         for _, m in ipairs(merged) do
-          table.insert(rows, { type = "item", id = m.id, info = m.info, diffs = m.diffs, indent = true })
+          table.insert(rows, { type = "item", id = m.id, info = m.info, diffs = m.diffs, obtained = m.obtained, indent = true })
         end
       end
     else
@@ -232,7 +264,7 @@ local function buildFlatRows()
       end)
       local merged = mergeItemsByID(g.items)
       for _, m in ipairs(merged) do
-        table.insert(rows, { type = "item", id = m.id, info = m.info, diffs = m.diffs, indent = false })
+        table.insert(rows, { type = "item", id = m.id, info = m.info, diffs = m.diffs, obtained = m.obtained, indent = false })
       end
     end
   end
@@ -287,6 +319,14 @@ local function buildSpecText(info)
 end
 
 ------------------------------------------------------------------------
+-- setIconState: a row action reads lit when its state is on, greyed when off
+------------------------------------------------------------------------
+local function setIconState(btn, on)
+  local c = on and C.goldIcon or C.textMuted
+  btn:SetIconColor(c[1], c[2], c[3], 1)
+end
+
+------------------------------------------------------------------------
 -- createPoolFrame: one reusable row
 ------------------------------------------------------------------------
 local function createPoolFrame(parent)
@@ -330,7 +370,7 @@ local function createPoolFrame(parent)
   f.itemLabel:SetFont(UI.BODY_FONT, 12)
   f.itemLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
   f.itemLabel:SetPoint("TOPLEFT", f.icon, "TOPRIGHT", 6, -2)
-  f.itemLabel:SetPoint("RIGHT",   -64, 0)
+  f.itemLabel:SetPoint("RIGHT",   -80, 0)
   f.itemLabel:SetJustifyH("LEFT")
   f.itemLabel:SetWordWrap(false)
   f.itemLabel:Hide()
@@ -340,19 +380,31 @@ local function createPoolFrame(parent)
   f.subLabel:SetFont(UI.BODY_FONT, 10)
   f.subLabel:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
   f.subLabel:SetPoint("BOTTOMLEFT", f.icon, "BOTTOMRIGHT", 6, 3)
-  f.subLabel:SetPoint("RIGHT",      -64, 0)
+  f.subLabel:SetPoint("RIGHT",      -80, 0)
   f.subLabel:SetJustifyH("LEFT")
   f.subLabel:SetWordWrap(false)
   f.subLabel:Hide()
 
-  -- Remove button (matches Character Mount list style: 24×22 secondary)
-  f.removeBtn = UI.CreateButton(f, "\195\151", 24, 22, "secondary")
-  f.removeBtn:SetPoint("RIGHT", -4, 0)
+  -- Row actions, right to left: remove, bonus roll, obtained.
+  local function rowIcon(icon, color)
+    local btn = UI.CreateIconButton(f, { icon = icon, size = ICON_SIZE, color = color })
+    btn:SetHitRectInsets(-ICON_HIT_X, -ICON_HIT_X, -ICON_HIT_Y, -ICON_HIT_Y)
+    btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    btn:Hide()
+    return btn
+  end
 
-  -- Bonus roll toggle button (left of remove)
-  f.bonusRollBtn = UI.CreateButton(f, "BR", 28, 22, "secondary")
-  f.bonusRollBtn:SetPoint("RIGHT", f.removeBtn, "LEFT", -4, 0)
-  f.bonusRollBtn.label:SetFont(UI.BODY_FONT, 10)
+  f.removeBtn = rowIcon(ICONS.remove, C.danger)
+  f.removeBtn:SetPoint("RIGHT", -8, 0)
+  f.removeBtn:SetIconColor(C.danger[1], C.danger[2], C.danger[3], 0.75)
+  f.removeBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(S.removeFromWishlist, 1, 1, 1)
+    GameTooltip:Show()
+  end)
+
+  f.bonusRollBtn = rowIcon(ICONS.bonusRoll)
+  f.bonusRollBtn:SetPoint("RIGHT", f.removeBtn, "LEFT", -ICON_GAP, 0)
   f.bonusRollBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText(S.bonusRollTitle, 1, 1, 1)
@@ -360,20 +412,9 @@ local function createPoolFrame(parent)
     GameTooltip:AddLine(S.bonusRollLine2, 0.8, 0.8, 0.8, true)
     GameTooltip:Show()
   end)
-  f.bonusRollBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  f.bonusRollBtn:Hide()
-  f.removeBtn.label:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 0.6)
-  f.removeBtn:SetScript("OnEnter", function(self)
-    self.label:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 1)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText(S.removeFromWishlist, 1, 1, 1)
-    GameTooltip:Show()
-  end)
-  f.removeBtn:SetScript("OnLeave", function(self)
-    self.label:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 0.6)
-    GameTooltip:Hide()
-  end)
-  f.removeBtn:Hide()
+
+  f.obtainedBtn = rowIcon(ICONS.obtained)
+  f.obtainedBtn:SetPoint("RIGHT", f.bonusRollBtn, "LEFT", -ICON_GAP, 0)
 
   -- Tooltip on hover
   f:SetScript("OnEnter", function(self)
@@ -414,6 +455,10 @@ local function populatePoolFrame(f, row, rowIndex)
   if f.bonusRollBtn then
     f.bonusRollBtn:Hide()
     f.bonusRollBtn:SetScript("OnClick", nil)
+  end
+  if f.obtainedBtn then
+    f.obtainedBtn:Hide()
+    f.obtainedBtn:SetScript("OnClick", nil)
   end
   f.itemLink = nil
   f.rowType  = row.type
@@ -524,21 +569,40 @@ local function populatePoolFrame(f, row, rowIndex)
       f.subLabel:Show()
     end
 
+    -- An obtained row stays in place, greyed out, so the record of what you
+    -- chased survives without competing with what you still want.
+    local obtained = row.obtained and true or false
+    local dim = obtained and 0.4 or 1
+    f.icon:SetAlpha(dim)
+    f.qualityBar:SetAlpha(dim)
+    f.itemLabel:SetAlpha(dim)
+    f.subLabel:SetAlpha(dim)
+
     -- Remove button — removes all difficulties for this item in one call
     local itemIDForRemove = row.id
     f.removeBtn:SetScript("OnClick", function() LootWishlist.RemoveTrackedItem(itemIDForRemove) end)
     f.removeBtn:Show()
 
+    -- Obtained toggle
+    if f.obtainedBtn then
+      setIconState(f.obtainedBtn, obtained)
+      f.obtainedBtn:SetScript("OnClick", function()
+        LootWishlist.SetObtained(itemIDForRemove, not obtained)
+      end)
+      f.obtainedBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(obtained and S.notObtained or S.markObtained, 1, 1, 1)
+        GameTooltip:AddLine(obtained and S.notObtainedLine or S.markObtainedLine, 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+      end)
+      f.obtainedBtn:Show()
+    end
+
     -- Bonus roll toggle button
     if f.bonusRollBtn and LootWishlist.BonusRoll then
       local idForBR = row.id
       local function paint()
-        local on = LootWishlist.BonusRoll.IsFlagged(idForBR)
-        if on then
-          f.bonusRollBtn.label:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3], 1)
-        else
-          f.bonusRollBtn.label:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3], 1)
-        end
+        setIconState(f.bonusRollBtn, LootWishlist.BonusRoll.IsFlagged(idForBR))
       end
       paint()
       f.bonusRollBtn:SetScript("OnClick", function()
@@ -610,13 +674,17 @@ local function warmTrackedItems()
   if type(tracked) ~= "table" then return end
 
   local ids, seen, missing = {}, {}, false
-  for _, v in pairs(tracked) do
-    if type(v) == "table" and type(v.id) == "number" and not seen[v.id] then
-      seen[v.id] = true
-      ids[#ids + 1] = v.id
-      if not LuckyItem:IsCached(v.id) then missing = true end
+  local function collect(source)
+    for _, v in pairs(source) do
+      if type(v) == "table" and type(v.id) == "number" and not seen[v.id] then
+        seen[v.id] = true
+        ids[#ids + 1] = v.id
+        if not LuckyItem:IsCached(v.id) then missing = true end
+      end
     end
   end
+  collect(tracked)
+  collect(LootWishlist.GetObtained and LootWishlist.GetObtained() or {})
 
   if not missing or warmPending then return end
   warmPending = true
@@ -673,7 +741,8 @@ local function refresh()
     end
   end
   if clearBtn then
-    if count > 0 then clearBtn:Enable() else clearBtn:Disable() end
+    local obtained = LootWishlist.GetObtained and LootWishlist.GetObtained()
+    if count > 0 or (obtained and next(obtained)) then clearBtn:Enable() else clearBtn:Disable() end
   end
 
   renderVisibleRows()

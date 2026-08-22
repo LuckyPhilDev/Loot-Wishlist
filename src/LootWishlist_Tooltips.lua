@@ -14,7 +14,6 @@ LootWishlist.UI = LootWishlist.UI or {}
 -- on the left half of the screen opens its tooltips to the right, one on the
 -- right half opens them to the left, and the comparisons run on outwards from
 -- the tooltip.
-local TipLog = LuckyLog:New("|cff88ff88[LWL-tip]|r", function() return LootWishlist.IsDebug and LootWishlist.IsDebug() end)
 
 local function windowFor(region)
   while region do
@@ -45,7 +44,6 @@ function LootWishlist.UI.AnchorItemTooltip(owner)
   else
     GameTooltip:SetPoint("TOPRIGHT", win, "TOPLEFT", -4, 0)
   end
-  TipLog(string.format("tooltip to the %s of the window", side))
 end
 
 -- Whoever placed the comparisons measured the GameTooltip alone, which lands them
@@ -61,15 +59,14 @@ function LootWishlist.UI.PlaceComparisonTooltips()
   local point, relativePoint = "TOPLEFT", "TOPRIGHT"
   if side == "left" then point, relativePoint = "TOPRIGHT", "TOPLEFT" end
 
-  local relativeTo, placed = GameTooltip, 0
+  local relativeTo = GameTooltip
   for _, comparison in ipairs(GameTooltip.shoppingTooltips or {}) do
     if comparison:IsShown() then
       comparison:ClearAllPoints()
       comparison:SetPoint(point, relativeTo, relativePoint, 0, relativeTo == GameTooltip and -10 or 0)
-      relativeTo, placed = comparison, placed + 1
+      relativeTo = comparison
     end
   end
-  TipLog(string.format("%d of %d comparisons to the %s", placed, #(GameTooltip.shoppingTooltips or {}), side))
 end
 
 ------------------------------------------------------------------------

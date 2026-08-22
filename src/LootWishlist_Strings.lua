@@ -69,6 +69,10 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         close              = "Close",
         browseLoot         = "Browse Loot",
         removeFromWishlist = "Remove from wishlist",
+        markObtained       = "Mark as obtained",
+        markObtainedLine   = "Keeps the item on the list but stops its alerts and reminders.",
+        notObtained        = "Not obtained after all",
+        notObtainedLine    = "Puts the item back on the list and starts its alerts again.",
         bonusRollTitle     = "Mark as bonus roll target",
         bonusRollLine1     = "Reminds you to spend a Nebulous Voidcore charge",
         bonusRollLine2     = "after a M+ 10+ run or Heroic/Mythic raid boss kill.",
@@ -100,6 +104,10 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         bySource          = "By Source",
         allSlots          = "All Slots",
         searchPlaceholder = "Search items, bosses, slots...",
+        statCrit          = "Crit",
+        statHaste         = "Haste",
+        statMastery       = "Mast",
+        statVersatility   = "Vers",
     },
 
     bonusRoll = {
@@ -191,6 +199,8 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
 
         trackHigher        = "Also track higher difficulties",
         trackHigherDesc    = "Adding a dungeon item on Normal also tracks it on Heroic, Mythic and Mythic+. Turn this off to track only the difficulty you picked.",
+        hideObtained       = "Hide obtained items",
+        hideObtainedDesc   = "Items you tick as obtained stay in the wishlist window, greyed out under their boss. Ticking this takes them off the screen instead. Either way they raise no alerts or reminders.",
         vaultStar          = "Star wishlist items in the Great Vault",
         vaultStarDesc      = "Puts a pulsing star on any Great Vault reward you track. Hover the star to see which wishlist entries it matches.",
         hideWardrobe       = "Hide the Wardrobe model preview",
