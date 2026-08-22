@@ -4,7 +4,9 @@
 - **Mark as obtained** A tick on each wishlist row greys the item out and stops its alerts and reminders, so a second drop stays quiet without deleting the record. Hide obtained items entirely from the Wishlist settings group.
 
 ### Improved
-- **Wishlist row buttons** Bonus roll and remove are icons now rather than lettered buttons, matching the rest of the suite.
+- **Wishlist row buttons** Bonus roll and remove are icons now rather than lettered buttons, and the Loot Browser's add and remove match them.
+- **Secondary stats in the Loot Browser** A row reads its stats before the slot, largest first, so a Head piece shows as Haste/Crit Head. Armour type has gone from the row, the class filter having already settled it, and still answers a search.
+- **Loot Browser sources** A dungeon drop leads with the dungeon and a raid drop with the boss, the other half of the pair following in a quieter tone.
 
 ### Fixed
 - Moving the mouse between the buttons on a wishlist row no longer flashes the item tooltip on the way past.

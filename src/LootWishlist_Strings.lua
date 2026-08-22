@@ -104,6 +104,10 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         bySource          = "By Source",
         allSlots          = "All Slots",
         searchPlaceholder = "Search items, bosses, slots...",
+        statCrit          = "Crit",
+        statHaste         = "Haste",
+        statMastery       = "Mast",
+        statVersatility   = "Vers",
     },
 
     bonusRoll = {

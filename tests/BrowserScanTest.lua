@@ -5,7 +5,9 @@
 -- EJ_GetNumLoot, and touching the selection restarts the server's loot query.
 
 LootWishlist = {}
-LuckyUI = { C = {}, WC = {} }
+-- The browser reads a colour at load to build its own escape, so the stub
+-- carries the palette entries it takes rather than an empty table.
+LuckyUI = { C = { textLight = { 0.910, 0.863, 0.784 } }, WC = {} }
 
 ------------------------------------------------------------------------
 -- Timers: collected, then run on demand
