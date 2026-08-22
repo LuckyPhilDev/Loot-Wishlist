@@ -255,6 +255,8 @@ local function buildMinimap(g)
       desc     = desc,
       note     = note,
       since    = "1.12.3",
+      -- The action names run long, so they get the line to themselves.
+      newLine  = true,
       options  = LootWishlist.Const.MINIMAP_CLICK_ACTIONS,
       value    = function() return read(key) end,
       onSelect = function(action) write(key, action) end,
