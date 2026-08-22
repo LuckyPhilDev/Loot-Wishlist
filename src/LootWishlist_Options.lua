@@ -149,6 +149,17 @@ local function buildWishlist(g)
   })
 
   g:Toggle({
+    label    = S.hideObtained,
+    desc     = S.hideObtainedDesc,
+    since    = "1.14.0",
+    checked  = function() return isOff("hideObtained") end,
+    onToggle = function(checked)
+      write("hideObtained", checked)
+      if LootWishlist.UI and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
+    end,
+  })
+
+  g:Toggle({
     label    = S.vaultStar,
     desc     = S.vaultStarDesc,
     checked  = function() return isOn("enableVaultOverlay") end,

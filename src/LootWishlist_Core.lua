@@ -21,7 +21,8 @@ local S = LootWishlist.Strings
 LootWishlist.DEBUG = function() return DEBUG end
 
 -- Local state
-local trackedItems -- assigned after DB init; may use string keys for difficulty variants
+local trackedItems  -- assigned after DB init; may use string keys for difficulty variants
+local obtainedItems -- same entry shape, holding what the player has already won
 
 -- No basic frame: custom raw-frame UI is the only path now
 
@@ -80,6 +81,9 @@ local function InitializeDB()
   LootWishlist.trackedItems = LootWishlistCharDB.trackedItems
   trackedItems = LootWishlist.trackedItems
 
+  LootWishlistCharDB.obtainedItems = LootWishlistCharDB.obtainedItems or {}
+  obtainedItems = LootWishlistCharDB.obtainedItems
+
   -- Initialize settings tables
   LootWishlistCharDB.settings = LootWishlistCharDB.settings or {}
   LootWishlistDB.settings = LootWishlistDB.settings or {}
@@ -122,6 +126,7 @@ local function InitializeDB()
     acctS.hideWardrobePreviewInBrowser = nil
   end
   if acctS.hideWardrobePreview == nil then acctS.hideWardrobePreview = false end
+  if acctS.hideObtained == nil then acctS.hideObtained = false end
 
   -- Restore window position is handled by Ace frame status table
 
@@ -182,6 +187,27 @@ end
 
 -- Public API: Add/Remove/Iterate --------------------------------------------
 
+local function refreshAll()
+  if LootWishlist.UI and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
+  if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
+  if LootWishlist.Browser and LootWishlist.Browser.refresh then LootWishlist.Browser.refresh() end
+end
+
+-- Move every entry for itemID out of `from`, into `to` when one is given and
+-- dropping them otherwise. Obtaining is per item rather than per difficulty:
+-- the drop is in your bags whichever difficulty it came from.
+local function moveEntries(from, to, itemID)
+  local moved = false
+  for k, v in pairs(from) do
+    if type(v) == "table" and v.id == itemID then
+      if to then to[k] = v end
+      from[k] = nil
+      moved = true
+    end
+  end
+  return moved
+end
+
 -- Add without opening the wishlist window (used by the Loot Browser).
 function LootWishlist.AddTrackedItemQuiet(itemID, bossName, instanceName, isRaid, itemLink, encounterID, instanceID, difficultyID, difficultyName)
   -- Compose a unique key so that the same item can be tracked for multiple difficulties
@@ -192,6 +218,8 @@ function LootWishlist.AddTrackedItemQuiet(itemID, bossName, instanceName, isRaid
     -- Back-compat when difficulty isn\'t provided
     key = tostring(itemID)
   end
+  -- Tracking an item again is how you take back an obtained mark.
+  moveEntries(obtainedItems, nil, itemID)
   trackedItems[key] = {
     id = itemID,
     boss = bossName,
@@ -271,8 +299,12 @@ function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
     return id, diff
   end
   if type(keyOrID) == "string" then
+    if obtainedItems[keyOrID] then obtainedItems[keyOrID] = nil; removed = true; table.insert(removedKeys, tostring(keyOrID)) end
     if trackedItems[keyOrID] then trackedItems[keyOrID] = nil; removed = true; table.insert(removedKeys, tostring(keyOrID)) end
   elseif type(keyOrID) == "number" then
+    -- An obtained item is off the active list, so it goes whole rather than by
+    -- difficulty.
+    if moveEntries(obtainedItems, nil, keyOrID) then removed = true end
     for k, v in pairs(trackedItems) do
       local vid, vdiff
       if type(v) == "table" then
@@ -296,9 +328,7 @@ function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
       for _ in pairs(trackedItems) do cnt = cnt + 1 end
       DevLog("removed keys:", table.concat(removedKeys, ", "), "remaining=", cnt)
     end
-    if LootWishlist.UI and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
-    if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
-    if LootWishlist.Browser and LootWishlist.Browser.refresh then LootWishlist.Browser.refresh() end
+    refreshAll()
   else
     DevLog("RemoveTrackedItem: no matching entries removed")
   end
@@ -313,11 +343,37 @@ function LootWishlist.GetTracked()
 end
 
 function LootWishlist.ClearAllTracked()
-  if not trackedItems or not next(trackedItems) then return end
+  if not (trackedItems and (next(trackedItems) or next(obtainedItems))) then return end
   for k in pairs(trackedItems) do trackedItems[k] = nil end
-  if LootWishlist.UI and LootWishlist.UI.refresh then LootWishlist.UI.refresh() end
-  if LootWishlist.Summary and LootWishlist.Summary.refresh then LootWishlist.Summary.refresh() end
-  if LootWishlist.Browser and LootWishlist.Browser.refresh then LootWishlist.Browser.refresh() end
+  for k in pairs(obtainedItems) do obtainedItems[k] = nil end
+  refreshAll()
+end
+
+-- Obtained items -------------------------------------------------------------
+-- An obtained item keeps its entries but leaves trackedItems, so alerts,
+-- reminders, bonus rolls, the summary and the vault overlay all stop seeing it
+-- without a check of their own. Only the wishlist window reads both tables.
+
+function LootWishlist.GetObtained()
+  return obtainedItems
+end
+
+function LootWishlist.IsObtained(itemID)
+  for _, v in pairs(obtainedItems) do
+    if type(v) == "table" and v.id == itemID then return true end
+  end
+  return false
+end
+
+function LootWishlist.SetObtained(itemID, obtained)
+  if type(itemID) ~= "number" then return end
+  local moved
+  if obtained then
+    moved = moveEntries(trackedItems, obtainedItems, itemID)
+  else
+    moved = moveEntries(obtainedItems, trackedItems, itemID)
+  end
+  if moved then refreshAll() end
 end
 
 -- Manually add an item to the wishlist from a slash command.

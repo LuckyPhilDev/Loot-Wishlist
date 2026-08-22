@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Added
+- **Mark as obtained** A tick on each wishlist row greys the item out and stops its alerts and reminders, so a second drop stays quiet without deleting the record. Hide obtained items entirely from the Wishlist settings group.
+
 ## [1.13.1] - 2026-08-21
 
 ### Fixed
