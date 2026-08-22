@@ -18,6 +18,21 @@ local INSTANCE_ROW_H = 26
 local BOSS_ROW_H     = 22
 local ITEM_ROW_H     = 44
 local SCROLLBAR_W    = 16
+local ICON_SIZE      = 18
+local ICON_GAP       = 6
+-- The gaps between the row's icons are dead space, and crossing one hands the
+-- mouse back to the row itself, which flashes the item tooltip. Each button's
+-- hit region grows by half a gap to meet its neighbours and by the rest of the
+-- row height, so the whole action strip belongs to the icons.
+local ICON_HIT_X     = ICON_GAP / 2
+local ICON_HIT_Y     = (ITEM_ROW_H - ICON_SIZE) / 2
+-- Borderless row actions, the icon button format Lucky's Wardrobe uses. These
+-- name the shared set in Luckys_Utils, which the button resolves and tints.
+local ICONS = {
+  obtained  = "check",
+  bonusRoll = "dice",
+  remove    = "x",
+}
 local DEFAULT_W      = 520
 local DEFAULT_H      = 500
 local MIN_W          = 440
@@ -304,6 +319,14 @@ local function buildSpecText(info)
 end
 
 ------------------------------------------------------------------------
+-- setIconState: a row action reads lit when its state is on, greyed when off
+------------------------------------------------------------------------
+local function setIconState(btn, on)
+  local c = on and C.goldIcon or C.textMuted
+  btn:SetIconColor(c[1], c[2], c[3], 1)
+end
+
+------------------------------------------------------------------------
 -- createPoolFrame: one reusable row
 ------------------------------------------------------------------------
 local function createPoolFrame(parent)
@@ -347,7 +370,7 @@ local function createPoolFrame(parent)
   f.itemLabel:SetFont(UI.BODY_FONT, 12)
   f.itemLabel:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
   f.itemLabel:SetPoint("TOPLEFT", f.icon, "TOPRIGHT", 6, -2)
-  f.itemLabel:SetPoint("RIGHT",   -92, 0)
+  f.itemLabel:SetPoint("RIGHT",   -80, 0)
   f.itemLabel:SetJustifyH("LEFT")
   f.itemLabel:SetWordWrap(false)
   f.itemLabel:Hide()
@@ -357,19 +380,31 @@ local function createPoolFrame(parent)
   f.subLabel:SetFont(UI.BODY_FONT, 10)
   f.subLabel:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
   f.subLabel:SetPoint("BOTTOMLEFT", f.icon, "BOTTOMRIGHT", 6, 3)
-  f.subLabel:SetPoint("RIGHT",      -92, 0)
+  f.subLabel:SetPoint("RIGHT",      -80, 0)
   f.subLabel:SetJustifyH("LEFT")
   f.subLabel:SetWordWrap(false)
   f.subLabel:Hide()
 
-  -- Remove button (matches Character Mount list style: 24×22 secondary)
-  f.removeBtn = UI.CreateButton(f, "\195\151", 24, 22, "secondary")
-  f.removeBtn:SetPoint("RIGHT", -4, 0)
+  -- Row actions, right to left: remove, bonus roll, obtained.
+  local function rowIcon(icon, color)
+    local btn = UI.CreateIconButton(f, { icon = icon, size = ICON_SIZE, color = color })
+    btn:SetHitRectInsets(-ICON_HIT_X, -ICON_HIT_X, -ICON_HIT_Y, -ICON_HIT_Y)
+    btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    btn:Hide()
+    return btn
+  end
 
-  -- Bonus roll toggle button (left of remove)
-  f.bonusRollBtn = UI.CreateButton(f, "BR", 28, 22, "secondary")
-  f.bonusRollBtn:SetPoint("RIGHT", f.removeBtn, "LEFT", -4, 0)
-  f.bonusRollBtn.label:SetFont(UI.BODY_FONT, 10)
+  f.removeBtn = rowIcon(ICONS.remove, C.danger)
+  f.removeBtn:SetPoint("RIGHT", -8, 0)
+  f.removeBtn:SetIconColor(C.danger[1], C.danger[2], C.danger[3], 0.75)
+  f.removeBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(S.removeFromWishlist, 1, 1, 1)
+    GameTooltip:Show()
+  end)
+
+  f.bonusRollBtn = rowIcon(ICONS.bonusRoll)
+  f.bonusRollBtn:SetPoint("RIGHT", f.removeBtn, "LEFT", -ICON_GAP, 0)
   f.bonusRollBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText(S.bonusRollTitle, 1, 1, 1)
@@ -377,32 +412,9 @@ local function createPoolFrame(parent)
     GameTooltip:AddLine(S.bonusRollLine2, 0.8, 0.8, 0.8, true)
     GameTooltip:Show()
   end)
-  f.bonusRollBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  f.bonusRollBtn:Hide()
 
-  -- Obtained toggle (left of the bonus roll button). The game font has no tick
-  -- glyph, so the button carries Blizzard's checkbox texture rather than text.
-  f.obtainedBtn = UI.CreateButton(f, "", 24, 22, "secondary")
-  f.obtainedBtn:SetPoint("RIGHT", f.bonusRollBtn, "LEFT", -4, 0)
-  f.obtainedBtn.tick = f.obtainedBtn:CreateTexture(nil, "OVERLAY")
-  f.obtainedBtn.tick:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-  f.obtainedBtn.tick:SetSize(16, 16)
-  f.obtainedBtn.tick:SetPoint("CENTER")
-  f.obtainedBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  f.obtainedBtn:Hide()
-
-  f.removeBtn.label:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 0.6)
-  f.removeBtn:SetScript("OnEnter", function(self)
-    self.label:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 1)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText(S.removeFromWishlist, 1, 1, 1)
-    GameTooltip:Show()
-  end)
-  f.removeBtn:SetScript("OnLeave", function(self)
-    self.label:SetTextColor(C.danger[1], C.danger[2], C.danger[3], 0.6)
-    GameTooltip:Hide()
-  end)
-  f.removeBtn:Hide()
+  f.obtainedBtn = rowIcon(ICONS.obtained)
+  f.obtainedBtn:SetPoint("RIGHT", f.bonusRollBtn, "LEFT", -ICON_GAP, 0)
 
   -- Tooltip on hover
   f:SetScript("OnEnter", function(self)
@@ -573,8 +585,7 @@ local function populatePoolFrame(f, row, rowIndex)
 
     -- Obtained toggle
     if f.obtainedBtn then
-      f.obtainedBtn.tick:SetDesaturated(not obtained)
-      f.obtainedBtn.tick:SetAlpha(obtained and 1 or 0.35)
+      setIconState(f.obtainedBtn, obtained)
       f.obtainedBtn:SetScript("OnClick", function()
         LootWishlist.SetObtained(itemIDForRemove, not obtained)
       end)
@@ -587,17 +598,11 @@ local function populatePoolFrame(f, row, rowIndex)
       f.obtainedBtn:Show()
     end
 
-    -- Bonus roll toggle button. An obtained item raises no reminders, so the
-    -- toggle has nothing to act on.
-    if f.bonusRollBtn and LootWishlist.BonusRoll and not obtained then
+    -- Bonus roll toggle button
+    if f.bonusRollBtn and LootWishlist.BonusRoll then
       local idForBR = row.id
       local function paint()
-        local on = LootWishlist.BonusRoll.IsFlagged(idForBR)
-        if on then
-          f.bonusRollBtn.label:SetTextColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3], 1)
-        else
-          f.bonusRollBtn.label:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3], 1)
-        end
+        setIconState(f.bonusRollBtn, LootWishlist.BonusRoll.IsFlagged(idForBR))
       end
       paint()
       f.bonusRollBtn:SetScript("OnClick", function()
