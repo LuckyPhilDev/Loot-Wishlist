@@ -639,12 +639,18 @@ local function classesNamedIn(text)
   return next(found) and found or nil
 end
 
--- The restriction line covers races as well as classes, so a line naming no
--- class at all is read as no class restriction rather than as none allowed.
+-- The line's own type number has moved between game versions, so the class list
+-- is found by the localised prefix the client formats it with instead. A line
+-- naming races carries a different prefix and is left alone, so a token
+-- restricted by race reads as unrestricted by class rather than as none allowed.
+local CLASSES_PREFIX = ((ITEM_CLASSES_ALLOWED or "Classes: %s"):gsub("%%s.*$", ""))
+
 local function classesFromRestrictionLine(lines)
+  if CLASSES_PREFIX == "" then return nil end
   for _, line in ipairs(lines) do
-    if line.type == Enum.TooltipDataLineType.RestrictedRaceClass and line.leftText then
-      local classes = classesNamedIn(line.leftText)
+    local text = line.leftText
+    if text and text:find(CLASSES_PREFIX, 1, true) == 1 then
+      local classes = classesNamedIn(text)
       if classes then return classes end
     end
   end
@@ -659,13 +665,27 @@ end
 LootWishlist.Browser.readToken = readToken
 
 local tokenFacts = {}
+local factsRequested = {}
 
--- Nil until the item's data has arrived; the scan's own cache warming brings a
--- redraw with it, so the token sits under Other for that one frame.
+-- Nil until the item's data has arrived, which leaves the token under Other
+-- until it does. A scan finishes on the item's link, and that lands before the
+-- tooltip the facts are read from, so the warming the scan already does is not
+-- enough on its own: the first miss asks for the item and redraws once it is
+-- here. Asking only once means a token that never resolves cannot loop.
 local function factsFor(itemID)
   local cached = tokenFacts[itemID]
   if cached then return cached end
-  if not (C_TooltipInfo and C_Item and C_Item.IsItemDataCachedByID(itemID)) then return nil end
+  if not (C_TooltipInfo and C_Item) then return nil end
+  if not C_Item.IsItemDataCachedByID(itemID) then
+    if not factsRequested[itemID] and Item and Item.CreateFromItemID then
+      factsRequested[itemID] = true
+      local obj = Item:CreateFromItemID(itemID)
+      if obj and obj.ContinueOnItemLoad then
+        obj:ContinueOnItemLoad(function() scheduleRefresh() end)
+      end
+    end
+    return nil
+  end
   local ok, data = pcall(C_TooltipInfo.GetItemByID, itemID)
   if not (ok and data and data.lines) then return nil end
   local facts = readToken(data.lines)

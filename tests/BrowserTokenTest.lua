@@ -19,6 +19,9 @@ INVTYPE_WEAPONMAINHAND = "Main Hand"
 INVTYPE_WEAPON = "One-Hand"
 
 ITEM_SPELL_TRIGGER_ONUSE = "Use:"
+ITEM_CLASSES_ALLOWED = "Classes: %s"
+-- The live client numbers this line 43, the local UI source 21. The reader must
+-- not care either way, so the tests give it the number it does not expect.
 Enum = { TooltipDataLineType = { RestrictedRaceClass = 21 } }
 
 local CLASSES = {
@@ -46,9 +49,9 @@ local function lines(...)
 end
 
 local function use(text) return { leftText = text } end
-local function restriction(text)
-  return { leftText = text, type = Enum.TooltipDataLineType.RestrictedRaceClass }
-end
+-- Type 43 is what the live client reports, and deliberately not the value the
+-- RestrictedRaceClass enum carries here.
+local function restriction(text) return { leftText = text, type = 43 } end
 
 -- The slot the token turns into, read off its Use line.
 local head = readToken(lines(
@@ -81,4 +84,17 @@ local races = readToken(lines(
 ))
 assert(races.classes == false, "a race restriction read as a class restriction")
 
-print("6 browser token tests passed")
+-- The real Venomous Effigy, read exactly as the live client reports it: the
+-- class list arrives on a line type the local UI source does not know.
+local effigy = readToken(lines(
+  { leftText = "Venomcured Effigy", type = 22 },
+  { leftText = "Item Level 219", type = 31 },
+  { leftText = "Binds when picked up", type = 20 },
+  { leftText = "Use: Create a soulbound set head item appropriate for your class.", type = 44 },
+  { leftText = "Classes: Rogue, Monk, Druid, Demon Hunter", type = 43 }
+))
+assert(effigy.slot == "Head", "effigy slot: " .. tostring(effigy.slot))
+assert(effigy.classes and effigy.classes[10] == true, "Monk should be able to use the effigy")
+assert(effigy.classes[3] == nil, "Hunter read out of Demon Hunter on the effigy")
+
+print("9 browser token tests passed")

@@ -8,6 +8,8 @@
 
 ### Fixed
 - Moving the mouse between the buttons on a wishlist row no longer flashes the item tooltip on the way past.
+- Tier tokens land under the slot they create the first time a Loot Browser table is opened, instead of sitting under Other until something else loaded the token.
+- The Loot Browser's class filter reads a tier token's class list again, so a token no class you are browsing can use stays off the list.
 
 ## [1.13.1] - 2026-08-21
 
