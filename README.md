@@ -16,6 +16,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Group the list by source or by gear slot from the dropdown beside the track buttons
   - Filter by slot to see every trinket, weapon, or pair of hands in the pool, with tier tokens under the slot they create
   - Search by item name, boss, slot, or armor type
+  - Every row names the secondary stats a piece carries, largest first, beside its slot and item level
   - Add or remove wishlist items with one click
 - **Adventure Guide integration** — a "Wishlist" button appears on each loot row in the Encounter Journal; click to track any item across all tiers and difficulties
 - **Manual add** — track any item by ID or item link with `/wishlist add`, handy for items outside the Adventure Guide
@@ -41,6 +42,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 - **Custom message templates** — configure Whisper and Party messages with `%item%` and `%looter%` placeholders
 - **Multiple difficulty support** — track items across Normal, Heroic, Mythic, and LFR
 - **Bonus roll targets** — mark any wishlist item as a bonus roll chase with the "BR" button in the Encounter Journal or on a wishlist row; a popup reminds you to spend Nebulous Voidcore charges after a Mythic+ 10+ run or a Heroic/Mythic raid boss kill when a flagged item could drop
+- **Mark as obtained** — tick an item off on the wishlist and it stays on the list, greyed out, while its alerts and reminders stop; untick it if you were wrong, or hide obtained items entirely from settings
 - **Wishlist sharing** — the Export button on the wishlist window turns your list into a copyable string; Import reads one back and asks whether to add it to your current list or replace it, so you can back up a wishlist or move it between characters
 
 ## Installation
@@ -88,6 +90,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Adjust summary window opacity when your mouse isn't hovering over it
 - Toggle automatic multi-difficulty tracking (on by default)
 - Toggle Great Vault highlights (on by default)
+- Hide obtained items from the wishlist window
 - Hide Lucky's Wardrobe item previews in the wishlist and Loot Browser (requires Lucky's Wardrobe)
 - Toggle raid roll reminder alerts
 - Toggle the sound played when a tracked item drops
