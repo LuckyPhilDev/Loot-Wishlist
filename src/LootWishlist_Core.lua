@@ -117,6 +117,7 @@ local function InitializeDB()
   if acctS.summaryUnhoveredAlpha == nil then acctS.summaryUnhoveredAlpha = 1.0 end
   if acctS.addHigherDifficulties == nil then acctS.addHigherDifficulties = true end
   if acctS.enableVaultOverlay == nil then acctS.enableVaultOverlay = true end
+  if acctS.enableTooltipStatus == nil then acctS.enableTooltipStatus = true end
   if acctS.minimapClick == nil then acctS.minimapClick = "both" end
   if acctS.minimapCtrlClick == nil then acctS.minimapCtrlClick = "wishlist" end
   if acctS.minimapShiftClick == nil then acctS.minimapShiftClick = "browser" end

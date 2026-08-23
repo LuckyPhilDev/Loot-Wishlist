@@ -167,6 +167,14 @@ local function buildWishlist(g)
   })
 
   g:Toggle({
+    label    = S.tooltipStatus,
+    desc     = S.tooltipStatusDesc,
+    since    = "1.15.0",
+    checked  = function() return isOn("enableTooltipStatus") end,
+    onToggle = function(checked) write("enableTooltipStatus", checked) end,
+  })
+
+  g:Toggle({
     label    = S.hideWardrobe,
     desc     = S.hideWardrobeDesc,
     requires = { addon = "Luckys_Wardrobe" },

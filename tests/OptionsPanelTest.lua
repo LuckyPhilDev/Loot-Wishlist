@@ -141,6 +141,7 @@ LootWishlist.SetDebug = function(v) debugMode = v end
 local defaults = {
   addHigherDifficulties = true,
   enableVaultOverlay = true,
+  enableTooltipStatus = true,
   hideWardrobePreview = false,
   hideSummaryWindow = false,
   hideSummaryInCombatAndMythicPlus = true,
@@ -217,6 +218,9 @@ check(settings.addHigherDifficulties == true, "checking writes true")
 
 clickToggle("Hide the summary window", true)
 check(settings.hideSummaryWindow == true, "a default-off toggle writes true when checked")
+
+clickToggle("Wishlist status on item tooltips", false)
+check(settings.enableTooltipStatus == false, "the tooltip toggle writes the key the tooltip hook reads")
 
 check(findRow("Play a sound with the reminder").parentSetting == findRow("Remind me after an eligible run"),
   "the bonus roll sound hangs off the reminder toggle")

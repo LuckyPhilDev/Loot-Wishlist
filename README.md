@@ -37,6 +37,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 - **Group assist suggestions** — in dungeons, suggests party members who could switch loot spec to help funnel a tracked item, with one-click Whisper or Party prompts
 - **Gear track labels** — each wishlist row names the track it is tracked at, so a Hero entry and a Myth entry read apart at a glance
 - **Multi-difficulty tracking** — adding an item on Normal automatically tracks it on Heroic and Mythic too; items tracked across difficulties appear as a single row with combined tags (e.g. `[N·H·M]`) so the list stays clean
+- **Tooltip status** — every item tooltip, in a bag, at a vendor, in a chat link or the Adventure Guide, says when the item is on your wishlist and names the boss it drops from and the difficulties you track it at
 - **Great Vault highlights** — a gold star marks every vault reward slot that contains a wishlisted item; hover the star or the reward itself to see which boss and dungeon it comes from, so you can pick the right chest at a glance
 - **Sticky summary window** — a compact, draggable overview of dungeons and raid bosses with remaining wishlist items; click to open the full list; position is remembered between sessions
 - **Custom message templates** — configure Whisper and Party messages with `%item%` and `%looter%` placeholders
@@ -90,6 +91,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Adjust summary window opacity when your mouse isn't hovering over it
 - Toggle automatic multi-difficulty tracking (on by default)
 - Toggle Great Vault highlights (on by default)
+- Toggle the wishlist line on item tooltips (on by default)
 - Hide obtained items from the wishlist window
 - Hide Lucky's Wardrobe item previews in the wishlist and Loot Browser (requires Lucky's Wardrobe)
 - Toggle raid roll reminder alerts
