@@ -49,14 +49,14 @@ local TRACK_TIPS = {
 ------------------------------------------------------------------------
 -- Module state
 ------------------------------------------------------------------------
-local frame, sidebarList, lootList, searchBox, statusLabel
+local frame, sidebarList, lootList, searchBox, statusLabel, filterBtn
 local trackButtons = {}
 local season                 -- { dungeons = {..}, raids = {..} }
 local lootCache = {}         -- [cacheKey(...)] = { items = {..}, diffID = scanned }
 local bossNames = {}         -- encounterID -> name (false = lookup failed)
 -- classID/specID drive the EJ loot filter; specID 0 = all specs. A class other
 -- than the player's is browse-only: rows lose their add controls.
-local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceName = nil, isRaid = nil, search = "", slot = nil, group = "source", classID = nil, specID = 0 }
+local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceName = nil, isRaid = nil, search = "", slot = nil, group = "source", classID = nil, specID = 0, stats = {}, statMode = "only" }
 
 local scheduleRefresh        -- forward: defined with the UI, used by the scanner
 
@@ -714,6 +714,25 @@ local SECONDARY_STATS = {
   { key = "ITEM_MOD_VERSATILITY",          label = S.statVersatility },
 }
 
+-- The stat filter opens with every stat picked under "only", which excludes
+-- nothing: unticking a stat is then the one move that hides its pieces.
+local function pickAllStats()
+  for _, stat in ipairs(SECONDARY_STATS) do state.stats[stat.key] = true end
+end
+pickAllStats()
+
+-- Every stat picked under "only" cannot fail a piece, so that state is left
+-- out of the filtering entirely rather than gating rows on stat data that
+-- has yet to arrive.
+local function statFilterActive()
+  if not next(state.stats) then return false end
+  if state.statMode ~= "only" then return true end
+  for _, stat in ipairs(SECONDARY_STATS) do
+    if not state.stats[stat.key] then return true end
+  end
+  return false
+end
+
 -- A row reads an item's stats and level off its link, and both answer with
 -- nothing until the client holds that link's data. The scan warms the journal's
 -- own links, which never covers a track link the browser rebuilt, so the first
@@ -733,13 +752,14 @@ end
 
 -- Keyed by link, since a dungeon item rebuilt at another track is a different
 -- link for the same item. False means read and carrying nothing, so an item
--- without secondaries is not looked up on every repaint.
+-- without secondaries is not looked up on every repaint; nil means unread.
+-- Both reach the caller, since the filter treats them differently.
 local statCache = {}
 
 local function statsFor(link)
   if not link then return nil end
   local cached = statCache[link]
-  if cached ~= nil then return cached or nil end
+  if cached ~= nil then return cached end
   if not (C_Item and C_Item.GetItemStats) then return nil end
   -- GetItemStats can answer with a partial table while the link is still
   -- loading, and caching that would leave the row permanently blank, so the
@@ -751,12 +771,17 @@ local function statsFor(link)
   local ok, stats = pcall(C_Item.GetItemStats, link)
   if not (ok and stats) then return nil end
 
-  local found = {}
+  local found, has = {}, {}
   for _, stat in ipairs(SECONDARY_STATS) do
     local value = stats[stat.key]
     if type(value) == "number" and value > 0 then
       found[#found + 1] = { label = stat.label, value = value }
+      has[stat.key] = true
     end
+  end
+  if #found == 0 then
+    statCache[link] = false
+    return false
   end
   table.sort(found, function(a, b)
     if a.value ~= b.value then return a.value > b.value end
@@ -765,10 +790,38 @@ local function statsFor(link)
 
   local labels = {}
   for _, f in ipairs(found) do labels[#labels + 1] = f.label end
-  local text = (#labels > 0) and table.concat(labels, "/") or false
-  statCache[link] = text
-  return text or nil
+  local entry = { text = table.concat(labels, "/"), has = has }
+  statCache[link] = entry
+  return entry
 end
+
+-- Pure so the tests can drive it: does a piece carrying the secondaries in
+-- `has` pass a filter asking for `wanted`, under "any", "all" or "only"?
+-- "Only" is the subset read: nothing on the piece outside the picks, so with
+-- Haste and Crit picked a Haste piece passes and a Haste/Mastery one does
+-- not, and a token with no stats at all passes too. An unread piece (nil)
+-- fails a live filter and appears when its data lands; a piece read and
+-- carrying nothing (false) only ever passes "only".
+local function statMatch(has, wanted, mode)
+  if not next(wanted) then return true end
+  if has == nil then return false end
+  if mode == "only" then
+    for key in pairs(has or {}) do
+      if not wanted[key] then return false end
+    end
+    return true
+  end
+  if not has then return false end
+  for key in pairs(wanted) do
+    if mode == "all" then
+      if not has[key] then return false end
+    elseif has[key] then
+      return true
+    end
+  end
+  return mode == "all"
+end
+LootWishlist.Browser.statMatch = statMatch
 
 local function isToken(it)
   return not (it.slot and it.slot ~= "")
@@ -813,6 +866,11 @@ end
 local function matchesFilters(it, inst)
   if not usableByBrowsedClass(it) then return false end
   if state.slot and slotOf(it) ~= state.slot then return false end
+  if statFilterActive() then
+    -- A read entry gives its stat set, a statless piece false, unread nil.
+    local entry = statsFor(it.link)
+    if not statMatch(entry and entry.has, state.stats, state.statMode) then return false end
+  end
   if state.search == "" then return true end
   local hay = table.concat({
     it.name or "", slotOf(it), it.armorType or "",
@@ -831,7 +889,7 @@ local function buildRows()
   local tr = trackEntry()
   local single = state.view == "instance"
   local viewOnly = not browsingOwnClass()
-  local filtering = state.search ~= "" or state.slot ~= nil
+  local filtering = state.search ~= "" or state.slot ~= nil or statFilterActive()
   -- A slot filter leaves one or two items per instance, so headers would take
   -- as many rows as the loot; the item sub line already names boss and
   -- instance, so the headers go.
@@ -1010,11 +1068,59 @@ local function paintTrackButtons()
   end
 end
 
+local function filtersAtDefault()
+  return browsingOwnClass() and state.specID == 0 and state.slot == nil and not statFilterActive()
+end
+
+local function resetFilters()
+  state.classID, state.specID = playerClassID(), 0
+  charDB().specID = 0
+  state.slot = nil
+  pickAllStats()
+  state.statMode = "only"
+end
+
+-- The filter icon sits muted until a filter is doing something, so a glance
+-- at the toolbar says whether the list is the whole table or a cut of it.
+local function paintFilterIcon()
+  if not filterBtn then return end
+  local c = filtersAtDefault() and C.goldMuted or C.goldIcon
+  filterBtn:SetIconColor(c[1], c[2], c[3])
+end
+
+local STAT_TIPS = { any = S.statsTipAny, all = S.statsTipAll, only = S.statsTipOnly }
+
+-- What the filter icon's tooltip lists: one line per filter that is on.
+local function describeFilters(tip)
+  tip:SetText(S.filters, 1, 1, 1)
+  if filtersAtDefault() then
+    tip:AddLine(S.noFilters, 0.8, 0.8, 0.8)
+    return
+  end
+  if not browsingOwnClass() or state.specID ~= 0 then
+    local text = coloredClassName(state.classID)
+    if state.specID ~= 0 then
+      local _, specName = GetSpecializationInfoByID(state.specID)
+      if specName then text = specName .. " " .. text end
+    end
+    tip:AddLine(text, 0.8, 0.8, 0.8)
+  end
+  if state.slot then tip:AddLine(state.slot, 0.8, 0.8, 0.8) end
+  if statFilterActive() then
+    local names = {}
+    for _, stat in ipairs(SECONDARY_STATS) do
+      if state.stats[stat.key] then names[#names + 1] = _G[stat.key] or stat.label end
+    end
+    tip:AddLine(STAT_TIPS[state.statMode]:format(table.concat(names, "/")), 0.8, 0.8, 0.8)
+  end
+end
+
 local function refreshNow()
   if not lootList then return end
   local rows, shown, onList, readAt = buildRows()
   lootList:SetData(rows)
   updateStatus(shown, onList, readAt)
+  paintFilterIcon()
 end
 
 do
@@ -1317,7 +1423,7 @@ local function updateLootRow(row, r)
   local slot = state.group ~= "slot" and slotOf(it) or nil
   local descriptor = (slot and slot ~= OTHER_SLOT) and (LIGHT .. slot .. WC.reset) or nil
   local stats = statsFor(link)
-  if stats then descriptor = descriptor and (stats .. " " .. descriptor) or stats end
+  if stats then descriptor = descriptor and (stats.text .. " " .. descriptor) or stats.text end
   if descriptor then rightParts[#rightParts + 1] = descriptor end
 
   -- For raids the journal's link carries the difficulty's own bonus IDs, so it
@@ -1583,69 +1689,27 @@ local function ensureFrame()
   end
   paintTrackButtons()
 
-  -- Group mode: lay the list out by where loot drops or by gear slot
-  local groupDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
-  groupDropdown:SetPoint("TOPRIGHT", -4, -4)
-  groupDropdown:SetWidth(110)
-  groupDropdown:SetDefaultText(state.group == "slot" and S.bySlot or S.bySource)
-  groupDropdown:SetupMenu(function(_, root)
-    local function groupRadio(label, value)
-      root:CreateRadio(label,
-        function() return state.group == value end,
-        function()
-          state.group = value
-          charDB().group = value
-          refreshNow()
-        end)
-    end
-    groupRadio(S.bySource, "source")
-    groupRadio(S.bySlot, "slot")
-  end)
+  -- Group and filter are borderless gold icons at the end of the search row,
+  -- the same shape as the row actions, rather than Blizzard's dropdown chrome
+  -- the rest of the window does not use. Both open to the right of the
+  -- search box, which takes whatever width is left.
+  local searchH, pad = 24, 8
+  local function toolbarIcon(icon, tooltip)
+    local btn = UI.CreateIconButton(toolbar, { icon = icon, size = ICON_SIZE, tooltip = tooltip, anchor = "ANCHOR_BOTTOM" })
+    btn:SetHitRectInsets(-4, -4, -4, -4)
+    return btn
+  end
 
-  -- Slot filter: every slot present in the current view's loot. The menu is
-  -- regenerated on each open, so it tracks the view and streaming scans.
-  local slotDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
-  slotDropdown:SetPoint("BOTTOMRIGHT", -4, 3)
-  slotDropdown:SetWidth(130)
-  slotDropdown:SetDefaultText(S.allSlots)
-  slotDropdown:SetupMenu(function(_, root)
-    root:CreateRadio(S.allSlots,
-      function() return state.slot == nil end,
-      function()
-        state.slot = nil
-        refreshNow()
-      end)
-    local slots = slotsInView()
-    -- Keep the active slot listed even in a view that has none of it, so the
-    -- button text and selection stay truthful.
-    if state.slot then
-      local listed = false
-      for _, s in ipairs(slots) do
-        if s == state.slot then listed = true break end
-      end
-      if not listed then
-        slots[#slots + 1] = state.slot
-        sortSlots(slots)
-      end
-    end
-    local weaponsStarted = false
-    for _, slot in ipairs(slots) do
-      if not weaponsStarted and isWeaponSlot(slot) then
-        weaponsStarted = true
-        root:CreateDivider()
-      end
-      root:CreateRadio(slot,
-        function() return state.slot == slot end,
-        function()
-          state.slot = slot
-          refreshNow()
-        end)
-    end
-  end)
+  -- Filters: class and spec, slot, and secondary stats in one menu. Class,
+  -- spec and slot are single-selection radios; the stat checkboxes and the
+  -- any/all/only choice refresh the menu in place, so a pair of stats can be
+  -- built up in one visit.
+  filterBtn = toolbarIcon("filter", describeFilters)
+  filterBtn:SetPoint("RIGHT", toolbar, "BOTTOMRIGHT", -pad, 4 + searchH / 2)
 
-  -- Class and spec filter: the browser opens on the player's class, and any
-  -- other class can be browsed read-only. Spec radios narrow the loot the way
-  -- the Adventure Guide's own filter does.
+  -- Class and spec: the browser opens on the player's class, and any other
+  -- class can be browsed read-only. Spec radios narrow the loot the way the
+  -- Adventure Guide's own filter does.
   local function specRadio(parent, classID, specID, text)
     parent:CreateRadio(text,
       function() return state.classID == classID and state.specID == specID end,
@@ -1668,23 +1732,111 @@ local function ensureFrame()
     end
   end
 
-  local classDropdown = CreateFrame("DropdownButton", nil, toolbar, "WowStyle1DropdownTemplate")
-  classDropdown:SetPoint("BOTTOMRIGHT", slotDropdown, "BOTTOMLEFT", -6, 0)
-  classDropdown:SetWidth(140)
-  classDropdown:SetDefaultText(coloredClassName(playerClassID()))
-  classDropdown:SetupMenu(function(_, root)
-    addSpecEntries(root, playerClassID())
-    root:CreateDivider()
+  local function buildFilterMenu(_, root)
+    local classMenu = root:CreateButton(S.filterClass)
+    addSpecEntries(classMenu, playerClassID())
+    classMenu:CreateDivider()
     for i = 1, GetNumClasses() do
       local _, _, id = GetClassInfo(i)
       if id and id ~= playerClassID() then
-        addSpecEntries(root:CreateButton(coloredClassName(id)), id)
+        addSpecEntries(classMenu:CreateButton(coloredClassName(id)), id)
       end
     end
+
+    -- Slot: every slot present in the current view's loot. The menu is
+    -- regenerated on each open, so it tracks the view and streaming scans.
+    local slotMenu = root:CreateButton(S.filterSlot)
+    slotMenu:CreateRadio(S.allSlots,
+      function() return state.slot == nil end,
+      function()
+        state.slot = nil
+        refreshNow()
+      end)
+    local slots = slotsInView()
+    -- Keep the active slot listed even in a view that has none of it, so the
+    -- selection stays truthful.
+    if state.slot then
+      local listed = false
+      for _, s in ipairs(slots) do
+        if s == state.slot then listed = true break end
+      end
+      if not listed then
+        slots[#slots + 1] = state.slot
+        sortSlots(slots)
+      end
+    end
+    local weaponsStarted = false
+    for _, slot in ipairs(slots) do
+      if not weaponsStarted and isWeaponSlot(slot) then
+        weaponsStarted = true
+        slotMenu:CreateDivider()
+      end
+      slotMenu:CreateRadio(slot,
+        function() return state.slot == slot end,
+        function()
+          state.slot = slot
+          refreshNow()
+        end)
+    end
+
+    -- Stats: checkboxes rather than radios, so a piece can be asked to carry
+    -- Haste and Crit at once. The full stat names come off the same globals
+    -- the stat values are read by.
+    root:CreateDivider()
+    root:CreateTitle(S.filterStats)
+    for _, stat in ipairs(SECONDARY_STATS) do
+      root:CreateCheckbox(_G[stat.key] or stat.label,
+        function() return state.stats[stat.key] == true end,
+        function()
+          state.stats[stat.key] = not state.stats[stat.key] or nil
+          refreshNow()
+        end)
+    end
+    root:CreateDivider()
+    local function modeRadio(label, mode)
+      local radio = root:CreateRadio(label,
+        function() return state.statMode == mode end,
+        function()
+          state.statMode = mode
+          refreshNow()
+        end)
+      -- Radios close the menu by default; the mode is one half of the stat
+      -- filter, so picking it keeps the menu open like the checkboxes do.
+      radio:SetResponse(MenuResponse.Refresh)
+    end
+    modeRadio(S.statsAny, "any")
+    modeRadio(S.statsAll, "all")
+    modeRadio(S.statsOnly, "only")
+
+    root:CreateDivider()
+    root:CreateButton(S.resetFilters, function()
+      resetFilters()
+      refreshNow()
+    end)
+  end
+
+  filterBtn:SetScript("OnClick", function(self)
+    MenuUtil.CreateContextMenu(self, buildFilterMenu)
+  end)
+
+  -- Group mode: two states need no menu, so the icon flips between laying
+  -- the list out by where loot drops and by gear slot. The tooltip is redrawn
+  -- on click so it names the state just chosen.
+  local groupBtn = toolbarIcon("layers", function(tip)
+    local bySlot = state.group == "slot"
+    tip:SetText(bySlot and S.bySlot or S.bySource, 1, 1, 1)
+    tip:AddLine(bySlot and S.groupToSource or S.groupToSlot, 0.8, 0.8, 0.8)
+  end)
+  groupBtn:SetPoint("RIGHT", filterBtn, "LEFT", -pad, 0)
+  groupBtn:SetScript("OnClick", function(self)
+    state.group = state.group == "slot" and "source" or "slot"
+    charDB().group = state.group
+    refreshNow()
+    self:GetScript("OnEnter")(self)
   end)
 
   searchBox = UI.CreateSearchBox(toolbar, {
-    height = 24,
+    height = searchH,
     placeholder = S.searchPlaceholder,
     onChange = function(query)
       if query == state.search then return end
@@ -1694,7 +1846,7 @@ local function ensureFrame()
   })
   searchBox:ClearAllPoints()
   searchBox:SetPoint("BOTTOMLEFT", 4, 4)
-  searchBox:SetPoint("BOTTOMRIGHT", classDropdown, "BOTTOMLEFT", -8, 1)
+  searchBox:SetPoint("BOTTOMRIGHT", -(pad * 3 + ICON_SIZE * 2), 4)
 
   -- Loot list
   lootList = createLootList(frame)

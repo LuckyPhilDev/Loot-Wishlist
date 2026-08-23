@@ -1,3 +1,11 @@
+## [Unreleased]
+
+### Added
+- **Stat filter** Ask the Loot Browser for pieces carrying the secondary stats you pick, and choose whether a piece needs any of them, all of them, or nothing but them.
+
+### Improved
+- **Filter and group icons** The Loot Browser's class, spec, slot and stat filters share one funnel icon beside the search box, lit while a filter is on, with Reset Filters at the foot of its menu. The By Source and By Slot dropdown is now a one-click toggle next to it.
+
 ## [1.14.0] - 2026-08-23
 
 ### Added
