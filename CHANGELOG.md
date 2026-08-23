@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.14.1] - 2026-08-23
 
 ### Added
 - **Stat filter** Ask the Loot Browser for pieces carrying the secondary stats you pick, and choose whether a piece needs any of them, all of them, or nothing but them.

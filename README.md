@@ -13,8 +13,10 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Filtered to your class with patterns and cosmetic drops left out, and narrowable to a single spec
   - Peek at any other class's loot table, view only, so you can scout for an alt or a friend
   - Pick a gear track (Veteran, Champion, Hero, Myth) and items are tracked at the matching difficulty
-  - Group the list by source or by gear slot from the dropdown beside the track buttons
+  - Group the list by source or by gear slot with the layers icon beside the search box
+  - The funnel icon beside it holds the filters: class and spec, slot, and secondary stats, with a Reset Filters entry at the foot of the menu
   - Filter by slot to see every trinket, weapon, or pair of hands in the pool, with tier tokens under the slot they create
+  - Filter by stat, asking for pieces that carry any of the stats you pick, all of them, or only them
   - Search by item name, boss, slot, or armor type
   - Every row names the secondary stats a piece carries, largest first, beside its slot and item level
   - Add or remove wishlist items with one click
