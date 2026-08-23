@@ -2,6 +2,7 @@
 
 ### Added
 - **Stat filter** Ask the Loot Browser for pieces carrying the secondary stats you pick, and choose whether a piece needs any of them, all of them, or nothing but them.
+- **Wishlist status on item tooltips** Any item on your wishlist says so on its tooltip, in a bag, at a vendor or in a chat link, naming the boss it drops from and the difficulties you track it at. A toggle in the Wishlist settings group turns it off.
 
 ### Improved
 - **Filter and group icons** The Loot Browser's class, spec, slot and stat filters share one funnel icon beside the search box, lit while a filter is on, with Reset Filters at the foot of its menu. The By Source and By Slot dropdown is now a one-click toggle next to it.

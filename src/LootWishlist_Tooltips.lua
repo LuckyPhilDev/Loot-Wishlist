@@ -1,9 +1,13 @@
 -- Loot Wishlist - Tooltips
--- Keeps the item tooltip, and Blizzard's Equipped comparison tooltips,
--- off the wishlist windows they are describing.
+-- What the wishlist says on an item's own tooltip, wherever that tooltip
+-- opens. Also keeps the item tooltip, and Blizzard's Equipped comparison
+-- tooltips, off the wishlist windows they are describing.
 
 LootWishlist = LootWishlist or {}
 LootWishlist.UI = LootWishlist.UI or {}
+
+local C, WC = LuckyUI.C, LuckyUI.WC
+local S = LootWishlist.Strings
 
 ------------------------------------------------------------------------
 -- Which side of the window the tooltips open on
@@ -68,6 +72,95 @@ function LootWishlist.UI.PlaceComparisonTooltips()
     end
   end
 end
+
+------------------------------------------------------------------------
+-- What the wishlist says on an item's tooltip
+------------------------------------------------------------------------
+-- A wishlist item says so wherever its tooltip opens: a bag slot, a vendor, a
+-- chat link, the Adventure Guide, a Great Vault reward. The line names where
+-- the item drops and the difficulties it is tracked at.
+
+local function joinTags(set)
+  local order = LootWishlist.Const.DIFF_TAG_ORDER
+  local tags = {}
+  for tag in pairs(set) do tags[#tags + 1] = tag end
+  table.sort(tags, function(a, b) return (order[a] or 99) < (order[b] or 99) end)
+  return table.concat(tags, ", ")
+end
+
+-- A dungeon drop leads with the dungeon and a raid drop with the boss, the
+-- other half following in the muted tone, the way the Loot Browser rows read.
+local function sourceOf(entry)
+  local lead, rest = entry.boss, entry.dungeon
+  if not entry.isRaid then lead, rest = rest, lead end
+  if lead and rest then return lead .. WC.textMuted .. " - " .. rest .. WC.reset end
+  return lead or rest or S.wishlist.unknownBoss
+end
+
+-- One line per source an item is tracked from, the difficulties it is tracked
+-- at in brackets after it. Empty for an item the wishlist does not carry,
+-- which includes one marked obtained, since that has left the tracked list.
+function LootWishlist.UI.WishlistLines(itemID)
+  local tagsBySource, sources = {}, {}
+  for _, entry in pairs(LootWishlist.GetTracked() or {}) do
+    if type(entry) == "table" and entry.id == itemID then
+      local source = sourceOf(entry)
+      if not tagsBySource[source] then
+        tagsBySource[source] = {}
+        sources[#sources + 1] = source
+      end
+      local tag = LootWishlist.Const.DiffTag(entry.difficultyName, entry.difficultyID)
+      if tag then tagsBySource[source][tag] = true end
+    end
+  end
+  table.sort(sources)
+
+  local lines = {}
+  for _, source in ipairs(sources) do
+    local tags = tagsBySource[source]
+    lines[#lines + 1] = next(tags) and (source .. " [" .. joinTags(tags) .. "]") or source
+  end
+  return lines
+end
+
+-- Appends the lines under a label, the label sharing the line when there is
+-- only one source to name.
+function LootWishlist.UI.AddWishlistLines(tooltip, lines, label)
+  if #lines == 0 then return end
+  local r, g, b = C.textLight[1], C.textLight[2], C.textLight[3]
+  if #lines == 1 then
+    tooltip:AddLine(WC.goldPrimary .. label .. WC.reset .. " " .. lines[1], r, g, b)
+    return
+  end
+  tooltip:AddLine(label, C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
+  for _, line in ipairs(lines) do
+    tooltip:AddLine("  " .. line, r, g, b)
+  end
+end
+
+-- The Equipped comparisons describe what is worn, not the item hovered.
+local comparisons = {}
+for _, tooltip in ipairs({ GameTooltip, ItemRefTooltip }) do
+  for _, comparison in ipairs(tooltip.shoppingTooltips or {}) do
+    comparisons[comparison] = true
+  end
+end
+
+-- A wishlist row already says everything the line would.
+local function ownedByWishlistWindow(tooltip)
+  local win = windowFor(tooltip.GetOwner and tooltip:GetOwner())
+  return win ~= nil and win:GetName() == "LootWishlistMainFrame"
+end
+
+TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
+  local settings = LootWishlistDB and LootWishlistDB.settings
+  if settings and settings.enableTooltipStatus == false then return end
+  if comparisons[tooltip] or ownedByWishlistWindow(tooltip) then return end
+
+  local itemID = data and data.id
+  if not itemID then return end
+  LootWishlist.UI.AddWishlistLines(tooltip, LootWishlist.UI.WishlistLines(itemID), S.tooltips.onWishlist)
+end)
 
 ------------------------------------------------------------------------
 -- Triggers

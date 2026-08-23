@@ -98,51 +98,7 @@ else
   DevLog = function() end
 end
 
-local function joinTags(set)
-  local arr = {}
-  for k in pairs(set) do table.insert(arr, k) end
-  table.sort(arr, function(a, b)
-    local order = LootWishlist.Const.DIFF_TAG_ORDER
-    return (order[a] or 99) < (order[b] or 99)
-  end)
-  return table.concat(arr, ", ")
-end
-
--- Matching --------------------------------------------------------------------
-
-local function findWishlistMatches(itemID)
-  local tracked = LootWishlist.GetTracked()
-  if not tracked then return nil end
-  local matches = {}
-  for _, v in pairs(tracked) do
-    if type(v) == "table" and v.id == itemID then
-      table.insert(matches, v)
-    end
-  end
-  return #matches > 0 and matches or nil
-end
-
 -- Badge overlay ---------------------------------------------------------------
-
--- Appends the deduplicated "Boss - Instance [diffs]" lines for a set of matches.
-local function addMatchLines(tooltip, matches)
-  local seen = {}
-  for _, m in ipairs(matches) do
-    local boss = m.boss or "Unknown"
-    local dungeon = m.dungeon or "Unknown"
-    local tag = LootWishlist.Const.DiffTag(m.difficultyName, m.difficultyID)
-    local lineKey = boss .. "|" .. dungeon
-    if not seen[lineKey] then
-      seen[lineKey] = { boss = boss, dungeon = dungeon, diffs = {} }
-    end
-    if tag then seen[lineKey].diffs[tag] = true end
-  end
-  for _, info in pairs(seen) do
-    local tagStr = next(info.diffs) and (" [" .. joinTags(info.diffs) .. "]") or ""
-    tooltip:AddLine("  " .. info.boss .. " - " .. info.dungeon .. tagStr,
-      C.textLight[1], C.textLight[2], C.textLight[3])
-  end
-end
 
 local function ensureBadge(parent)
   if parent.LootWishlistVaultBadge then return parent.LootWishlistVaultBadge end
@@ -179,12 +135,11 @@ local function ensureBadge(parent)
   badge:SetMouseMotionEnabled(true)
   badge:SetMouseClickEnabled(false)
   badge:SetScript("OnEnter", function(self)
-    local matches = self.wishlistMatches
-    if not matches or #matches == 0 then return end
+    local lines = self.wishlistLines
+    if not lines or #lines == 0 then return end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine(S.title, C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
-    GameTooltip:AddLine(S.matchesLine, C.textLight[1], C.textLight[2], C.textLight[3])
-    addMatchLines(GameTooltip, matches)
+    LootWishlist.UI.AddWishlistLines(GameTooltip, lines, S.matchesLine)
     GameTooltip:Show()
   end)
   badge:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -194,47 +149,9 @@ local function ensureBadge(parent)
   return badge
 end
 
--- Tooltip enhancement ---------------------------------------------------------
-
--- Walk up an owner chain looking for an activity frame that carries our badge.
-local function findBadgeOwner(frame)
-  local f = frame
-  local hops = 0
-  while f and hops < 6 do
-    if f.LootWishlistVaultBadge then return f end
-    f = f.GetParent and f:GetParent() or nil
-    hops = hops + 1
-  end
-  return nil
-end
-
-local function appendWishlistLines(tooltip, matches)
-  tooltip:AddLine(" ")
-  tooltip:AddLine(S.onWishlist, C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
-  addMatchLines(tooltip, matches)
-  tooltip:Show()
-end
-
--- Modern tooltip hook: post-call runs after Blizzard has populated the tooltip.
-if TooltipDataProcessor and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
-  TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip)
-    if tooltip ~= GameTooltip and tooltip ~= ItemRefTooltip
-       and tooltip ~= EmbeddedItemTooltip and tooltip ~= GameTooltip.ItemTooltip then
-      return
-    end
-    local owner = tooltip.GetOwner and tooltip:GetOwner()
-    if not owner then return end
-    local activity = findBadgeOwner(owner)
-    if not activity then return end
-    local badge = activity.LootWishlistVaultBadge
-    if not badge or not badge:IsShown() then return end
-    local matches = badge.wishlistMatches
-    if not matches or #matches == 0 then return end
-    appendWishlistLines(tooltip, matches)
-  end)
-end
-
 -- Scan and annotate vault items -----------------------------------------------
+-- The reward's own tooltip says it is on the wishlist the way every item
+-- tooltip does, from LootWishlist_Tooltips.lua; the badge only adds the star.
 
 local function extractItemID(link)
   if not link or type(link) ~= "string" then return nil end
@@ -293,7 +210,7 @@ local function scanAndAnnotate()
       or (activity.type and activity.index and rewardElements[activity.type .. ":" .. activity.index])
     if element then
       local badge = ensureBadge(element)
-      badge.wishlistMatches = nil
+      badge.wishlistLines = nil
       badge:Hide()
 
       -- Try to get the item from the element's displayed item.
@@ -335,10 +252,10 @@ local function scanAndAnnotate()
       end
 
       if itemID then
-        local matches = findWishlistMatches(itemID)
-        if matches then
-          DevLog("Vault match: itemID=", itemID, "matches=", #matches)
-          badge.wishlistMatches = matches
+        local lines = LootWishlist.UI.WishlistLines(itemID)
+        if #lines > 0 then
+          DevLog("Vault match: itemID=", itemID, "sources=", #lines)
+          badge.wishlistLines = lines
           badge:Show()
         end
       end
@@ -360,8 +277,6 @@ local function hookVaultUI()
   vaultFrame:HookScript("OnShow", function()
     C_Timer.After(0.1, scanAndAnnotate)
   end)
-
-  -- Tooltip enhancement is handled globally by TooltipDataProcessor above.
 
   -- Initial scan if already visible
   if vaultFrame:IsShown() then

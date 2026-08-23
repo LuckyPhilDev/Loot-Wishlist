@@ -58,13 +58,18 @@ end
 ------------------------------------------------------------------------
 local hooks, timers, shownScripts = {}, {}, {}
 LuckyLog = { New = function() return noop end }
+LuckyUI = { C = {}, WC = {} }
 UIParent = frame()
 GameTooltip = box(TOOLTIP_W)
 GameTooltip.shoppingTooltips = { box(COMPARISON_W), box(COMPARISON_W) }
 GameTooltip.shoppingTooltips[1].HookScript = function(self, script, fn) shownScripts[script] = fn end
 GameTooltip.shoppingTooltips[2].HookScript = function() end
+ItemRefTooltip = box(TOOLTIP_W)
+ItemRefTooltip.shoppingTooltips = {}
 C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
 TooltipComparisonManager = { Initialize = noop, AnchorShoppingTooltips = noop }
+TooltipDataProcessor = { AddTooltipPostCall = noop }
+Enum = { TooltipDataType = { Item = 10 } }
 function CreateFrame() return setmetatable({}, stubMeta) end
 function hooksecurefunc(target, name, fn) hooks[name] = fn end
 
