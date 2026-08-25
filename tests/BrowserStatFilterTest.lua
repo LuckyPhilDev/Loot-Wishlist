@@ -3,7 +3,8 @@
 -- "any of these" or "all of these".
 
 LootWishlist = {}
-LuckyUI = { C = { textLight = { 0.910, 0.863, 0.784 } }, WC = {} }
+LuckyUI = { C = { textLight = { 0.910, 0.863, 0.784 } }, WC = {},
+           DOT = "\194\183" }
 
 local function noop() end
 function CreateFrame()

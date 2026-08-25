@@ -28,7 +28,7 @@ local MIN_W        = 650
 local MIN_H        = 400
 local SCAN_TIMEOUT = 3
 
-local DOT   = " \194\183 "   -- ·
+local DOT   = " " .. UI.DOT .. " "
 
 -- The muted tone the right-hand column is drawn in leaves nothing brighter to
 -- promote a part with, so the plain text colour is taken as an escape.

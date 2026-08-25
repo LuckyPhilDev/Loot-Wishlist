@@ -176,7 +176,7 @@ end
 
 local function formatItemLine(entry)
   local link = entry.link or ("item:" .. tostring(entry.id))
-  return "  \194\183 " .. link
+  return "  " .. LuckyUI.DOT .. " " .. link
 end
 
 function BR.ShowReminder(opts)
