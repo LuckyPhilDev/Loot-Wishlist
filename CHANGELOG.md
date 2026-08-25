@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.14.2] - 2026-08-25
 
 ### Fixed
 - The Loot Browser and the wishlist show item, boss and dungeon names on a Russian client, instead of empty boxes. (Thanks for the report Grelle)
