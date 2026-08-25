@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Fixed
+- The Loot Browser and the wishlist show item, boss and dungeon names on a Russian client, instead of empty boxes. (Thanks for the report Grelle)
+- The dot separating label parts in the Loot Browser, the wishlist and the bonus roll reminder is a hyphen on a Russian client, whose font has no glyph for it and drew an empty box.
+
 ## [1.14.1] - 2026-08-23
 
 ### Added

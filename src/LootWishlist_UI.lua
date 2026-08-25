@@ -549,7 +549,7 @@ local function populatePoolFrame(f, row, rowIndex)
         if label then table.insert(tags, label) end
       end
       if #tags > 0 then
-        table.insert(parts, string.format("|cff8a7e6a[%s]|r", table.concat(tags, "\194\183")))
+        table.insert(parts, string.format("|cff8a7e6a[%s]|r", table.concat(tags, UI.DOT)))
       end
     end
     local specText = buildSpecText(info)
@@ -565,7 +565,7 @@ local function populatePoolFrame(f, row, rowIndex)
       table.insert(meta, "|cff8a7e6a" .. info.dungeon .. "|r")
     end
     if #meta > 0 then
-      f.subLabel:SetText(table.concat(meta, " \194\183 "))
+      f.subLabel:SetText(table.concat(meta, " " .. UI.DOT .. " "))
       f.subLabel:Show()
     end
 

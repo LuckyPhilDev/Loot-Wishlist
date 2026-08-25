@@ -1,7 +1,7 @@
 -- luacheck: ignore 121
 
 LootWishlist = {}
-LuckyUI = { C = {}, WC = {} }
+LuckyUI = { C = {}, WC = {}, DOT = "\194\183" }
 LuckyLog = { New = function() return function() end end }
 
 local now = 0
