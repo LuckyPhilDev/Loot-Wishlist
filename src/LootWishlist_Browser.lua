@@ -1870,11 +1870,7 @@ local function ensureFrame()
   statusLabel:SetTextColor(C.textMuted[1], C.textMuted[2], C.textMuted[3])
   statusLabel:SetPoint("LEFT", 8, -2)
 
-  local closeBtn = UI.CreateButton(statusBar, "Close", 80, 22, "secondary")
-  closeBtn:SetPoint("RIGHT", -4, -2)
-  closeBtn:SetScript("OnClick", function() frame:Hide() end)
-
-  statusLabel:SetPoint("RIGHT", closeBtn, "LEFT", -8, 0)
+  statusLabel:SetPoint("RIGHT", statusBar, "RIGHT", -8, -2)
   statusLabel:SetJustifyH("LEFT")
   statusLabel:SetWordWrap(false)
 

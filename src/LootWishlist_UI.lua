@@ -49,7 +49,7 @@ local flatRows        = {}
 local totalHeight     = 0
 local rowPool         = {}
 local statusCountLabel
-local clearBtn, closeBtn2
+local clearBtn
 
 -- Player spec IDs computed once per refresh
 local renderPlayerSpecIDs   = {}
@@ -905,14 +905,9 @@ local function createMainFrame()
     if LootWishlist.Share and LootWishlist.Share.Import then LootWishlist.Share.Import() end
   end)
 
-  -- Close button (secondary)
-  closeBtn2 = UI.CreateButton(statusBar, S.close, 80, 22, "secondary")
-  closeBtn2:SetPoint("RIGHT", statusBar, "RIGHT", -4, -2)
-  closeBtn2:SetScript("OnClick", function() f:Hide(); LootWishlist.UI.isOpen = false end)
-
   -- Browse Loot button (primary): opens the season drop-table browser
   local browseBtn = UI.CreateButton(statusBar, S.browseLoot, 100, 22, "primary")
-  browseBtn:SetPoint("RIGHT", closeBtn2, "LEFT", -4, 0)
+  browseBtn:SetPoint("RIGHT", statusBar, "RIGHT", -4, -2)
   browseBtn:SetScript("OnClick", function()
     if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() end
   end)

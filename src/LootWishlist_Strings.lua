@@ -66,7 +66,6 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         clearAllConfirm    = "This will remove ALL wishlist items for this character. Are you sure?",
         export             = "Export",
         import             = "Import",
-        close              = "Close",
         browseLoot         = "Browse Loot",
         removeFromWishlist = "Remove from wishlist",
         markObtained       = "Mark as obtained",
