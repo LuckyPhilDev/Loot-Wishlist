@@ -142,7 +142,6 @@ local defaults = {
   addHigherDifficulties = true,
   enableVaultOverlay = true,
   enableTooltipStatus = true,
-  hideWardrobePreview = false,
   hideSummaryWindow = false,
   hideSummaryInCombatAndMythicPlus = true,
   summaryUnhoveredAlpha = 1.0,
@@ -224,12 +223,6 @@ check(settings.enableTooltipStatus == false, "the tooltip toggle writes the key 
 
 check(findRow("Play a sound with the reminder").parentSetting == findRow("Remind me after an eligible run"),
   "the bonus roll sound hangs off the reminder toggle")
-
--------------------------------------------------------------------------------
--- A row whose addon is missing locks rather than lying about what it does.
--------------------------------------------------------------------------------
-check(findRow("Hide the Wardrobe model preview").disabled == true,
-  "the Wardrobe row is disabled while Lucky's Wardrobe is absent")
 
 -------------------------------------------------------------------------------
 -- Sliders, including the percentage the summary stores as a fraction.

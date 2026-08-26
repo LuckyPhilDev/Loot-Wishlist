@@ -95,7 +95,6 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Toggle Great Vault highlights (on by default)
 - Toggle the wishlist line on item tooltips (on by default)
 - Hide obtained items from the wishlist window
-- Hide Lucky's Wardrobe item previews in the wishlist and Loot Browser (requires Lucky's Wardrobe)
 - Toggle raid roll reminder alerts
 - Toggle the sound played when a tracked item drops
 - Toggle bonus roll reminders and their sound

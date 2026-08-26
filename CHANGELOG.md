@@ -8,6 +8,9 @@
 - A dungeon the game was slow to answer for no longer shows an empty or half-filled table in the Loot Browser for the rest of the session; the loot fills in as soon as the data arrives.
 - Raid bosses in the wishlist and summary windows keep their kill order when the game answers slowly at login, instead of sorting alphabetically for the rest of the session.
 
+### Removed
+- The Hide the Wardrobe model preview setting in the Wishlist settings group. Lucky's Wardrobe no longer previews an item on your character when you hover a row in the wishlist or the Loot Browser, and the preview still works everywhere else in the game.
+
 ## [1.14.2] - 2026-08-25
 
 ### Fixed

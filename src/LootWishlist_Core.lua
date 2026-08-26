@@ -121,12 +121,6 @@ local function InitializeDB()
   if acctS.minimapClick == nil then acctS.minimapClick = "both" end
   if acctS.minimapCtrlClick == nil then acctS.minimapCtrlClick = "wishlist" end
   if acctS.minimapShiftClick == nil then acctS.minimapShiftClick = "browser" end
-  -- Renamed when the toggle grew to cover the wishlist window as well
-  if acctS.hideWardrobePreviewInBrowser ~= nil and acctS.hideWardrobePreview == nil then
-    acctS.hideWardrobePreview = acctS.hideWardrobePreviewInBrowser
-    acctS.hideWardrobePreviewInBrowser = nil
-  end
-  if acctS.hideWardrobePreview == nil then acctS.hideWardrobePreview = false end
   if acctS.hideObtained == nil then acctS.hideObtained = false end
 
   -- Restore window position is handled by Ace frame status table
@@ -453,8 +447,7 @@ end
 -- Lucky's Wardrobe skips its tooltip model preview when the tooltip's owner
 -- carries this flag. Call on a row before showing its item tooltip.
 function LootWishlist.ApplyWardrobePreviewFlag(frame)
-  local s = LootWishlistDB and LootWishlistDB.settings
-  frame.luckysWardrobeNoPreview = (s and s.hideWardrobePreview) or nil
+  frame.luckysWardrobeNoPreview = true
 end
 
 function LootWishlist.SetDebug(val)

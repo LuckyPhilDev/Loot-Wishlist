@@ -223,8 +223,6 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         vaultStarDesc      = "Puts a pulsing star on any Great Vault reward you track. A silver star means the reward is a lower track than the copy you track. Hover the star to see which wishlist entries it matches.",
         tooltipStatus      = "Wishlist status on item tooltips",
         tooltipStatusDesc  = "Any item on your wishlist says so on its tooltip, naming the boss it drops from and the difficulties you track it at. Bags, vendors, chat links, the Adventure Guide and the Great Vault included.",
-        hideWardrobe       = "Hide the Wardrobe model preview",
-        hideWardrobeDesc   = "Stops Lucky's Wardrobe showing your character wearing an item when you hover a row in the wishlist or the Loot Browser. The preview still works everywhere else in the game.",
 
         hideSummary        = "Hide the summary window",
         hideSummaryDesc    = "The summary window is the small note listing what you track, grouped by dungeon and boss. Ticking this keeps it off the screen without changing your wishlist.",

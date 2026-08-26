@@ -173,14 +173,6 @@ local function buildWishlist(g)
     checked  = function() return isOn("enableTooltipStatus") end,
     onToggle = function(checked) write("enableTooltipStatus", checked) end,
   })
-
-  g:Toggle({
-    label    = S.hideWardrobe,
-    desc     = S.hideWardrobeDesc,
-    requires = { addon = "Luckys_Wardrobe" },
-    checked  = function() return isOff("hideWardrobePreview") end,
-    onToggle = function(checked) write("hideWardrobePreview", checked) end,
-  })
 end
 
 local function buildSummary(g)
