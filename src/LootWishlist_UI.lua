@@ -123,7 +123,12 @@ local function getEncounterOrder(instanceID)
       order.name[ename:lower()] = idx
     end
   end
-  encounterOrderCache[instanceID] = order
+  -- A journal that has not answered yet lists no encounters at all; caching
+  -- that would fix the fallback boss order in place for the session, so an
+  -- empty map is returned but not kept and the next refresh reads again.
+  if next(order.id) or next(order.name) then
+    encounterOrderCache[instanceID] = order
+  end
   return order
 end
 

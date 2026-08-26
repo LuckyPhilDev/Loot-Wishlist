@@ -13,12 +13,16 @@ LuckyUI = { C = { textLight = { 0.910, 0.863, 0.784 } }, WC = {},
 ------------------------------------------------------------------------
 -- Timers: collected, then run on demand
 ------------------------------------------------------------------------
-local pending = {}
+local now = 0
+function GetTime() return now end
+
+local pending, timers = {}, {}
 C_Timer = {
   After = function(_, fn) pending[#pending + 1] = fn end,
   NewTimer = function(_, fn)
     local t = { fire = fn }
     function t:Cancel() self.cancelled = true end
+    timers[#timers + 1] = t
     return t
   end,
 }
@@ -27,20 +31,32 @@ local function runTimers()
   while #pending > 0 do table.remove(pending, 1)() end
 end
 
+local function fireTimeout()
+  local t = table.remove(timers, 1)
+  while t and t.cancelled do t = table.remove(timers, 1) end
+  assert(t, "a timeout should be pending")
+  t.fire()
+end
+
 ------------------------------------------------------------------------
 -- Mock Encounter Journal
 ------------------------------------------------------------------------
 local NO_FILTER, HEAD = 15, 0
 Enum = { ItemSlotFilterType = { NoFilter = NO_FILTER, Head = HEAD } }
 
-local INSTANCE = 1300
-local NAMES = { [INSTANCE] = "Altar of Fangs" }
+local INSTANCE, INSTANCE2, INSTANCE3 = 1300, 1301, 1302
+local NAMES = {
+  [INSTANCE] = "Altar of Fangs",
+  [INSTANCE2] = "Web of Chains",
+  [INSTANCE3] = "Halls of Rust",
+}
 local LOOT = {
   { itemID = 111, name = "Hood",  slot = "Head",     link = "|Hitem:111|h[Hood]|h" },
   { itemID = 222, name = "Blade", slot = "One-Hand", link = "|Hitem:222|h[Blade]|h" },
 }
 
-local ej = { difficulty = 1, classF = 0, specF = 0, slotFilter = NO_FILTER, selects = 0 }
+local ej = { difficulty = 1, classF = 0, specF = 0, slotFilter = NO_FILTER, selects = 0,
+              linksReady = true }
 local dataReady = false
 
 -- Anything that moves the selection makes the client ask the server again.
@@ -63,7 +79,12 @@ function EJ_GetNumLoot()
 end
 
 C_EncounterJournal = {
-  GetLootInfoByIndex = function(i) return LOOT[i] end,
+  GetLootInfoByIndex = function(i)
+    local it = LOOT[i]
+    if not it or ej.linksReady then return it end
+    -- The list arrives before the item links do on a cold client.
+    return { itemID = it.itemID, name = it.name, slot = it.slot }
+  end,
   GetSlotFilter      = function() return ej.slotFilter end,
   SetSlotFilter      = function(f) ej.slotFilter = f end,
   ResetSlotFilter    = function() ej.slotFilter = NO_FILTER end,
@@ -104,4 +125,72 @@ assert(#cache.items == #LOOT, "a leftover slot filter must not hide the loot")
 assert(ej.selects == 1, "reading again must not re-select and restart the query")
 assert(ej.slotFilter == HEAD, "the journal's own slot filter is put back")
 
-print("4 browser scan tests passed")
+------------------------------------------------------------------------
+-- A cold journal: the server only answers after the scan has given up.
+------------------------------------------------------------------------
+assert(scanner.requestLoot(INSTANCE2, false, 23) == nil, "second instance queues a scan")
+runTimers()
+fireTimeout()
+cache = scanner.requestLoot(INSTANCE2, false, 23)
+assert(cache and #cache.items == 0 and cache.incomplete,
+  "a timed-out empty scan is cached but flagged incomplete")
+
+-- Loot data landing later requeues the flagged entry. The requeue re-selects,
+-- which restarts the server query, and the query's own answer completes it.
+now = now + 60
+dataReady = true
+onEvent(nil, "EJ_LOOT_DATA_RECIEVED")
+runTimers()
+dataReady = true
+onEvent(nil, "EJ_LOOT_DATA_RECIEVED")
+runTimers()
+cache = scanner.requestLoot(INSTANCE2, false, 23)
+assert(cache and #cache.items == #LOOT and not cache.incomplete,
+  "loot data arriving after the timeout rescans the empty table")
+
+------------------------------------------------------------------------
+-- The list arrives but the links are slow: a timeout keeps what resolved
+-- and still flags the entry, so a reopen or a late reply finishes the job.
+------------------------------------------------------------------------
+ej.linksReady = false
+assert(scanner.requestLoot(INSTANCE3, false, 23) == nil, "third instance queues a scan")
+dataReady = true
+runTimers()
+fireTimeout()
+cache = scanner.requestLoot(INSTANCE3, false, 23)
+assert(cache and #cache.items == #LOOT and cache.incomplete,
+  "a timed-out partial read keeps its items but is flagged incomplete")
+
+------------------------------------------------------------------------
+-- A rescan that comes back with nothing must not throw away the partial
+-- items it replaced.
+------------------------------------------------------------------------
+now = now + 60
+onEvent(nil, "EJ_LOOT_DATA_RECIEVED")
+runTimers()
+fireTimeout()
+cache = scanner.requestLoot(INSTANCE3, false, 23)
+assert(cache and #cache.items == #LOOT and cache.incomplete,
+  "a rescan that reads worse keeps the items it replaced")
+
+-- Straight after a failed rescan the cooldown holds, so a loot event echoed
+-- by the scanner's own restore cannot burn another retry.
+dataReady = true
+local selectsBefore = ej.selects
+onEvent(nil, "EJ_LOOT_DATA_RECIEVED")
+runTimers()
+assert(ej.selects == selectsBefore, "the cooldown blocks an immediate rescan")
+
+-- Once the cooldown passes and the links have arrived, the retry finishes.
+now = now + 60
+ej.linksReady = true
+onEvent(nil, "EJ_LOOT_DATA_RECIEVED")
+runTimers()
+dataReady = true
+onEvent(nil, "EJ_LOOT_DATA_RECIEVED")
+runTimers()
+cache = scanner.requestLoot(INSTANCE3, false, 23)
+assert(cache and #cache.items == #LOOT and not cache.incomplete,
+  "the table completes once its data arrives")
+
+print("13 browser scan tests passed")

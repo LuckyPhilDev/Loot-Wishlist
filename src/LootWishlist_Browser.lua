@@ -26,7 +26,9 @@ local DEFAULT_H    = 540
 -- Wide enough that the track buttons and the group dropdown share the top row.
 local MIN_W        = 650
 local MIN_H        = 400
-local SCAN_TIMEOUT = 3
+local SCAN_TIMEOUT   = 3
+local MAX_RESCANS    = 5   -- retries a flagged table gets before a reopen resets it
+local RESCAN_BACKOFF = 5   -- seconds before the first retry, doubling each time
 
 local DOT   = " " .. UI.DOT .. " "
 
@@ -177,6 +179,8 @@ end
 
 local function restoreEJ()
   if not snapshot then return end
+  -- Ends the OnOpen bracket the scans held; see startScan.
+  if C_EncounterJournal and C_EncounterJournal.OnClose then pcall(C_EncounterJournal.OnClose) end
   if snapshot.slotF and C_EncounterJournal and C_EncounterJournal.SetSlotFilter then
     pcall(C_EncounterJournal.SetSlotFilter, snapshot.slotF)
   end
@@ -324,17 +328,37 @@ local function finishScan(scan, items)
   local count = items and #items or 0
   DevLog("scan", scan.key, "read", count, "of", scan.lastN or 0, "journal entries",
     scan.timedOut and "(timed out)" or "")
-  -- An empty read is kept for this browsing session so the queue does not spin
-  -- on it, but flagged: reopening the browser rescans it, since nothing came
-  -- back is as often a lost race with the journal as a genuinely empty table.
-  lootCache[scan.key] = {
-    items = items or {}, diffID = scan.scannedDiff or scan.diffID, empty = count == 0,
+  -- A read that came back empty or timed out part-way is kept so the queue
+  -- does not spin on it, but flagged: reopening the browser rescans it, and
+  -- loot data arriving later requeues it, since a short read is as often a
+  -- lost race with the journal as a genuinely thin table.
+  local entry = {
+    items = items or {}, diffID = scan.scannedDiff or scan.diffID,
+    incomplete = (scan.timedOut or count == 0) or nil,
   }
+  -- A rescan that read worse than the entry it replaced keeps the old items;
+  -- only the retry is spent.
+  local prev = scan.previous
+  if prev and #prev.items > #entry.items then
+    entry.items, entry.diffID, entry.incomplete = prev.items, prev.diffID, true
+  end
+  if entry.incomplete then
+    entry.retries = scan.retries or 0
+    -- The cooldown keeps the retries for real evidence: without it, restoreEJ
+    -- re-selecting the journal's own instance echoes warm loot events that
+    -- would burn the whole budget while the flagged table stayed cold.
+    entry.notBefore = GetTime() + RESCAN_BACKOFF * 2 ^ entry.retries
+    entry.params = {
+      instanceID = scan.instanceID, isRaid = scan.isRaid, diffID = scan.diffID,
+      classID = scan.classID, specID = scan.specID,
+    }
+  end
+  lootCache[scan.key] = entry
   pendingKeys[scan.key] = nil
   current = nil
-  if LuckyItem and items then
+  if LuckyItem then
     local ids = {}
-    for _, it in ipairs(items) do
+    for _, it in ipairs(entry.items) do
       if not LuckyItem:IsCached(it.itemID) then ids[#ids + 1] = it.itemID end
     end
     if #ids > 0 then LuckyItem:GetMany(ids, function() scheduleRefresh() end) end
@@ -369,6 +393,12 @@ end
 local function startScan(scan)
   current = scan
   snapshotEJ()
+  -- Blizzard brackets every journal session with OnOpen/OnClose, and the loot
+  -- APIs are only exercised inside that bracket, so the headless scans hold
+  -- one too (closed in restoreEJ when the queue drains). Re-opened per scan
+  -- rather than per session: the real journal's OnHide calls OnClose and
+  -- would end a bracket opened once.
+  if C_EncounterJournal and C_EncounterJournal.OnOpen then pcall(C_EncounterJournal.OnOpen) end
   scan.timer = C_Timer.NewTimer(SCAN_TIMEOUT, function()
     scan.timer = nil
     if current ~= scan then return end
@@ -398,7 +428,6 @@ pump = function()
   end
   local scan = table.remove(queue, 1)
   if not scan then
-    scanEvents:UnregisterEvent("EJ_LOOT_DATA_RECIEVED")
     restoreEJ()
     return
   end
@@ -406,15 +435,52 @@ pump = function()
     pendingKeys[scan.key] = nil
     return pump()
   end
-  scanEvents:RegisterEvent("EJ_LOOT_DATA_RECIEVED")
   startScan(scan)
+end
+
+-- Puts a flagged cache entry back on the queue for another read. The entry
+-- rides along as `previous`, so a rescan that does worse cannot lose the items
+-- the entry already held.
+local function requeueEntry(key, entry, retries)
+  lootCache[key] = nil
+  pendingKeys[key] = true
+  local p = entry.params
+  queue[#queue + 1] = {
+    key = key, instanceID = p.instanceID, isRaid = p.isRaid, diffID = p.diffID,
+    classID = p.classID, specID = p.specID, retries = retries, previous = entry,
+  }
+end
+
+-- A scan that timed out learns nothing about when its data finally lands, so
+-- the journal's loot event doubles as the retry signal: data arriving while no
+-- scan is running means an earlier lost race may now be winnable. Requeueing
+-- re-selects the instance, which is the only re-request the API has. Capped
+-- and cooled per key so a table that is genuinely empty cannot spin the queue;
+-- reopening the browser starts the count over.
+local function rescanIncomplete()
+  local queued = false
+  for key, entry in pairs(lootCache) do
+    if entry.incomplete and entry.params and (entry.retries or 0) < MAX_RESCANS
+        and GetTime() >= (entry.notBefore or 0) then
+      requeueEntry(key, entry, (entry.retries or 0) + 1)
+      queued = true
+    end
+  end
+  if queued then pump() end
 end
 
 scanEvents:SetScript("OnEvent", function(_, event)
   if event == "EJ_LOOT_DATA_RECIEVED" then
-    attemptRead()
+    if current then
+      attemptRead()
+    else
+      rescanIncomplete()
+    end
   end
 end)
+-- Registered for good rather than per scan: the late replies worth catching
+-- are exactly the ones that arrive after a scan gave up.
+scanEvents:RegisterEvent("EJ_LOOT_DATA_RECIEVED")
 
 -- The loot filter shapes what a scan reads, so class and spec are part of the
 -- cache identity alongside instance and difficulty.
@@ -1891,9 +1957,16 @@ end
 ------------------------------------------------------------------------
 function LootWishlist.Browser.open()
   ensureFrame()
+  -- Anything that read short gets another chance on a fresh open, with the
+  -- retry count reset; what it already held is kept if the rescan does worse.
+  local queued = false
   for key, entry in pairs(lootCache) do
-    if entry.empty then lootCache[key] = nil end
+    if entry.incomplete and entry.params then
+      requeueEntry(key, entry, 0)
+      queued = true
+    end
   end
+  if queued then pump() end
   frame:Show()
   frame:Raise()
   sidebarList:SetData(buildSidebarRows())

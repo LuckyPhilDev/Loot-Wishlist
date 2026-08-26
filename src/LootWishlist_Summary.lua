@@ -100,7 +100,7 @@ local function getEncounterOrder(instanceID)
     end
     if prevInstance and prevInstance ~= instanceID then pcall(EJ_SelectInstance, prevInstance) end
   end
-  if not order or not next(order) then
+  if not order or not next(order.id) then
     order = { id = {}, name = {} }
     for idx = 1, 200 do
       local name, _, encounterID = EJ_GetEncounterInfoByIndex(idx, instanceID)
@@ -109,7 +109,12 @@ local function getEncounterOrder(instanceID)
       if name then order.name[name:lower()] = idx end
     end
   end
-  encounterOrderCache[instanceID] = order
+  -- A journal that has not answered yet lists no encounters at all; caching
+  -- that would fix the fallback boss order in place for the session, so an
+  -- empty map is returned but not kept and the next refresh reads again.
+  if next(order.id) or next(order.name) then
+    encounterOrderCache[instanceID] = order
+  end
   return order
 end
 

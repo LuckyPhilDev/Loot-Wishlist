@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Fixed
+- A dungeon the game was slow to answer for no longer shows an empty or half-filled table in the Loot Browser for the rest of the session; the loot fills in as soon as the data arrives.
+- Raid bosses in the wishlist and summary windows keep their kill order when the game answers slowly at login, instead of sorting alphabetically for the rest of the session.
+
 ## [1.14.2] - 2026-08-25
 
 ### Fixed
