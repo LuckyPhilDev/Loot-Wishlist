@@ -98,6 +98,32 @@ check(meets(200, "item:200:318"), true, "and it clears the gate with no link rec
 tracked = { ["200"] = { id = 200 } }
 check(shortfall(200, "item:200:305"), nil, "an entry with nothing to compare explains nothing")
 
+-- The vault star reads the same gate, wanting the track rather than a sentence
+local short = LootWishlist.Alerts.TrackShortfall
+
+tracked = { ["200@16"] = { id = 200, isRaid = true, difficultyID = 16, link = "item:200:344" } }
+local isShort, key = short(200, "item:200:305")
+check(isShort, true, "a Hero reward falls short of a Myth wish")
+check(key, "Myth", "and names the track the wish is at")
+check(short(200, "item:200:318"), false, "a Myth reward falls short of nothing")
+check(short(200, nil), false, "a reward with no link is no shortfall")
+
+-- A Great Vault reward is not cached when it is first drawn, so its item level
+-- reads as nil. The track bonus in the link answers anyway, and answers on
+-- rank 1, so a Hero copy upgraded past Myth rank 1 is still the lower track.
+-- Fake links put the item level first and the bonus IDs after it; 0 stands in
+-- for an item level the client cannot yet supply.
+local HERO, MYTH = ":12841", ":12849"
+
+tracked = { ["200@16"] = { id = 200, isRaid = true, difficultyID = 16, link = "item:200:344" } }
+isShort, key = short(200, "item:200:0" .. HERO)
+check(isShort, true, "an uncached Hero reward still reads as the lower track")
+check(key, "Myth", "and still names the track the wish is at")
+check(short(200, "item:200:0" .. MYTH), false, "an uncached Myth reward clears the wish")
+check(short(200, "item:200:320" .. HERO), true, "a Hero copy above Myth rank 1 is still Hero")
+check(meets(200, "item:200:320" .. HERO), false, "and it clears no Myth entry")
+check(meets(200, "item:200:0" .. MYTH), true, "while an uncached Myth reward does")
+
 -- Tracks with no season item level keep comparing against the recorded copy
 tracked = { ["200@14"] = { id = 200, isRaid = true, difficultyID = 14, link = "item:200:292" } }
 check(meets(200, "item:200:292"), true, "Champion entry meets its recorded level")

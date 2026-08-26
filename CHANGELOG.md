@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Improved
+- **Silver vault star** A Great Vault reward that is a wishlist item on a lower track than you track wears a silver star instead of a gold one. Hover it and the tooltip names the track your wishlist is at.
+- Drop alerts read a dropped item's upgrade track from the item itself, so a Hero copy upgraded past a Mythic one no longer counts as the Mythic piece you track.
+
 ### Fixed
 - A dungeon the game was slow to answer for no longer shows an empty or half-filled table in the Loot Browser for the rest of the session; the loot fills in as soon as the data arrives.
 - Raid bosses in the wishlist and summary windows keep their kill order when the game answers slowly at login, instead of sorting alphabetically for the rest of the session.

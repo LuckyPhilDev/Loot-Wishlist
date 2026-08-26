@@ -168,8 +168,10 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
     },
 
     vault = {
-        title       = "Loot Wishlist",
-        matchesLine = "This reward matches an item on your wishlist:",
+        title             = "Loot Wishlist",
+        matchesLine       = "This reward matches an item on your wishlist:",
+        lowerTrack        = "Below the %s track on your wishlist.",
+        lowerTrackUnnamed = "Below the track on your wishlist.",
     },
 
     tooltips = {
@@ -218,7 +220,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         hideObtained       = "Hide obtained items",
         hideObtainedDesc   = "Items you tick as obtained stay in the wishlist window, greyed out under their boss. Ticking this takes them off the screen instead. Either way they raise no alerts or reminders.",
         vaultStar          = "Star wishlist items in the Great Vault",
-        vaultStarDesc      = "Puts a pulsing star on any Great Vault reward you track. Hover the star to see which wishlist entries it matches.",
+        vaultStarDesc      = "Puts a pulsing star on any Great Vault reward you track. A silver star means the reward is a lower track than the copy you track. Hover the star to see which wishlist entries it matches.",
         tooltipStatus      = "Wishlist status on item tooltips",
         tooltipStatusDesc  = "Any item on your wishlist says so on its tooltip, naming the boss it drops from and the difficulties you track it at. Bags, vendors, chat links, the Adventure Guide and the Great Vault included.",
         hideWardrobe       = "Hide the Wardrobe model preview",

@@ -441,6 +441,32 @@ local function getLinkIlvl(link)
   return nil
 end
 
+-- The item level rank 1 of a link's own track carries, read from the track
+-- bonus ID sitting in its bonus list. This is the answer worth having: it puts
+-- both sides of a comparison on rank 1, so a Hero copy upgraded past a Myth
+-- one is still the lower track, and it reads straight off the string, so it
+-- answers for an item the client has not cached yet. A freshly drawn Great
+-- Vault reward is exactly that, which is why item level alone came back nil.
+local function linkTrackIlvl(link)
+  if type(link) ~= "string" then return nil end
+  local tracks = (LootWishlist.Const and LootWishlist.Const.TRACKS) or {}
+  for i = #tracks, 1, -1 do
+    local tr = tracks[i]
+    if tr.trackBonus and tr.trackIlvl and link:find(":" .. tr.trackBonus .. "%f[%D]") then
+      return tr.trackIlvl
+    end
+  end
+  return nil
+end
+
+Alerts.LinkTrackIlvl = linkTrackIlvl
+
+-- What a copy counts as when its track is being weighed: the level its track
+-- starts at, falling back to the level the copy itself carries.
+local function trackIlvlOf(link)
+  return linkTrackIlvl(link) or getLinkIlvl(link)
+end
+
 -- What a drop has to reach to clear an entry: the item level rank 1 of the
 -- entry's track carries, not the level of whichever copy was recorded. The
 -- vault and bonus rolls hand out ranks well up a track, so an entry recorded
@@ -455,7 +481,7 @@ local function entryThresholdIlvl(entry)
       if tr.key == trackKey and tr.trackIlvl then return tr.trackIlvl end
     end
   end
-  return getLinkIlvl(entry.link)
+  return trackIlvlOf(entry.link)
 end
 
 -- Offer actions only when the dropped copy provably reaches an entry's own
@@ -463,7 +489,7 @@ end
 -- effective ilvls compares upgrade tracks without locale-dependent tooltip
 -- parsing. Anything unknowable stays a highlight-only alert.
 local function dropMeetsWishlistTrack(itemID, droppedLink, simulatedIlvl)
-  local droppedIlvl = simulatedIlvl or getLinkIlvl(droppedLink)
+  local droppedIlvl = simulatedIlvl or trackIlvlOf(droppedLink)
   if not droppedIlvl then return false end
   local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
   if not t then return false end
@@ -478,15 +504,15 @@ end
 
 Alerts.DropMeetsWishlistTrack = dropMeetsWishlistTrack
 
--- An alert that highlights the item you want and then offers nothing reads as
--- broken, so say what happened when the reason is knowable: the drop is the
--- wishlisted item at a track below the one you track. The easiest entry to
--- satisfy names the track, since clearing that one clears the alert.
-local function trackShortfallText(itemID, droppedLink, simulatedIlvl)
-  local droppedIlvl = simulatedIlvl or getLinkIlvl(droppedLink)
-  if not droppedIlvl then return nil end
+-- Whether a copy falls short of every track the item is tracked at, and the
+-- track of the easiest entry to satisfy, since clearing that one clears the
+-- shortfall. Anything unmeasurable reads as no shortfall, so callers only
+-- speak up when the gap is provable.
+local function trackShortfall(itemID, droppedLink, simulatedIlvl)
+  local droppedIlvl = simulatedIlvl or trackIlvlOf(droppedLink)
+  if not droppedIlvl then return false end
   local t = LootWishlist.GetTracked and LootWishlist.GetTracked()
-  if not t then return nil end
+  if not t then return false end
   local lowestThreshold, trackKey
   for _, v in pairs(t) do
     if type(v) == "table" and v.id == itemID then
@@ -498,7 +524,18 @@ local function trackShortfallText(itemID, droppedLink, simulatedIlvl)
       end
     end
   end
-  if not lowestThreshold or droppedIlvl >= lowestThreshold then return nil end
+  if not lowestThreshold or droppedIlvl >= lowestThreshold then return false end
+  return true, trackKey
+end
+
+Alerts.TrackShortfall = trackShortfall
+
+-- An alert that highlights the item you want and then offers nothing reads as
+-- broken, so say what happened when the reason is knowable: the drop is the
+-- wishlisted item at a track below the one you track.
+local function trackShortfallText(itemID, droppedLink, simulatedIlvl)
+  local short, trackKey = trackShortfall(itemID, droppedLink, simulatedIlvl)
+  if not short then return nil end
   local C = LootWishlist.Const or {}
   if trackKey then
     return (C.ALERT_TEXT_LOWER_TRACK or S.lowerTrack):format(trackKey)

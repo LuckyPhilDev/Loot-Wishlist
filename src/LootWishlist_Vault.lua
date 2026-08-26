@@ -76,6 +76,28 @@ function Vault.Diagnose()
     Vault.Scan()
   end
 
+  -- What each reward resolved to, and how its track was judged. A reward the
+  -- client has not cached answers nil for item level, which is why the track
+  -- is read from the link's bonus IDs instead.
+  if Vault.RewardItem and activities and type(vaultFrame.Activities) == "table" then
+    local Alerts = LootWishlist.Alerts or {}
+    for i, activity in ipairs(activities) do
+      local element = vaultFrame.Activities[i]
+      local itemID, link = element and Vault.RewardItem(element, activity)
+      if itemID then
+        local cached = C_Item and C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(link)
+        local trackIlvl = Alerts.LinkTrackIlvl and Alerts.LinkTrackIlvl(link)
+        local lines = LootWishlist.UI.WishlistLines(itemID)
+        local short, trackKey
+        if Alerts.TrackShortfall then short, trackKey = Alerts.TrackShortfall(itemID, link) end
+        p(string.format("  reward[%d] item=%d ilvl=%s trackIlvl=%s wishlisted=%s lowerTrack=%s (%s)",
+          i, itemID, tostring(cached), tostring(trackIlvl), tostring(#lines > 0),
+          tostring(short), tostring(trackKey)))
+        p("    link:", tostring(link and link:gsub("|", "||")))
+      end
+    end
+  end
+
   -- Show tracked wishlist item IDs for comparison
   if LootWishlist.GetTracked then
     local tracked = LootWishlist.GetTracked() or {}
@@ -100,6 +122,20 @@ end
 
 -- Badge overlay ---------------------------------------------------------------
 
+-- A reward that reaches a track you wishlisted wears the gold star. One that is
+-- the right item further down its track wears a silver one, so a Hero copy of a
+-- Myth wish reads as a near miss without opening its tooltip.
+local SILVER = { 0.78, 0.82, 0.88 }
+local WHITE = { 1, 1, 1 }
+
+local function setBadgeTone(badge, lowerTrack)
+  local glowColor = lowerTrack and SILVER or C.goldPrimary
+  local starColor = lowerTrack and SILVER or WHITE
+  badge.glow:SetVertexColor(glowColor[1], glowColor[2], glowColor[3], 0.8)
+  badge.star:SetDesaturated(lowerTrack)
+  badge.star:SetVertexColor(starColor[1], starColor[2], starColor[3])
+end
+
 local function ensureBadge(parent)
   if parent.LootWishlistVaultBadge then return parent.LootWishlistVaultBadge end
 
@@ -112,7 +148,6 @@ local function ensureBadge(parent)
   local glow = badge:CreateTexture(nil, "ARTWORK")
   glow:SetTexture("Interface\\Cooldown\\star4")
   glow:SetBlendMode("ADD")
-  glow:SetVertexColor(C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3], 0.8)
   glow:SetSize(44, 44)
   glow:SetPoint("CENTER")
 
@@ -120,6 +155,9 @@ local function ensureBadge(parent)
   star:SetAtlas("auctionhouse-icon-favorite")
   star:SetSize(24, 22)
   star:SetPoint("CENTER")
+
+  badge.glow, badge.star = glow, star
+  setBadgeTone(badge, false)
 
   local pulse = glow:CreateAnimationGroup()
   pulse:SetLooping("BOUNCE")
@@ -140,6 +178,9 @@ local function ensureBadge(parent)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine(S.title, C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
     LootWishlist.UI.AddWishlistLines(GameTooltip, lines, S.matchesLine)
+    if self.lowerTrackNote then
+      GameTooltip:AddLine(self.lowerTrackNote, SILVER[1], SILVER[2], SILVER[3], true)
+    end
     GameTooltip:Show()
   end)
   badge:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -157,6 +198,50 @@ local function extractItemID(link)
   if not link or type(link) ~= "string" then return nil end
   local idStr = link:match("item:(%d+)")
   return idStr and tonumber(idStr) or nil
+end
+
+-- Which item a reward is showing, and the link it is showing it from. The link
+-- matters as much as the ID: its bonus IDs name the upgrade track, which is how
+-- a Hero copy of a Myth wish is told apart.
+-- Note: displayedItemDBID is a weekly-reward DB row id, NOT an itemID. Convert
+-- it via C_WeeklyRewards.GetItemHyperlink.
+local function rewardItem(element, activity)
+  local function fromLink(link)
+    local id = link and extractItemID(link)
+    if id then return id, link end
+  end
+
+  local itemFrame = element.ItemFrame
+  if itemFrame then
+    local id, link = fromLink(itemFrame.displayedItemLink)
+    if id then return id, link end
+    if itemFrame.displayedItemDBID and C_WeeklyRewards.GetItemHyperlink then
+      local ok, hyperlink = pcall(C_WeeklyRewards.GetItemHyperlink, itemFrame.displayedItemDBID)
+      if ok then
+        id, link = fromLink(hyperlink)
+        if id then return id, link end
+      end
+    end
+  end
+
+  -- Fallback: convert rewards from the activity info itself
+  if activity.rewards and C_WeeklyRewards.GetItemHyperlink then
+    for _, reward in ipairs(activity.rewards) do
+      if reward.id or reward.itemDBID then
+        local ok, hyperlink = pcall(C_WeeklyRewards.GetItemHyperlink, reward.id or reward.itemDBID)
+        if ok then
+          local id, link = fromLink(hyperlink)
+          if id then return id, link end
+        end
+      end
+    end
+  end
+
+  -- Last resort: example hyperlinks API
+  if C_WeeklyRewards.GetExampleRewardItemHyperlinks then
+    local ok, hyperlink = pcall(C_WeeklyRewards.GetExampleRewardItemHyperlinks, activity.id)
+    if ok then return fromLink(hyperlink) end
+  end
 end
 
 local function scanAndAnnotate()
@@ -211,51 +296,26 @@ local function scanAndAnnotate()
     if element then
       local badge = ensureBadge(element)
       badge.wishlistLines = nil
+      badge.lowerTrackNote = nil
       badge:Hide()
 
-      -- Try to get the item from the element's displayed item.
-      -- Note: displayedItemDBID is a weekly-reward DB row id, NOT an itemID.
-      -- Convert via C_WeeklyRewards.GetItemHyperlink, or use displayedItemLink directly.
-      local itemID
-      local itemFrame = element.ItemFrame
-      if itemFrame then
-        if itemFrame.displayedItemLink then
-          itemID = extractItemID(itemFrame.displayedItemLink)
-        end
-        if not itemID and itemFrame.displayedItemDBID and C_WeeklyRewards.GetItemHyperlink then
-          local ok, link = pcall(C_WeeklyRewards.GetItemHyperlink, itemFrame.displayedItemDBID)
-          if ok and link then
-            itemID = extractItemID(link)
-          end
-        end
-      end
-
-      -- Fallback: convert rewards from the activity info itself
-      if not itemID and activity.rewards and C_WeeklyRewards.GetItemHyperlink then
-        for _, reward in ipairs(activity.rewards) do
-          if reward.id or reward.itemDBID then
-            local ok, link = pcall(C_WeeklyRewards.GetItemHyperlink, reward.id or reward.itemDBID)
-            if ok and link then
-              local id = extractItemID(link)
-              if id then itemID = id; break end
-            end
-          end
-        end
-      end
-
-      -- Last resort: example hyperlinks API
-      if not itemID and C_WeeklyRewards.GetExampleRewardItemHyperlinks then
-        local ok, link = pcall(C_WeeklyRewards.GetExampleRewardItemHyperlinks, activity.id)
-        if ok and link then
-          itemID = extractItemID(link)
-        end
-      end
-
+      local itemID, itemLink = rewardItem(element, activity)
       if itemID then
         local lines = LootWishlist.UI.WishlistLines(itemID)
         if #lines > 0 then
-          DevLog("Vault match: itemID=", itemID, "sources=", #lines)
+          -- Alerts loads after this file, and a vault left open across a reload
+          -- scans at load time, so the gate is looked up rather than upvalued.
+          local shortfall = LootWishlist.Alerts and LootWishlist.Alerts.TrackShortfall
+          local lowerTrack, trackKey = false, nil
+          if shortfall then lowerTrack, trackKey = shortfall(itemID, itemLink) end
+
+          DevLog("Vault match: itemID=", itemID, "sources=", #lines,
+            "lowerTrack=", tostring(lowerTrack), tostring(trackKey))
           badge.wishlistLines = lines
+          if lowerTrack then
+            badge.lowerTrackNote = trackKey and S.lowerTrack:format(trackKey) or S.lowerTrackUnnamed
+          end
+          setBadgeTone(badge, lowerTrack)
           badge:Show()
         end
       end
@@ -287,6 +347,7 @@ end
 -- Expose early so even if event registration errors, slash command can trigger.
 Vault.Scan = scanAndAnnotate
 Vault.Hook = hookVaultUI
+Vault.RewardItem = rewardItem
 
 -- Events ----------------------------------------------------------------------
 
