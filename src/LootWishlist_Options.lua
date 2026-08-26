@@ -169,7 +169,7 @@ local function buildWishlist(g)
   g:Toggle({
     label    = S.tooltipStatus,
     desc     = S.tooltipStatusDesc,
-    since    = "1.15.0",
+    since    = "1.14.1",
     checked  = function() return isOn("enableTooltipStatus") end,
     onToggle = function(checked) write("enableTooltipStatus", checked) end,
   })

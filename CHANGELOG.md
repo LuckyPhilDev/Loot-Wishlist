@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.14.3] - 2026-08-26
 
 ### Improved
 - **Silver vault star** A Great Vault reward that is a wishlist item on a lower track than you track wears a silver star instead of a gold one. Hover it and the tooltip names the track your wishlist is at.
@@ -7,6 +7,7 @@
 ### Fixed
 - A dungeon the game was slow to answer for no longer shows an empty or half-filled table in the Loot Browser for the rest of the session; the loot fills in as soon as the data arrives.
 - Raid bosses in the wishlist and summary windows keep their kill order when the game answers slowly at login, instead of sorting alphabetically for the rest of the session.
+- The settings window opens again where an old standalone copy of Lucky's Utils was installed alongside the addon. (Thanks for the report Serroc)
 
 ### Removed
 - The Hide the Wardrobe model preview setting in the Wishlist settings group. Lucky's Wardrobe no longer previews an item on your character when you hover a row in the wishlist or the Loot Browser, and the preview still works everywhere else in the game.
