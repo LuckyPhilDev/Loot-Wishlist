@@ -1,3 +1,8 @@
+## [1.14.4] - 2026-08-26
+
+### Fixed
+- Settings and windows open again where an older copy of Lucky's Utils is installed alongside the addon, which the last update did not fully cover. (Thanks for the report Serroc)
+
 ## [1.14.3] - 2026-08-26
 
 ### Improved
