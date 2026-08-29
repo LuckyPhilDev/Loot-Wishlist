@@ -252,6 +252,24 @@ check(settings.minimapClick == LootWishlist.Const.MINIMAP_CLICK_ACTIONS[2].key,
   "picking an option writes its key")
 
 -------------------------------------------------------------------------------
+-- Bonus roll blocking is per character, so its rows must miss the account-wide
+-- table the rest of the panel writes to.
+-------------------------------------------------------------------------------
+local charSettings = LootWishlistCharDB.settings
+
+clickToggle("Prevent accidental bonus rolls", true)
+check(charSettings.bonusRollAutoDismiss == true, "the master toggle writes to the character settings")
+check(settings.bonusRollAutoDismiss == nil, "and leaves nothing in the account settings")
+
+clickToggle("Only keep for flagged bosses", true)
+check(charSettings.bonusRollOnlyFlagged == true, "so does the flagged filter")
+
+pickOption("When a popup is not wanted", 2)
+check(charSettings.bonusRollUnwantedAction == LootWishlist.Const.BONUS_ROLL_ACTIONS[2].key,
+  "and the action dropdown")
+check(settings.bonusRollUnwantedAction == nil, "none of them reach the account table")
+
+-------------------------------------------------------------------------------
 -- Hovering a row renders it in the About rail. The rail is the library's work;
 -- this only proves no row type the panel uses trips it up.
 -------------------------------------------------------------------------------
