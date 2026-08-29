@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Added
+- **Auto-dismiss Bonus Roll** Pass the Bonus Roll popup automatically, keeping it only in the content you tick under Alerts. Moved here from Lucky's Grab-bag, which hands the setting over along with the choices you already made.
+
 ## [1.14.4] - 2026-08-26
 
 ### Fixed

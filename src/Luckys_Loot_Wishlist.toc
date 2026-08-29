@@ -6,6 +6,7 @@
 ## OptionalDeps: Luckys_Utils
 ## SavedVariablesPerCharacter: LootWishlistCharDB
 ## SavedVariables: LootWishlistDB, RemindMeDB, RemindMeCharDB, LuckySettingsDB, LuckyRosterDB
+## X-BlocksBonusRolls: 1
 ## X-Curse-Project-ID: 1353310
 
 Libs\LuckysUtils\embeds.xml
@@ -25,3 +26,4 @@ LootWishlist_ReminderPlanner.lua
 LootWishlist_Reminders.lua
 LootWishlist_Alerts.lua
 LootWishlist_BonusRoll.lua
+LootWishlist_BonusRollBlock.lua

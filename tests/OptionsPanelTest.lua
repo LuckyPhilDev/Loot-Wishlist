@@ -109,6 +109,14 @@ LuckyPromo = stub()
 LuckyDeps = stub({ Check = function() return false end })
 C_AddOns = stub({ GetAddOnMetadata = function() return "1.12.3" end })
 
+function UIDropDownMenu_SetWidth() end
+function UIDropDownMenu_SetText() end
+function UIDropDownMenu_Initialize() end
+function UIDropDownMenu_CreateInfo() return {} end
+function UIDropDownMenu_AddButton() end
+function UIDropDownMenu_EnableDropDown() end
+function UIDropDownMenu_DisableDropDown() end
+
 local ns = {}
 dofile("src/Luckys_Utils/LibStub.lua")
 loadfile("src/Luckys_Utils/VersionGate.lua")("Luckys_Utils")

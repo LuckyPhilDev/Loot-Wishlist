@@ -44,6 +44,14 @@ local function write(key, value)
   if s then s[key] = value end
 end
 
+-- Bonus roll blocking is per-character, so it sits beside the account-wide
+-- settings rather than in them.
+local function charSettings()
+  LootWishlistCharDB = LootWishlistCharDB or {}
+  LootWishlistCharDB.settings = LootWishlistCharDB.settings or {}
+  return LootWishlistCharDB.settings
+end
+
 local function refreshSummary()
   if LootWishlist.Summary and LootWishlist.Summary.refresh then
     LootWishlist.Summary.refresh()
@@ -245,6 +253,80 @@ local function buildAlerts(g)
     checked  = function() return isOn("bonusRollSound") end,
     onToggle = function(checked) write("bonusRollSound", checked) end,
   })
+
+  g:Section(S.blockSection)
+
+  local function charRead(key) return charSettings()[key] end
+  local function charWrite(key, value) charSettings()[key] = value end
+
+  g:Toggle({
+    label    = S.blockDismiss,
+    desc     = S.blockDismissDesc,
+    note     = S.blockDismissNote,
+    since    = "1.15.0",
+    checked  = function() return charRead("bonusRollAutoDismiss") == true end,
+    onToggle = function(checked) charWrite("bonusRollAutoDismiss", checked) end,
+  })
+
+  g:Toggle({
+    label    = S.blockKeepMythicPlus,
+    desc     = S.blockKeepMythicPlusDesc,
+    parent   = S.blockDismiss,
+    checked  = function() return charRead("bonusRollKeepInMythicPlus") == true end,
+    onToggle = function(checked) charWrite("bonusRollKeepInMythicPlus", checked) end,
+  })
+
+  g:Slider({
+    label     = S.blockMinKeyLevel,
+    desc      = S.blockMinKeyLevelDesc,
+    min       = 2,
+    max       = 10,
+    parent    = S.blockKeepMythicPlus,
+    value     = function() return charRead("bonusRollMythicPlusMinLevel") or 10 end,
+    onChanged = function(value) charWrite("bonusRollMythicPlusMinLevel", value) end,
+  })
+
+  g:Toggle({
+    label    = S.blockKeepRaids,
+    desc     = S.blockKeepRaidsDesc,
+    parent   = S.blockDismiss,
+    checked  = function() return charRead("bonusRollKeepInRaids") == true end,
+    onToggle = function(checked) charWrite("bonusRollKeepInRaids", checked) end,
+  })
+
+  local raidKeyToField = {
+    lfr    = "bonusRollKeepInLFR",
+    normal = "bonusRollKeepInNormalRaid",
+    heroic = "bonusRollKeepInHeroicRaid",
+    mythic = "bonusRollKeepInMythicRaid",
+  }
+  g:MultiSelect({
+    label     = S.blockRaidDifficulties,
+    desc      = S.blockRaidDifficultiesDesc,
+    parent    = S.blockKeepRaids,
+    options   = {
+      { key = "lfr",    label = S.blockRaidLFR },
+      { key = "normal", label = S.blockRaidNormal },
+      { key = "heroic", label = S.blockRaidHeroic },
+      { key = "mythic", label = S.blockRaidMythic },
+    },
+    isChecked = function(key) return charRead(raidKeyToField[key]) end,
+    onToggle  = function(key, checked) charWrite(raidKeyToField[key], checked) end,
+  })
+
+  local function keepRow(label, desc, key)
+    g:Toggle({
+      label    = label,
+      desc     = desc,
+      parent   = S.blockDismiss,
+      checked  = function() return charRead(key) == true end,
+      onToggle = function(checked) charWrite(key, checked) end,
+    })
+  end
+
+  keepRow(S.blockKeepDelve, S.blockKeepDelveDesc, "bonusRollKeepInDelve")
+  keepRow(S.blockKeepDungeon, S.blockKeepDungeonDesc, "bonusRollKeepInDungeon")
+  keepRow(S.blockKeepHunts, S.blockKeepHuntsDesc, "bonusRollKeepInHunts")
 
   g:Section(S.specSection)
 
