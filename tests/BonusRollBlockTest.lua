@@ -110,15 +110,20 @@ dofile("src/LootWishlist_BonusRoll.lua")
 
 check(Block.FlaggedForRoll(nil), nil, "no frame means no verdict")
 check(Block.FlaggedForRoll({ encounterID = 0, instanceID = 0 }), nil, "a roll with no journal IDs has no verdict")
-check(Block.FlaggedForRoll({ encounterID = 2888, instanceID = 1320 }), true, "the flagged boss is recognised")
+local isFlagged, scope = Block.FlaggedForRoll({ encounterID = 2888, instanceID = 1320 })
+check(isFlagged, true, "the flagged boss is recognised")
+check(scope, "encounter", "and reports that a boss is what was matched")
+
+local _, keyScope = Block.FlaggedForRoll({ encounterID = 0, instanceID = 1320 })
+check(keyScope, "instance", "a roll with no encounter reports the instance instead")
 check(Block.FlaggedForRoll({ encounterID = 2874, instanceID = 1320 }),
     false, "an unflagged boss in a raid holding a flag elsewhere is not kept")
 check(Block.FlaggedForRoll({ encounterID = 0, instanceID = 1320 }),
     true, "a keystone roll with no encounter falls back to the instance")
 
 -- A passed roll says who passed it and which setting decided
-local function reasonFor(settings, ctx, keyLevel, isFlagged)
-  local unwanted, reason = Block.IsUnwanted(settings, ctx, keyLevel, isFlagged)
+local function reasonFor(settings, ctx, keyLevel, isFlagged, scope)
+  local unwanted, reason = Block.IsUnwanted(settings, ctx, keyLevel, isFlagged, scope)
   return unwanted and reason or nil
 end
 
@@ -130,7 +135,19 @@ check(reasonFor(why, "mythicplus", 5), "keyLevel", "a low key reports the key le
 check(reasonFor(why, "raidHeroic", 0), nil, "a kept boss is not passed and has no reason")
 
 why.bonusRollOnlyFlagged = true
-check(reasonFor(why, "raidHeroic", 0, false), "notFlagged", "an unflagged boss reports the flag")
+check(reasonFor(why, "raidHeroic", 0, false, "encounter"), "notFlaggedBoss",
+    "an unflagged raid boss reports the boss")
+check(reasonFor(why, "mythicplus", 10, false, "instance"), "notFlaggedDungeon",
+    "a keystone matched on the whole dungeon says dungeon, not boss")
+why.bonusRollKeepInDungeon = true
+check(reasonFor(why, "dungeon", 0, false, "encounter"), "notFlaggedBoss",
+    "a dungeon roll the game named a boss for still says boss, since that is what was checked")
+why.bonusRollKeepInDungeon = false
+
+check(Block.ReasonText(why, "raidHeroic", "notFlaggedBoss"), S.bonusRollBlock.notFlaggedBoss,
+    "the boss wording is its own string")
+check(Block.ReasonText(why, "mythicplus", "notFlaggedDungeon"), S.bonusRollBlock.notFlaggedDungeon,
+    "and so is the dungeon wording")
 
 check(Block.Message(why, "dungeon", "content", "pass"),
     "Bonus Roll passed. You do not keep the popup in Dungeons.", "the content message names the content")

@@ -131,7 +131,7 @@ end
 -- Returns true and the reason when the player would not have wanted this popup.
 -- An unidentifiable context, or a boss the game named no journal entry for, is
 -- always wanted: an extra popup is harmless, passing a wanted roll is not.
-function Block.IsUnwanted(s, ctx, keystoneLevel, flagged)
+function Block.IsUnwanted(s, ctx, keystoneLevel, flagged, scope)
   if not s.bonusRollAutoDismiss then return false end
   if not ctx then return false end
 
@@ -140,7 +140,7 @@ function Block.IsUnwanted(s, ctx, keystoneLevel, flagged)
 
   if not s.bonusRollOnlyFlagged then return false end
   if flagged == nil or flagged then return false end
-  return true, "notFlagged"
+  return true, scope == "instance" and "notFlaggedDungeon" or "notFlaggedBoss"
 end
 
 -- Acting on a roll for someone happens behind their back, so it says who did it
@@ -150,7 +150,8 @@ function Block.ReasonText(s, ctx, reason)
   if reason == "keyLevel" then
     return S.keyLevel:format(s.bonusRollMythicPlusMinLevel or 1)
   end
-  if reason == "notFlagged" then return S.notFlagged end
+  if reason == "notFlaggedBoss" then return S.notFlaggedBoss end
+  if reason == "notFlaggedDungeon" then return S.notFlaggedDungeon end
   -- Guarded on KEEP_KEYS rather than the lookup: a missing string comes back as
   -- a loud placeholder, not nil, so it would read as a name we recognise.
   if KEEP_KEYS[ctx] then return S.content:format(S.contexts[ctx]) end
@@ -182,7 +183,9 @@ local function clickPass()
 end
 
 -- nil means the roll could not be tied to a journal boss or instance, which the
--- caller reads as "do not judge this one on flags".
+-- caller reads as "do not judge this one on flags". The scope says which of the
+-- two was matched, so the wording can name what was actually looked at rather
+-- than what the content type suggests.
 function Block.FlaggedForRoll(frame)
   local BR = LootWishlist.BonusRoll
   if not (frame and BR and BR.HasFlaggedForRoll) then return nil end
@@ -190,7 +193,8 @@ function Block.FlaggedForRoll(frame)
   local encounterID, instanceID = frame.encounterID, frame.instanceID
   if (encounterID or 0) == 0 and (instanceID or 0) == 0 then return nil end
 
-  return BR.HasFlaggedForRoll(encounterID, instanceID)
+  local scope = (encounterID or 0) ~= 0 and "encounter" or "instance"
+  return BR.HasFlaggedForRoll(encounterID, instanceID), scope
 end
 
 local function rollButton()
@@ -263,8 +267,8 @@ end
 local function onBonusRollShow()
   local s = Block.GetSettings()
   local ctx = Block.DetectContext()
-  local flagged = Block.FlaggedForRoll(BonusRollFrame)
-  local unwanted, reason = Block.IsUnwanted(s, ctx, getKeystoneLevel(), flagged)
+  local flagged, scope = Block.FlaggedForRoll(BonusRollFrame)
+  local unwanted, reason = Block.IsUnwanted(s, ctx, getKeystoneLevel(), flagged, scope)
   DevLog("popup shown in", tostring(ctx), "flagged:", tostring(flagged), "reason:", tostring(reason))
 
   -- A wanted popup still clears the lock: the previous roll may have left one
