@@ -264,6 +264,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         blockDismiss       = "Auto-dismiss Bonus Roll",
         blockDismissDesc   = "Automatically passes on the Bonus Roll popup that appears at the end of content, except in the situations selected below.",
         blockDismissNote   = "This is a per-character setting.",
+        blockDismissWarn   = "Every popup this passes is a bonus roll you never make, so anything that boss might have given you is missed for that kill.",
         blockOnlyFlagged        = "Only keep for flagged bosses",
         blockOnlyFlaggedDesc    = "Narrows everything below to bosses you flagged a wishlist item on, using the bonus roll button on a wishlist row. A boss with nothing flagged is passed even where its content is kept.",
         blockKeepMythicPlus     = "Keep in Mythic+",

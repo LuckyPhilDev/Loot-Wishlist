@@ -263,6 +263,7 @@ local function buildAlerts(g)
     label    = S.blockDismiss,
     desc     = S.blockDismissDesc,
     note     = S.blockDismissNote,
+    warning  = S.blockDismissWarn,
     since    = "1.15.0",
     checked  = function() return charRead("bonusRollAutoDismiss") == true end,
     onToggle = function(checked) charWrite("bonusRollAutoDismiss", checked) end,
