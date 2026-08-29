@@ -124,14 +124,14 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
     },
 
     bonusRollBlock = {
-        passed     = "Bonus Roll passed, %s.",
-        locked     = "Bonus Roll locked, %s. Click the dice to unlock it.",
+        passed     = "Bonus Roll passed. %s",
+        locked     = "Bonus Roll locked. %s Click the dice to unlock it.",
         passedPlain = "Bonus Roll passed.",
         lockedPlain = "Bonus Roll locked. Click the dice to unlock it.",
-        content    = "you do not keep the popup in %s",
-        keyLevel   = "this key is below your minimum of %d",
-        notFlagged = "nothing you track on this boss is flagged for a bonus roll",
-        lockTitle  = "Bonus Roll locked",
+        content    = "You do not keep the popup in %s.",
+        keyLevel   = "This key is below your minimum of %d.",
+        notFlagged = "Nothing you track on this boss is flagged for a bonus roll.",
+        lockTitle  = "Bonus Roll Locked",
         lockHint   = "Click to unlock the roll.",
         contexts   = {
             mythicplus = "Mythic+",

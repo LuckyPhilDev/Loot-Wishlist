@@ -133,17 +133,18 @@ why.bonusRollOnlyFlagged = true
 check(reasonFor(why, "raidHeroic", 0, false), "notFlagged", "an unflagged boss reports the flag")
 
 check(Block.Message(why, "dungeon", "content", "pass"),
-    "Bonus Roll passed, you do not keep the popup in Dungeons.", "the content message names the content")
+    "Bonus Roll passed. You do not keep the popup in Dungeons.", "the content message names the content")
 check(Block.Message(why, "mythicplus", "keyLevel", "pass"),
-    "Bonus Roll passed, this key is below your minimum of 10.", "the key level message names the minimum")
+    "Bonus Roll passed. This key is below your minimum of 10.", "the key level message names the minimum")
 check(Block.Message(why, "somewhere new", "content", "pass"),
     S.bonusRollBlock.passedPlain, "an unnamed context still says the roll was passed")
 
 -- The same reason reads either way round, so locking and passing share it
 check(Block.ReasonText(why, "dungeon", "content"),
-    "you do not keep the popup in Dungeons", "the reason is a clause on its own")
+    "You do not keep the popup in Dungeons.",
+    "the reason stands as a sentence, so the lock tooltip can show it alone")
 check(Block.Message(why, "dungeon", "content", "lock"),
-    "Bonus Roll locked, you do not keep the popup in Dungeons. Click the dice to unlock it.",
+    "Bonus Roll locked. You do not keep the popup in Dungeons. Click the dice to unlock it.",
     "locking names the same reason and says how to undo it")
 check(Block.Message(why, "somewhere new", "content", "lock"),
     S.bonusRollBlock.lockedPlain, "an unnamed context still says the roll was locked")
@@ -152,7 +153,8 @@ check(Block.Message(why, "somewhere new", "content", "lock"),
 -- they have not understood yet.
 local fresh = {}
 Block.ApplyDefaults(fresh)
-check(Block.ActionFor(fresh), "lock", "a popup nobody configured is locked, not passed")
+check(fresh.bonusRollAutoDismiss, false, "the feature is off until it is asked for")
+check(Block.ActionFor(fresh), "lock", "and when it is asked for, an unwanted popup is locked, not passed")
 fresh.bonusRollUnwantedAction = "pass"
 check(Block.ActionFor(fresh), "pass", "passing is what the other setting means")
 fresh.bonusRollUnwantedAction = "nonsense"
