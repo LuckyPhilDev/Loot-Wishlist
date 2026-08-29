@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Fixed
+- Opening the Loot Browser no longer raises Blizzard's blocked-addon popup, which was also leaving dungeon tables empty and the filters dead until a second open. (Thanks for the report Grelle)
+
 ## [1.15.0] - 2026-08-29
 
 ### Added

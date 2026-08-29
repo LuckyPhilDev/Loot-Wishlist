@@ -179,8 +179,6 @@ end
 
 local function restoreEJ()
   if not snapshot then return end
-  -- Ends the OnOpen bracket the scans held; see startScan.
-  if C_EncounterJournal and C_EncounterJournal.OnClose then pcall(C_EncounterJournal.OnClose) end
   if snapshot.slotF and C_EncounterJournal and C_EncounterJournal.SetSlotFilter then
     pcall(C_EncounterJournal.SetSlotFilter, snapshot.slotF)
   end
@@ -393,12 +391,9 @@ end
 local function startScan(scan)
   current = scan
   snapshotEJ()
-  -- Blizzard brackets every journal session with OnOpen/OnClose, and the loot
-  -- APIs are only exercised inside that bracket, so the headless scans hold
-  -- one too (closed in restoreEJ when the queue drains). Re-opened per scan
-  -- rather than per session: the real journal's OnHide calls OnClose and
-  -- would end a bracket opened once.
-  if C_EncounterJournal and C_EncounterJournal.OnOpen then pcall(C_EncounterJournal.OnOpen) end
+  -- No OnOpen/OnClose bracket: both are Blizzard-only and raise the forbidden
+  -- popup at the C layer, which pcall cannot swallow. The loot APIs read fine
+  -- without one.
   scan.timer = C_Timer.NewTimer(SCAN_TIMEOUT, function()
     scan.timer = nil
     if current ~= scan then return end
