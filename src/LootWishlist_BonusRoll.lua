@@ -117,6 +117,18 @@ function BR.GetItemsForEncounter(encounterID)
   end)
 end
 
+-- Blizzard's Bonus Roll popup carries journal IDs for whatever it is rolling
+-- on, raid or dungeon alike, so this asks the flag question without caring
+-- which. The encounter wins when the game supplies one; Mythic+ often gives
+-- only the instance.
+function BR.HasFlaggedForRoll(encounterID, instanceID)
+  local matches = findMatches(function(e)
+    if encounterID and encounterID ~= 0 then return e.encounterID == encounterID end
+    return instanceID and instanceID ~= 0 and e.instanceID == instanceID
+  end)
+  return #matches > 0
+end
+
 ------------------------------------------------------------------------
 -- Reminder popup
 ------------------------------------------------------------------------

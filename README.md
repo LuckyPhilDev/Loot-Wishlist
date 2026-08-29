@@ -99,6 +99,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Toggle the sound played when a tracked item drops
 - Toggle bonus roll reminders and their sound
 - Auto-dismiss the Bonus Roll popup, keeping it only in the content you pick (per character)
+- Narrow that to bosses you flagged a wishlist item on, so the popup only appears where the roll could land something you want
 - Configure the delay before spec reminders show after a boss kill
 - Enable debug mode for troubleshooting
 - Customise Whisper and Party message templates (`%item%`, `%looter%`)

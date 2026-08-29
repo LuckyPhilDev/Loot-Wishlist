@@ -269,6 +269,14 @@ local function buildAlerts(g)
   })
 
   g:Toggle({
+    label    = S.blockOnlyFlagged,
+    desc     = S.blockOnlyFlaggedDesc,
+    parent   = S.blockDismiss,
+    checked  = function() return charRead("bonusRollOnlyFlagged") == true end,
+    onToggle = function(checked) charWrite("bonusRollOnlyFlagged", checked) end,
+  })
+
+  g:Toggle({
     label    = S.blockKeepMythicPlus,
     desc     = S.blockKeepMythicPlusDesc,
     parent   = S.blockDismiss,

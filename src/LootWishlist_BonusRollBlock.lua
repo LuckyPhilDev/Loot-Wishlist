@@ -8,6 +8,7 @@ local Block = LootWishlist.BonusRollBlock
 
 local DEFAULTS = {
   bonusRollAutoDismiss        = false,
+  bonusRollOnlyFlagged        = false,
   bonusRollKeepInMythicPlus   = true,
   bonusRollMythicPlusMinLevel = 10,
   bonusRollKeepInRaids        = true,
@@ -111,24 +112,31 @@ function Block.DetectContext()
   return "hunts"
 end
 
--- Returns true when the popup should be passed. An unidentifiable context is
--- never dismissed: an extra popup is harmless, passing a wanted roll is not.
-function Block.ShouldDismiss(s, ctx, keystoneLevel)
-  if not s.bonusRollAutoDismiss then return false end
-  if not ctx then return false end
-
+local function keptByContent(s, ctx, keystoneLevel)
   local keepKey = KEEP_KEYS[ctx]
 
   if RAID_CONTEXTS[ctx] then
-    return not (s.bonusRollKeepInRaids and s[keepKey])
+    return (s.bonusRollKeepInRaids and s[keepKey]) == true
   end
 
   if ctx == "mythicplus" then
-    if not s.bonusRollKeepInMythicPlus then return true end
-    return (keystoneLevel or 0) < (s.bonusRollMythicPlusMinLevel or 1)
+    if not s.bonusRollKeepInMythicPlus then return false end
+    return (keystoneLevel or 0) >= (s.bonusRollMythicPlusMinLevel or 1)
   end
 
-  return not (keepKey and s[keepKey])
+  return (keepKey and s[keepKey]) == true
+end
+
+-- Returns true when the popup should be passed. An unidentifiable context, or a
+-- boss the game named no journal entry for, is never dismissed: an extra popup
+-- is harmless, passing a wanted roll is not.
+function Block.ShouldDismiss(s, ctx, keystoneLevel, flagged)
+  if not s.bonusRollAutoDismiss then return false end
+  if not ctx then return false end
+  if not keptByContent(s, ctx, keystoneLevel) then return true end
+  if not s.bonusRollOnlyFlagged then return false end
+  if flagged == nil then return false end
+  return not flagged
 end
 
 local function clickPass()
@@ -142,10 +150,23 @@ local function clickPass()
   end
 end
 
+-- nil means the roll could not be tied to a journal boss or instance, which the
+-- caller reads as "do not judge this one on flags".
+function Block.FlaggedForRoll(frame)
+  local BR = LootWishlist.BonusRoll
+  if not (frame and BR and BR.HasFlaggedForRoll) then return nil end
+
+  local encounterID, instanceID = frame.encounterID, frame.instanceID
+  if (encounterID or 0) == 0 and (instanceID or 0) == 0 then return nil end
+
+  return BR.HasFlaggedForRoll(encounterID, instanceID)
+end
+
 local function onBonusRollShow()
   local ctx = Block.DetectContext()
-  DevLog("popup shown in", tostring(ctx))
-  if not Block.ShouldDismiss(Block.GetSettings(), ctx, getKeystoneLevel()) then return end
+  local flagged = Block.FlaggedForRoll(BonusRollFrame)
+  DevLog("popup shown in", tostring(ctx), "flagged:", tostring(flagged))
+  if not Block.ShouldDismiss(Block.GetSettings(), ctx, getKeystoneLevel(), flagged) then return end
 
   -- Defer one frame so the prompt is fully constructed before clicking.
   C_Timer.After(0, clickPass)

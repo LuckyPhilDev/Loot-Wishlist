@@ -73,6 +73,37 @@ check(Block.ShouldDismiss(s, "raidHeroic", 0), true, "the raid master toggle ove
 s.bonusRollKeepInMythicPlus = false
 check(Block.ShouldDismiss(s, "mythicplus", 20), true, "Mythic+ off dismisses whatever the key level")
 
+-- Only keep for flagged bosses
+local flag = {}
+Block.ApplyDefaults(flag)
+flag.bonusRollAutoDismiss = true
+check(Block.ShouldDismiss(flag, "raidHeroic", 0, false), false, "off, an unflagged boss in kept content stays")
+
+flag.bonusRollOnlyFlagged = true
+check(Block.ShouldDismiss(flag, "raidHeroic", 0, true), false, "a flagged boss in kept content stays")
+check(Block.ShouldDismiss(flag, "raidHeroic", 0, false), true, "an unflagged boss in kept content is passed")
+check(Block.ShouldDismiss(flag, "raidHeroic", 0, nil), false, "a boss the game named no journal entry for stays")
+check(Block.ShouldDismiss(flag, "dungeon", 0, true), true, "a flagged boss in unkept content is still passed")
+
+-- Reading the roll's journal IDs off Blizzard's frame. The flag lives on a
+-- wishlist item, so these run against the real BonusRoll module.
+LootWishlistCharDB.bonusRollItems = { [200000] = true }
+local tracked = {
+  { id = 200000, encounterID = 2888, instanceID = 1320, isRaid = true },
+  { id = 200001, encounterID = 2874, instanceID = 1320, isRaid = true },
+}
+function LootWishlist.GetTracked() return tracked end
+LootWishlist.Strings = { bonusRoll = {} }
+dofile("src/LootWishlist_BonusRoll.lua")
+
+check(Block.FlaggedForRoll(nil), nil, "no frame means no verdict")
+check(Block.FlaggedForRoll({ encounterID = 0, instanceID = 0 }), nil, "a roll with no journal IDs has no verdict")
+check(Block.FlaggedForRoll({ encounterID = 2888, instanceID = 1320 }), true, "the flagged boss is recognised")
+check(Block.FlaggedForRoll({ encounterID = 2874, instanceID = 1320 }),
+    false, "an unflagged boss in a raid holding a flag elsewhere is not kept")
+check(Block.FlaggedForRoll({ encounterID = 0, instanceID = 1320 }),
+    true, "a keystone roll with no encounter falls back to the instance")
+
 -- Migration keeps the flags the player set in Lucky's Grab-bag
 local target = {}
 check(Block.MigrateFromGrabBag(nil, target), false, "no Grab-bag database means no migration")
