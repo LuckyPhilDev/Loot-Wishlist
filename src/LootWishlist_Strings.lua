@@ -123,6 +123,23 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         statVersatility   = "Vers",
     },
 
+    bonusRollBlock = {
+        content    = "Bonus Roll passed, you do not keep the popup in %s.",
+        keyLevel   = "Bonus Roll passed, this key is below your minimum of %d.",
+        notFlagged = "Bonus Roll passed, nothing you track on this boss is flagged for a bonus roll.",
+        passed     = "Bonus Roll passed.",
+        contexts   = {
+            mythicplus = "Mythic+",
+            raidLFR    = "Raid Finder",
+            raidNormal = "Normal raids",
+            raidHeroic = "Heroic raids",
+            raidMythic = "Mythic raids",
+            delve      = "Delves",
+            dungeon    = "Dungeons",
+            hunts      = "Hunts",
+        },
+    },
+
     bonusRoll = {
         reminderTitle = "Bonus Roll Reminder",
         charges       = "Charges: %d  (cost %d per roll)",

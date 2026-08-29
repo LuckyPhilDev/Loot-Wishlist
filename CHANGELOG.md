@@ -1,7 +1,7 @@
 ## [Unreleased]
 
 ### Added
-- **Auto-dismiss Bonus Roll** Pass the Bonus Roll popup automatically, keeping it only in the content you tick under Alerts. Moved here from Lucky's Grab-bag, which hands the setting over along with the choices you already made.
+- **Auto-dismiss Bonus Roll** Pass the Bonus Roll popup automatically, keeping it only in the content you tick under Alerts. Chat says which setting passed each roll. Moved here from Lucky's Grab-bag along with the choices you already made.
 - **Only keep for flagged bosses** Narrows Auto-dismiss Bonus Roll to the bosses you flagged a wishlist item on with the bonus roll button. Anything else is passed, so the popup only interrupts you where the roll could land something you want.
 
 ## [1.14.4] - 2026-08-26

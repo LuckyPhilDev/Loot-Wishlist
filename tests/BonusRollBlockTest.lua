@@ -14,7 +14,11 @@ function CreateFrame()
     return { RegisterEvent = function() end, SetScript = function() end }
 end
 
+dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_BonusRollBlock.lua")
+
+local S = LootWishlist.Strings
 
 local Block = LootWishlist.BonusRollBlock
 local passed = 0
@@ -93,7 +97,6 @@ local tracked = {
   { id = 200001, encounterID = 2874, instanceID = 1320, isRaid = true },
 }
 function LootWishlist.GetTracked() return tracked end
-LootWishlist.Strings = { bonusRoll = {} }
 dofile("src/LootWishlist_BonusRoll.lua")
 
 check(Block.FlaggedForRoll(nil), nil, "no frame means no verdict")
@@ -103,6 +106,31 @@ check(Block.FlaggedForRoll({ encounterID = 2874, instanceID = 1320 }),
     false, "an unflagged boss in a raid holding a flag elsewhere is not kept")
 check(Block.FlaggedForRoll({ encounterID = 0, instanceID = 1320 }),
     true, "a keystone roll with no encounter falls back to the instance")
+
+-- A passed roll says who passed it and which setting decided
+local function reasonFor(settings, ctx, keyLevel, isFlagged)
+  local dismiss, reason = Block.ShouldDismiss(settings, ctx, keyLevel, isFlagged)
+  return dismiss and reason or nil
+end
+
+local why = {}
+Block.ApplyDefaults(why)
+why.bonusRollAutoDismiss = true
+check(reasonFor(why, "dungeon", 0), "content", "an unkept content type reports itself")
+check(reasonFor(why, "mythicplus", 5), "keyLevel", "a low key reports the key level, not the content")
+check(reasonFor(why, "raidHeroic", 0), nil, "a kept boss is not passed and has no reason")
+
+why.bonusRollOnlyFlagged = true
+check(reasonFor(why, "raidHeroic", 0, false), "notFlagged", "an unflagged boss reports the flag")
+
+check(Block.DismissMessage(why, "dungeon", "content"),
+    "Bonus Roll passed, you do not keep the popup in Dungeons.", "the content message names the content")
+check(Block.DismissMessage(why, "mythicplus", "keyLevel"),
+    "Bonus Roll passed, this key is below your minimum of 10.", "the key level message names the minimum")
+check(Block.DismissMessage(why, "raidHeroic", "notFlagged"),
+    S.bonusRollBlock.notFlagged, "the flag message needs no context")
+check(Block.DismissMessage(why, "somewhere new", "content"),
+    S.bonusRollBlock.passed, "an unnamed context still says the roll was passed")
 
 -- Migration keeps the flags the player set in Lucky's Grab-bag
 local target = {}

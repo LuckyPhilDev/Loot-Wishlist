@@ -116,27 +116,46 @@ local function keptByContent(s, ctx, keystoneLevel)
   local keepKey = KEEP_KEYS[ctx]
 
   if RAID_CONTEXTS[ctx] then
-    return (s.bonusRollKeepInRaids and s[keepKey]) == true
+    return (s.bonusRollKeepInRaids and s[keepKey]) == true, "content"
   end
 
   if ctx == "mythicplus" then
-    if not s.bonusRollKeepInMythicPlus then return false end
-    return (keystoneLevel or 0) >= (s.bonusRollMythicPlusMinLevel or 1)
+    if not s.bonusRollKeepInMythicPlus then return false, "content" end
+    return (keystoneLevel or 0) >= (s.bonusRollMythicPlusMinLevel or 1), "keyLevel"
   end
 
-  return (keepKey and s[keepKey]) == true
+  return (keepKey and s[keepKey]) == true, "content"
 end
 
--- Returns true when the popup should be passed. An unidentifiable context, or a
--- boss the game named no journal entry for, is never dismissed: an extra popup
--- is harmless, passing a wanted roll is not.
+-- Returns true and the reason when the popup should be passed. An
+-- unidentifiable context, or a boss the game named no journal entry for, is
+-- never dismissed: an extra popup is harmless, passing a wanted roll is not.
 function Block.ShouldDismiss(s, ctx, keystoneLevel, flagged)
   if not s.bonusRollAutoDismiss then return false end
   if not ctx then return false end
-  if not keptByContent(s, ctx, keystoneLevel) then return true end
+
+  local kept, reason = keptByContent(s, ctx, keystoneLevel)
+  if not kept then return true, reason end
+
   if not s.bonusRollOnlyFlagged then return false end
-  if flagged == nil then return false end
-  return not flagged
+  if flagged == nil or flagged then return false end
+  return true, "notFlagged"
+end
+
+-- Passing a roll for someone happens behind their back, so it says who did it
+-- and which of their own settings decided it.
+function Block.DismissMessage(s, ctx, reason)
+  local S = LootWishlist.Strings.bonusRollBlock
+  if reason == "keyLevel" then
+    return S.keyLevel:format(s.bonusRollMythicPlusMinLevel or 1)
+  end
+  if reason == "notFlagged" then
+    return S.notFlagged
+  end
+  -- Guarded on KEEP_KEYS rather than the lookup: a missing string comes back as
+  -- a loud placeholder, not nil, so it would read as a name we recognise.
+  if not KEEP_KEYS[ctx] then return S.passed end
+  return S.content:format(S.contexts[ctx])
 end
 
 local function clickPass()
@@ -163,10 +182,14 @@ function Block.FlaggedForRoll(frame)
 end
 
 local function onBonusRollShow()
+  local s = Block.GetSettings()
   local ctx = Block.DetectContext()
   local flagged = Block.FlaggedForRoll(BonusRollFrame)
-  DevLog("popup shown in", tostring(ctx), "flagged:", tostring(flagged))
-  if not Block.ShouldDismiss(Block.GetSettings(), ctx, getKeystoneLevel(), flagged) then return end
+  local dismiss, reason = Block.ShouldDismiss(s, ctx, getKeystoneLevel(), flagged)
+  DevLog("popup shown in", tostring(ctx), "flagged:", tostring(flagged), "reason:", tostring(reason))
+  if not dismiss then return end
+
+  print(LootWishlist.Strings.addon.prefix .. Block.DismissMessage(s, ctx, reason))
 
   -- Defer one frame so the prompt is fully constructed before clicking.
   C_Timer.After(0, clickPass)
