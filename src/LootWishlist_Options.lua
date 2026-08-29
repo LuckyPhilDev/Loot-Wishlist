@@ -273,6 +273,10 @@ local function buildBonusRolls(g)
     label    = S.blockAction,
     desc     = S.blockActionDesc,
     warning  = S.blockActionWarn,
+    -- Locking cannot cost a roll, so the icon only goes red on the choice that can.
+    warningLevel = function()
+      return charRead("bonusRollUnwantedAction") == "pass" and "danger" or "caution"
+    end,
     parent   = S.blockDismiss,
     newLine  = true,
     options  = LootWishlist.Const.BONUS_ROLL_ACTIONS,
