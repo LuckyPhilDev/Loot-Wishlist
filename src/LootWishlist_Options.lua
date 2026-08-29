@@ -149,6 +149,25 @@ end
 -------------------------------------------------------------------------------
 
 local function buildWishlist(g)
+  g:Section(S.dropSection)
+
+  g:Toggle({
+    label    = S.dropSound,
+    desc     = S.dropSoundDesc,
+    since    = "1.12.0",
+    checked  = function() return isOn("enableDropSound") end,
+    onToggle = function(checked) write("enableDropSound", checked) end,
+  })
+
+  g:Toggle({
+    label    = S.raidRollAlert,
+    desc     = S.raidRollAlertDesc,
+    checked  = function() return isOn("enableRaidRollAlert") end,
+    onToggle = function(checked) write("enableRaidRollAlert", checked) end,
+  })
+
+  g:Section(S.wishlistBehaviour)
+
   g:Toggle({
     label    = S.trackHigher,
     desc     = S.trackHigherDesc,
@@ -219,23 +238,7 @@ local function buildSummary(g)
   })
 end
 
-local function buildAlerts(g)
-  g:Section(S.dropSection)
-
-  g:Toggle({
-    label    = S.dropSound,
-    desc     = S.dropSoundDesc,
-    since    = "1.12.0",
-    checked  = function() return isOn("enableDropSound") end,
-    onToggle = function(checked) write("enableDropSound", checked) end,
-  })
-
-  g:Toggle({
-    label    = S.raidRollAlert,
-    desc     = S.raidRollAlertDesc,
-    checked  = function() return isOn("enableRaidRollAlert") end,
-    onToggle = function(checked) write("enableRaidRollAlert", checked) end,
-  })
+local function buildBonusRolls(g)
 
   g:Section(S.bonusRollSection)
 
@@ -462,10 +465,8 @@ local function buildPanel(p)
 
   p:Group(S.groupWishlist, buildWishlist)
   p:Group(S.groupSummary, buildSummary)
-  p:Group(S.groupAlerts, buildAlerts)
+  p:Group(S.groupBonusRolls, buildBonusRolls)
   p:Group(S.groupMinimap, buildMinimap)
-  -- The message boxes want every pixel of width, and the hint above them says
-  -- what the About rail would have.
   p:Group(S.groupMessages, { showAbout = false }, buildMessages)
 end
 

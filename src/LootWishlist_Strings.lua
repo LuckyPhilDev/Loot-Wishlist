@@ -234,9 +234,11 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
 
         groupWishlist      = "Wishlist",
         groupSummary       = "Summary",
-        groupAlerts        = "Alerts",
+        groupBonusRolls    = "Bonus Rolls",
         groupMinimap       = "Minimap",
         groupMessages      = "Messages",
+
+        wishlistBehaviour  = "Wishlist behaviour",
 
         trackHigher        = "Also track higher difficulties",
         trackHigherDesc    = "Adding a dungeon item on Normal also tracks it on Heroic, Mythic and Mythic+. Turn this off to track only the difficulty you picked.",
@@ -266,7 +268,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         bonusRollSound     = "Play a sound with the reminder",
         bonusRollSoundDesc = "A raid warning sound plays alongside the bonus roll popup.",
 
-        blockDismiss       = "Auto-dismiss Bonus Roll",
+        blockDismiss       = "Prevent accidental bonus rolls",
         blockDismissDesc   = "Automatically passes on the Bonus Roll popup that appears at the end of content, except in the situations selected below.",
         blockDismissNote   = "This is a per-character setting.",
         blockAction        = "When a popup is not wanted",

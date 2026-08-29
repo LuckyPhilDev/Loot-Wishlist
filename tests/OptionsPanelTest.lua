@@ -209,7 +209,7 @@ end
 -------------------------------------------------------------------------------
 local names = {}
 for i, group in ipairs(builder.groups) do names[i] = group.name end
-check(table.concat(names, "|") == "What's New|Wishlist|Summary|Alerts|Minimap|Messages",
+check(table.concat(names, "|") == "What's New|Wishlist|Summary|Bonus Rolls|Minimap|Messages",
   "the panel has its six groups in order, got " .. table.concat(names, "|"))
 
 -------------------------------------------------------------------------------
