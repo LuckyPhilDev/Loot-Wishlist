@@ -254,8 +254,6 @@ local function buildAlerts(g)
     onToggle = function(checked) write("bonusRollSound", checked) end,
   })
 
-  g:Section(S.blockSection)
-
   local function charRead(key) return charSettings()[key] end
   local function charWrite(key, value) charSettings()[key] = value end
 

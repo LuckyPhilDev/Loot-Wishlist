@@ -266,7 +266,6 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         bonusRollSound     = "Play a sound with the reminder",
         bonusRollSoundDesc = "A raid warning sound plays alongside the bonus roll popup.",
 
-        blockSection       = "Blocking the Bonus Roll popup",
         blockDismiss       = "Auto-dismiss Bonus Roll",
         blockDismissDesc   = "Automatically passes on the Bonus Roll popup that appears at the end of content, except in the situations selected below.",
         blockDismissNote   = "This is a per-character setting.",
