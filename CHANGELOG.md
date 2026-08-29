@@ -1,9 +1,10 @@
-## [Unreleased]
+## [1.15.0] - 2026-08-29
 
 ### Added
 - **Auto-dismiss Bonus Roll** Handle the Bonus Roll popup for you, keeping it only in the content you tick under Alerts. Chat says which setting acted on each roll. Moved here from Lucky's Grab-bag along with the choices you already made.
 - **Lock the roll** An unwanted popup stays on screen with the dice greyed out and the reason on hover, so a setting you have not got right yet cannot cost you a roll. Click the dice to unlock it. Passing automatically is the other option.
 - **Only keep for flagged bosses** Narrows Auto-dismiss Bonus Roll to the bosses you flagged a wishlist item on with the bonus roll button, so the popup is only left alone where the roll could land something you want.
+- **Warning on Auto-dismiss Bonus Roll** A red icon sits beside the setting when it is set to pass, saying every popup passed is a bonus roll you never make. Set it to lock instead and the icon turns amber.
 
 ## [1.14.4] - 2026-08-26
 
