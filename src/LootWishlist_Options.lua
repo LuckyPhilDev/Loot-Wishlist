@@ -263,10 +263,20 @@ local function buildAlerts(g)
     label    = S.blockDismiss,
     desc     = S.blockDismissDesc,
     note     = S.blockDismissNote,
-    warning  = S.blockDismissWarn,
     since    = "1.15.0",
     checked  = function() return charRead("bonusRollAutoDismiss") == true end,
     onToggle = function(checked) charWrite("bonusRollAutoDismiss", checked) end,
+  })
+
+  g:Select({
+    label    = S.blockAction,
+    desc     = S.blockActionDesc,
+    warning  = S.blockActionWarn,
+    parent   = S.blockDismiss,
+    newLine  = true,
+    options  = LootWishlist.Const.BONUS_ROLL_ACTIONS,
+    value    = function() return charRead("bonusRollUnwantedAction") or "lock" end,
+    onSelect = function(action) charWrite("bonusRollUnwantedAction", action) end,
   })
 
   g:Toggle({

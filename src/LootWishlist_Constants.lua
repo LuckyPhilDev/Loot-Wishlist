@@ -138,6 +138,11 @@ LootWishlist.Const = {
 
 -- Minimap left-click: what a plain, Ctrl- or Shift-click acts on. Settings
 -- store the key; the label is what the options panel and tooltip show.
+LootWishlist.Const.BONUS_ROLL_ACTIONS = {
+  { key = "lock", label = S.settings.blockActionLock },
+  { key = "pass", label = S.settings.blockActionPass },
+}
+
 LootWishlist.Const.MINIMAP_CLICK_ACTIONS = {
   { key = "both",     label = S.minimap.actionBoth },
   { key = "wishlist", label = S.minimap.actionWishlist },

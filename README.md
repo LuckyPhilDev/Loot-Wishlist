@@ -98,7 +98,8 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Toggle raid roll reminder alerts
 - Toggle the sound played when a tracked item drops
 - Toggle bonus roll reminders and their sound
-- Auto-dismiss the Bonus Roll popup, keeping it only in the content you pick (per character). Chat names the setting that passed each roll
+- Handle the Bonus Roll popup automatically, keeping it only in the content you pick (per character). Chat names the setting that acted
+- Choose what an unwanted popup gets: the roll locked with the reason on hover, or passed outright
 - Narrow that to bosses you flagged a wishlist item on, so the popup only appears where the roll could land something you want
 - Configure the delay before spec reminders show after a boss kill
 - Enable debug mode for troubleshooting
