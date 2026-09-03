@@ -166,6 +166,9 @@ local function ShowRaidRollAlert(itemLink)
 end
 local btnRemove, btnKeep, btnWhisper, btnParty, btnDismiss
 local currentDifficultyID
+-- Bumped each time the alert is (re)shown, so an async note that arrives after
+-- the alert moved on to another drop lands nowhere instead of on the wrong one
+local alertToken = 0
 
 local function ensureAlertFrame()
   if alertFrame then return alertFrame end
@@ -249,6 +252,7 @@ end
 local function ShowDropAlert(itemLink, note)
   local C = LootWishlist.Const or {}
   local f = ensureAlertFrame()
+  alertToken = alertToken + 1
   local prefix = C.ALERT_TEXT_PREFIX_WISHLIST or S.dropped
   local text = string.format("%s\n%s", prefix, itemLink or S.unknownItem)
   if note then text = text .. "\n" .. note end
@@ -640,6 +644,107 @@ local function playDropSound(isSelf, itemID)
   if kit then LuckySound:PlayKit(kit) end
 end
 
+-- Trade check ---------------------------------------------------------------
+-- A drop that upgrades what its looter has equipped in that slot cannot be
+-- traded, so the alert says so before you spend a whisper on it. The looter is
+-- inspected in the background; when that fails (out of range, gear not cached)
+-- the alert simply stays as it is, so the check can only ever add a warning.
+
+local INVSLOTS_FOR_EQUIPLOC = {
+  INVTYPE_HEAD = {1}, INVTYPE_NECK = {2}, INVTYPE_SHOULDER = {3},
+  INVTYPE_CHEST = {5}, INVTYPE_ROBE = {5}, INVTYPE_WAIST = {6},
+  INVTYPE_LEGS = {7}, INVTYPE_FEET = {8}, INVTYPE_WRIST = {9},
+  INVTYPE_HAND = {10}, INVTYPE_FINGER = {11, 12}, INVTYPE_TRINKET = {13, 14},
+  INVTYPE_CLOAK = {15}, INVTYPE_WEAPON = {16, 17}, INVTYPE_2HWEAPON = {16},
+  INVTYPE_WEAPONMAINHAND = {16}, INVTYPE_WEAPONOFFHAND = {17},
+  INVTYPE_SHIELD = {17}, INVTYPE_HOLDABLE = {17},
+  INVTYPE_RANGED = {16}, INVTYPE_RANGEDRIGHT = {16},
+}
+
+function Alerts.SlotsForEquipLoc(equipLoc)
+  return INVSLOTS_FOR_EQUIPLOC[equipLoc or ""]
+end
+
+-- Whether a drop likely upgrades its looter, judged against the lowest level
+-- worn across the slots it could fill, and that level. Only filled slots vote:
+-- an empty offhand usually means a two-hander, not a hole. No filled slot at
+-- all means the drop fills a hole and is an upgrade outright.
+function Alerts.UpgradeForLooter(droppedIlvl, wornIlvls)
+  if not droppedIlvl then return false end
+  local worst
+  for _, ilvl in ipairs(wornIlvls or {}) do
+    if not worst or ilvl < worst then worst = ilvl end
+  end
+  if not worst then return true, nil end
+  return droppedIlvl > worst, worst
+end
+
+local pendingInspect
+
+local function groupUnitForName(name)
+  if not name then return nil end
+  local short = Ambiguate and Ambiguate(name, "none") or name
+  for i = 1, (GetNumSubgroupMembers and GetNumSubgroupMembers() or 0) do
+    local unit = "party" .. i
+    if UnitName(unit) == short or (GetUnitName and GetUnitName(unit, true) == name) then
+      return unit
+    end
+  end
+  return nil
+end
+
+local function requestLooterInspect(looterName, itemLink, token)
+  if not (itemLink and NotifyInspect and CanInspect) then return end
+  -- Never clobber an inspect window the player has open themselves
+  if InspectFrame and InspectFrame:IsShown() then return end
+  local equipLoc = C_Item and C_Item.GetItemInfoInstant and select(4, C_Item.GetItemInfoInstant(itemLink))
+  local slots = Alerts.SlotsForEquipLoc(equipLoc)
+  local droppedIlvl = getLinkIlvl(itemLink)
+  if not slots or not droppedIlvl then return end
+  local unit = groupUnitForName(looterName)
+  if not unit or not CanInspect(unit) then return end
+  pendingInspect = {
+    guid = UnitGUID(unit), unit = unit, slots = slots,
+    droppedIlvl = droppedIlvl, looter = looterName, token = token,
+  }
+  NotifyInspect(unit)
+  dprint("inspecting", looterName, "for trade check on", itemLink)
+end
+
+local function appendAlertNote(token, note)
+  if token ~= alertToken then return end
+  if not (alertFrame and alertFrame:IsShown() and alertFS) then return end
+  alertFS:SetText(alertFS:GetText() .. "\n" .. note)
+  local C = LootWishlist.Const or {}
+  local maxW = C.ALERT_WIDTH_MAX_DEFAULT or 700
+  local pad = C.ALERT_WIDTH_PAD or 80
+  alertFrame:SetWidth(math.max(alertFrame:GetWidth(), math.min(maxW, alertFS:GetStringWidth() + pad)))
+  alertFrame:SetHeight(alertFrame:GetHeight() + 16)
+end
+
+-- Empty slots read as no item ID; a worn item whose level is not cached makes
+-- the verdict unknowable, and no warning beats a wrong one
+local function handleInspectReady(guid)
+  local p = pendingInspect
+  if not p or p.guid ~= guid then return end
+  pendingInspect = nil
+  local worn, unknowable = {}, false
+  for _, slot in ipairs(p.slots) do
+    if GetInventoryItemID(p.unit, slot) then
+      local ilvl = getLinkIlvl(GetInventoryItemLink(p.unit, slot))
+      if ilvl then worn[#worn + 1] = ilvl else unknowable = true end
+    end
+  end
+  if ClearInspectPlayer then ClearInspectPlayer() end
+  if unknowable then dprint("trade check: worn item not cached, staying quiet"); return end
+  local upgrade, worstIlvl = Alerts.UpgradeForLooter(p.droppedIlvl, worn)
+  dprint("trade check:", p.looter, "worst worn=", tostring(worstIlvl), "dropped=", p.droppedIlvl, "upgrade=", tostring(upgrade))
+  if not upgrade then return end
+  local short = Ambiguate and Ambiguate(p.looter, "none") or p.looter
+  local note = worstIlvl and S.looterLowerIlvl:format(short, worstIlvl) or S.looterEmptySlot:format(short)
+  appendAlertNote(p.token, note)
+end
+
 local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, difficultyID, difficultyName, simulatedIlvl)
   dprint("ShowDropAlertWithContext:", "itemID=", tostring(itemID), "self=", tostring(isSelf), "looter=", tostring(looterName), "diff=", tostring(difficultyID), tostring(difficultyName))
   local meetsTrack = dropMeetsWishlistTrack(itemID, itemLink, simulatedIlvl)
@@ -658,6 +763,7 @@ local function ShowDropAlertWithContext(itemLink, isSelf, looterName, itemID, di
     configureSelfActions(itemID, itemLink)
   else
     configureOtherActions(looterName, itemID, itemLink)
+    requestLooterInspect(looterName, itemLink, alertToken)
   end
   currentDifficultyID = difficultyID
   if isSelf and itemID then
@@ -734,6 +840,8 @@ local function handleEvent(_, event, ...)
     if not isTracked(itemID) then return end
     ShowRaidRollAlert(itemLink)
     playDropSound(false, itemID)
+  elseif event == "INSPECT_READY" then
+    handleInspectReady(...)
   elseif event == "PLAYER_ENTERING_WORLD" then
     armBagSettle()
   elseif event == "BAG_UPDATE_DELAYED" then
@@ -814,6 +922,7 @@ function Alerts:Init(database)
   eventFrame:RegisterEvent("CHAT_MSG_LOOT")
   eventFrame:RegisterEvent("ENCOUNTER_LOOT_RECEIVED")
   eventFrame:RegisterEvent("START_LOOT_ROLL")
+  eventFrame:RegisterEvent("INSPECT_READY")
   eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
   eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
   eventFrame:SetScript("OnEvent", handleEvent)

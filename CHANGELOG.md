@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Added
+- **Trade check on drop alerts** When a teammate loots an item you track, the alert checks what they have equipped in that slot and warns you when the drop is likely an upgrade they cannot trade.
+
 ## [1.15.1] - 2026-08-29
 
 ### Fixed
