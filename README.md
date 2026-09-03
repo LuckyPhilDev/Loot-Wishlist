@@ -29,6 +29,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - *Raid rolls:* reminder popup when a group loot roll starts for a wishlisted item
   - A sound plays with each alert, one for your own drop and another when it drops for someone else
   - Actions appear only when the drop reaches the gear track you track the item at; a copy on a lower track is highlighted and says so
+  - When a teammate loots the item, the alert checks what they have equipped in that slot and warns you when the drop is likely an upgrade they cannot trade
   - Warbound items ("Warbound until equipped") are automatically filtered out of alerts
 - **Spec reminders** — on entering a dungeon or targeting a raid boss, shows a summary of what to switch to:
   - Switch to a different spec for specific items
