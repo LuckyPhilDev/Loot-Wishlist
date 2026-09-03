@@ -13,6 +13,7 @@ Libs\LuckysUtils\embeds.xml
 LootWishlist_Strings.lua
 LootWishlist_Constants.lua
 LootWishlist_Core.lua
+LootWishlist_Layout.lua
 LootWishlist_Share.lua
 LootWishlist_Options.lua
 LootWishlist_UI.lua

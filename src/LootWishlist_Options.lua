@@ -223,6 +223,15 @@ local function buildSummary(g)
     end,
   })
 
+  g:Select({
+    label    = S.summaryOrder,
+    desc     = S.summaryOrderDesc,
+    since    = "1.16.0",
+    options  = LootWishlist.Const.WISHLIST_ORDERS,
+    value    = function() return LootWishlist.Layout.Order() end,
+    onSelect = function(key) LootWishlist.Layout.SetOrder(key) end,
+  })
+
   g:Slider({
     label     = S.summaryOpacity,
     desc      = S.summaryOpacityDesc,

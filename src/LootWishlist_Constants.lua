@@ -143,6 +143,11 @@ LootWishlist.Const.BONUS_ROLL_ACTIONS = {
   { key = "pass", label = S.settings.blockActionPass },
 }
 
+LootWishlist.Const.WISHLIST_ORDERS = {
+  { key = "journal", label = S.wishlist.orderJournal },
+  { key = "count",   label = S.wishlist.orderCount },
+}
+
 LootWishlist.Const.MINIMAP_CLICK_ACTIONS = {
   { key = "both",     label = S.minimap.actionBoth },
   { key = "wishlist", label = S.minimap.actionWishlist },

@@ -5,7 +5,6 @@ LootWishlist = LootWishlist or {}
 LootWishlist.Summary = LootWishlist.Summary or {}
 
 local Summary = LootWishlist.Summary
-local S = LootWishlist.Strings.wishlist
 local frame, textFS
 local isDragging = false
 
@@ -79,120 +78,39 @@ local function ensureFrame()
   return frame
 end
 
--- Helper: order by instance (raids first, alpha), and bosses by EJ order
-local encounterOrderCache = {}
-local function getEncounterOrder(instanceID)
-  if not instanceID then return nil end
-  if encounterOrderCache[instanceID] then return encounterOrderCache[instanceID] end
-  local EJ_GetEncounterInfoByIndex = _G["EJ_GetEncounterInfoByIndex"]
-  if type(EJ_GetEncounterInfoByIndex) ~= "function" then return nil end
-  local order
-  local EJ_SelectInstance = _G["EJ_SelectInstance"]
-  local prevInstance = (EncounterJournal and EncounterJournal.instanceID) or nil
-  if type(EJ_SelectInstance) == "function" then
-    pcall(EJ_SelectInstance, instanceID)
-    order = { id = {}, name = {} }
-    for idx = 1, 200 do
-      local name, _, encounterID = EJ_GetEncounterInfoByIndex(idx)
-      if not name then break end
-      if encounterID then order.id[encounterID] = idx end
-      if name then order.name[name:lower()] = idx end
-    end
-    if prevInstance and prevInstance ~= instanceID then pcall(EJ_SelectInstance, prevInstance) end
+local function joinTags(set)
+  local arr = {}
+  for k in pairs(set) do table.insert(arr, k) end
+  local order = LootWishlist.Const.DIFF_TAG_ORDER
+  table.sort(arr, function(a, b)
+    local oa, ob = order[a] or 99, order[b] or 99
+    if oa ~= ob then return oa < ob end
+    return a < b
+  end)
+  return table.concat(arr, ", ")
+end
+
+local function tagText(items)
+  local tags = {}
+  for _, it in ipairs(items) do
+    local tag = LootWishlist.Const.DiffTag(it.info.difficultyName, it.info.difficultyID)
+    if tag then tags[tag] = true end
   end
-  if not order or not next(order.id) then
-    order = { id = {}, name = {} }
-    for idx = 1, 200 do
-      local name, _, encounterID = EJ_GetEncounterInfoByIndex(idx, instanceID)
-      if not name then break end
-      if encounterID then order.id[encounterID] = idx end
-      if name then order.name[name:lower()] = idx end
-    end
-  end
-  -- A journal that has not answered yet lists no encounters at all; caching
-  -- that would fix the fallback boss order in place for the session, so an
-  -- empty map is returned but not kept and the next refresh reads again.
-  if next(order.id) or next(order.name) then
-    encounterOrderCache[instanceID] = order
-  end
-  return order
+  if not next(tags) then return "" end
+  return " " .. UI.WC.textMuted .. "[" .. joinTags(tags) .. "]" .. UI.WC.reset
 end
 
 local function buildSummaryLines()
-  local items = LootWishlist.GetTracked()
-  if not items or not next(items) then return {} end
-  local function joinTags(set)
-    local arr = {}
-    for k in pairs(set) do table.insert(arr, k) end
-    table.sort(arr, function(a,b)
-      local order = LootWishlist.Const.DIFF_TAG_ORDER
-      local oa = order[a] or 99
-      local ob = order[b] or 99
-      if oa ~= ob then return oa < ob end
-      return a < b
-    end)
-    return table.concat(arr, ", ")
-  end
-  -- Group by instance
-  local groups = {}
-  for key, info in pairs(items) do
-    local inst = info.dungeon or "Unknown"
-    local g = groups[inst]
-    if not g then g = { name = inst, isRaid = info.isRaid and true or false, items = {}, instanceID = info.instanceID }; groups[inst] = g end
-    if info.isRaid then g.isRaid = true end
-    if info.instanceID and not g.instanceID then g.instanceID = info.instanceID end
-    table.insert(g.items, { key = key, id = info.id or tonumber(key) or 0, info = info })
-  end
-  local ordered = {}
-  for name, g in pairs(groups) do table.insert(ordered, { name = name, g = g }) end
-  table.sort(ordered, function(a,b)
-    if a.g.isRaid ~= b.g.isRaid then return a.g.isRaid end
-    return a.name < b.name
-  end)
-
-  -- Use LuckyUI WoW color codes
   local WC = UI.WC
   local lines = {}
-  for _, entry in ipairs(ordered) do
-    local g = entry.g
-    if g.isRaid then
-      table.insert(lines, string.format("%s%s%s", WC.goldPrimary, entry.name, WC.reset))
-      local bossGroups = {}
-      for _, it in ipairs(g.items) do
-        local bname = (it.info.boss and it.info.boss ~= "") and it.info.boss or S.unknownBoss
-        local encID = it.info.encounterID or -1
-        if not bossGroups[bname] then bossGroups[bname] = {encounterID = encID, items = {}} end
-        if encID ~= -1 then bossGroups[bname].encounterID = encID end
-        table.insert(bossGroups[bname].items, it)
-      end
-      local bossOrdered = {}
-      for bname, data in pairs(bossGroups) do table.insert(bossOrdered, { name = bname, items = data.items, encounterID = data.encounterID or -1 }) end
-      local orderMap = getEncounterOrder(g.instanceID)
-      table.sort(bossOrdered, function(a,b)
-        local ao = orderMap and (orderMap.id[a.encounterID] or orderMap.name[a.name:lower()]) or nil
-        local bo = orderMap and (orderMap.id[b.encounterID] or orderMap.name[b.name:lower()]) or nil
-        if ao and bo and ao ~= bo then return ao < bo end
-        if ao and not bo then return true end
-        if bo and not ao then return false end
-        return a.name < b.name
-      end)
-      for _, b in ipairs(bossOrdered) do
-        local diffs = {}
-        for _, it in ipairs(b.items) do
-          local tag = LootWishlist.Const.DiffTag(it.info.difficultyName, it.info.difficultyID)
-          if tag then diffs[tag] = true end
-        end
-        local tagText = next(diffs) and (" " .. WC.textMuted .. "[" .. joinTags(diffs) .. "]" .. WC.reset) or ""
-        table.insert(lines, string.format("  - %s (%d)%s", b.name, #b.items, tagText))
+  for _, inst in ipairs(LootWishlist.Layout.Build()) do
+    if inst.bosses then
+      lines[#lines + 1] = WC.goldPrimary .. inst.name .. WC.reset
+      for _, boss in ipairs(inst.bosses) do
+        lines[#lines + 1] = string.format("  - %s (%d)%s", boss.name, boss.count, tagText(boss.items))
       end
     else
-      local diffs = {}
-      for _, it in ipairs(g.items) do
-        local tag = LootWishlist.Const.DiffTag(it.info.difficultyName, it.info.difficultyID)
-        if tag then diffs[tag] = true end
-      end
-      local tagText = next(diffs) and (" " .. WC.textMuted .. "[" .. joinTags(diffs) .. "]" .. WC.reset) or ""
-      table.insert(lines, string.format("%s%s%s (%d)%s", WC.goldPrimary, entry.name, WC.reset, #g.items, tagText))
+      lines[#lines + 1] = string.format("%s%s%s (%d)%s", WC.goldPrimary, inst.name, WC.reset, inst.count, tagText(inst.items))
     end
   end
   return lines

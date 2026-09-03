@@ -33,6 +33,7 @@ local ICONS = {
   bonusRoll = "dice",
   remove    = "x",
 }
+local TOOLBAR_H      = 32
 local DEFAULT_W      = 520
 local DEFAULT_H      = 500
 local MIN_W          = 440
@@ -50,6 +51,9 @@ local totalHeight     = 0
 local rowPool         = {}
 local statusCountLabel
 local clearBtn
+local searchBox
+local filterBtn
+local filter = { search = "", slot = nil }
 
 -- Player spec IDs computed once per refresh
 local renderPlayerSpecIDs   = {}
@@ -92,76 +96,52 @@ local function trackKeyForEntry(info)
 end
 
 ------------------------------------------------------------------------
--- Encounter order cache
+-- Filters: a search over name, boss, instance and slot, and one slot
 ------------------------------------------------------------------------
-local encounterOrderCache = {}
-local function getEncounterOrder(instanceID)
-  if not instanceID then return nil end
-  if encounterOrderCache[instanceID] then return encounterOrderCache[instanceID] end
-  local EJ_GetEncounterInfoByIndex = _G["EJ_GetEncounterInfoByIndex"]
-  if type(EJ_GetEncounterInfoByIndex) ~= "function" then return nil end
-  local order
-  local EJ_SelectInstance = _G["EJ_SelectInstance"]
-  local prevInstance = (EncounterJournal and EncounterJournal.instanceID) or nil
-  if type(EJ_SelectInstance) == "function" then
-    pcall(EJ_SelectInstance, instanceID)
-    order = { id = {}, name = {} }
-    for idx = 1, 200 do
-      local ename, _, encounterID = EJ_GetEncounterInfoByIndex(idx)
-      if not ename then break end
-      if encounterID then order.id[encounterID] = idx end
-      order.name[ename:lower()] = idx
-    end
-    if prevInstance and prevInstance ~= instanceID then pcall(EJ_SelectInstance, prevInstance) end
-  end
-  if not order or not next(order.id) then
-    order = { id = {}, name = {} }
-    for idx = 1, 200 do
-      local ename, _, encounterID = EJ_GetEncounterInfoByIndex(idx, instanceID)
-      if not ename then break end
-      if encounterID then order.id[encounterID] = idx end
-      order.name[ename:lower()] = idx
-    end
-  end
-  -- A journal that has not answered yet lists no encounters at all; caching
-  -- that would fix the fallback boss order in place for the session, so an
-  -- empty map is returned but not kept and the next refresh reads again.
-  if next(order.id) or next(order.name) then
-    encounterOrderCache[instanceID] = order
-  end
-  return order
+local function slotOf(entry)
+  local equipLoc = C_Item and C_Item.GetItemInfoInstant and select(4, C_Item.GetItemInfoInstant(entry.id))
+  return (equipLoc and equipLoc ~= "" and _G[equipLoc]) or S.otherSlot
 end
 
-------------------------------------------------------------------------
--- groupItemsByInstance
-------------------------------------------------------------------------
-local function groupItemsByInstance()
-  local groups = {}
-  local function collect(source, obtained)
-    for key, info in pairs(source) do
-      local inst = info.dungeon or "Unknown"
-      local g = groups[inst]
-      if not g then
-        g = { name = inst, isRaid = info.isRaid and true or false, items = {}, instanceID = info.instanceID }
-        groups[inst] = g
+local function itemName(entry)
+  local cached = LuckyItem and LuckyItem:GetCached(entry.id)
+  if cached and cached.name then return cached.name end
+  return (entry.info.link or ""):match("%[(.-)%]") or ""
+end
+
+local function filtersActive()
+  return filter.search ~= "" or filter.slot ~= nil
+end
+
+local function paintFilterIcon()
+  local c = filter.slot and C.goldIcon or C.goldMuted
+  filterBtn:SetIconColor(c[1], c[2], c[3])
+end
+
+local function matchesFilters(entry)
+  if filter.slot and slotOf(entry) ~= filter.slot then return false end
+  if filter.search == "" then return true end
+  local info = entry.info
+  local hay = table.concat({ itemName(entry), info.boss or "", info.dungeon or "", slotOf(entry) }, "\n"):lower()
+  return hay:find(filter.search:lower(), 1, true) ~= nil
+end
+
+-- Every slot on the wishlist, in paperdoll order, for the filter menu.
+local function slotsOnList()
+  local seen, list = {}, {}
+  local function collect(source)
+    for key, info in pairs(source or {}) do
+      local slot = slotOf({ id = info.id or tonumber(key) or 0, info = info })
+      if not seen[slot] then
+        seen[slot] = true
+        list[#list + 1] = slot
       end
-      if info.instanceID and not g.instanceID then g.instanceID = info.instanceID end
-      if info.isRaid then g.isRaid = true end
-      table.insert(g.items, { key = key, id = info.id or tonumber(key) or 0, info = info, obtained = obtained })
     end
   end
   collect(LootWishlist.GetTracked())
-  local settings = LootWishlistDB and LootWishlistDB.settings
-  if not (settings and settings.hideObtained) then
-    collect(LootWishlist.GetObtained and LootWishlist.GetObtained() or {}, true)
-  end
-  local ordered = {}
-  for name, g in pairs(groups) do table.insert(ordered, { name = name, g = g }) end
-  table.sort(ordered, function(a, b)
-    if a.g.isRaid ~= b.g.isRaid then return a.g.isRaid end
-    return a.name < b.name
-  end)
-  return ordered
+  collect(LootWishlist.GetObtained and LootWishlist.GetObtained())
+  if filter.slot and not seen[filter.slot] then list[#list + 1] = filter.slot end
+  return LootWishlist.Browser.sortSlots(list)
 end
 
 ------------------------------------------------------------------------
@@ -201,84 +181,37 @@ end
 ------------------------------------------------------------------------
 local function buildFlatRows()
   local rows = {}
-  -- Headings count what is still being chased, so they agree with the item
-  -- count in the status bar however many obtained rows sit under them.
-  local function uniqueItemCount(items)
-    local seen = {}
-    local n = 0
-    for _, it in ipairs(items) do
-      if not it.obtained and not seen[it.id] then seen[it.id] = true; n = n + 1 end
+  local function itemRows(items, indent)
+    for _, m in ipairs(mergeItemsByID(items)) do
+      rows[#rows + 1] = { type = "item", id = m.id, info = m.info, diffs = m.diffs, obtained = m.obtained, indent = indent }
     end
-    return n
   end
-
-  local function activeCount(merged)
-    local n = 0
-    for _, m in ipairs(merged) do
-      if not m.obtained then n = n + 1 end
-    end
-    return n
-  end
-
-  for _, entry in ipairs(groupItemsByInstance()) do
-    local g = entry.g
-    table.insert(rows, { type = "instance", name = entry.name, count = uniqueItemCount(g.items), isRaid = g.isRaid })
-
-    if g.isRaid then
-      local bossGroups = {}
-      for _, it in ipairs(g.items) do
-        local bname = (it.info.boss and it.info.boss ~= "") and it.info.boss or S.unknownBoss
-        local encID = it.info.encounterID or -1
-        if not bossGroups[bname] then bossGroups[bname] = { encounterID = encID, items = {} } end
-        if encID ~= -1 then bossGroups[bname].encounterID = encID end
-        table.insert(bossGroups[bname].items, it)
-      end
-      local bossOrdered = {}
-      for bname, data in pairs(bossGroups) do
-        table.insert(bossOrdered, { name = bname, items = data.items, encounterID = data.encounterID or -1 })
-      end
-      local orderMap = getEncounterOrder(g.instanceID)
-      table.sort(bossOrdered, function(a, b)
-        local ao = orderMap and (orderMap.id[a.encounterID] or orderMap.name[a.name:lower()])
-        local bo = orderMap and (orderMap.id[b.encounterID] or orderMap.name[b.name:lower()])
-        if ao and bo and ao ~= bo then return ao < bo end
-        if ao and not bo then return true end
-        if bo and not ao then return false end
-        if a.encounterID ~= -1 and b.encounterID ~= -1 and a.encounterID ~= b.encounterID then
-          return a.encounterID < b.encounterID
-        end
-        return a.name < b.name
-      end)
-      for _, boss in ipairs(bossOrdered) do
-        table.sort(boss.items, function(a, b)
-          if a.id ~= b.id then return a.id < b.id end
-          return ((a.info and a.info.difficultyID) or 0) < ((b.info and b.info.difficultyID) or 0)
-        end)
-        local merged = mergeItemsByID(boss.items)
-        table.insert(rows, { type = "boss", name = boss.name, count = activeCount(merged) })
-        for _, m in ipairs(merged) do
-          table.insert(rows, { type = "item", id = m.id, info = m.info, diffs = m.diffs, obtained = m.obtained, indent = true })
-        end
+  local settings = LootWishlistDB and LootWishlistDB.settings
+  local filtering = filtersActive()
+  local layout = LootWishlist.Layout.Build({
+    includeObtained = not (settings and settings.hideObtained),
+    keep = filtering and matchesFilters or nil,
+  })
+  for _, inst in ipairs(layout) do
+    rows[#rows + 1] = { type = "instance", name = inst.name, count = inst.count, isRaid = inst.isRaid }
+    if inst.bosses then
+      for _, boss in ipairs(inst.bosses) do
+        rows[#rows + 1] = { type = "boss", name = boss.name, count = boss.count }
+        itemRows(boss.items, true)
       end
     else
-      table.sort(g.items, function(a, b)
-        local ab = a.info.boss or ""; local bb = b.info.boss or ""
-        if ab ~= bb then return ab < bb end
-        if a.id ~= b.id then return a.id < b.id end
-        return ((a.info and a.info.difficultyID) or 0) < ((b.info and b.info.difficultyID) or 0)
-      end)
-      local merged = mergeItemsByID(g.items)
-      for _, m in ipairs(merged) do
-        table.insert(rows, { type = "item", id = m.id, info = m.info, diffs = m.diffs, obtained = m.obtained, indent = false })
-      end
+      itemRows(inst.items, false)
     end
+  end
+  if #rows == 0 and filtering then
+    rows[1] = { type = "note", text = S.noMatches }
   end
   return rows
 end
 
 local function getRowHeight(row)
   if row.type == "instance" then return INSTANCE_ROW_H end
-  if row.type == "boss"     then return BOSS_ROW_H end
+  if row.type == "boss" or row.type == "note" then return BOSS_ROW_H end
   return ITEM_ROW_H
 end
 
@@ -490,6 +423,13 @@ local function populatePoolFrame(f, row, rowIndex)
     f.bg:SetColorTexture(C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.5)
     f._bgR, f._bgG, f._bgB, f._bgA = C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.5
     f.sep:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.4)
+
+  elseif row.type == "note" then
+    f:SetHeight(BOSS_ROW_H)
+    f.headingLabel:SetFont(UI.BODY_FONT, 12, "")
+    f.headingLabel:SetText("|cff8a7e6a" .. row.text .. "|r")
+    f.headingLabel:Show()
+    f.sep:SetColorTexture(0, 0, 0, 0)
 
   else -- "item"
     f:SetHeight(ITEM_ROW_H)
@@ -751,12 +691,101 @@ local function refresh()
   end
 
   renderVisibleRows()
+  if filterBtn then paintFilterIcon() end
 
   local tEnd = debugprofilestop()
   PerfLog(string.format(
     "refresh #%d | %d items | %d flatRows | %d poolFrames | total=%.1fms",
     refreshID, count, #flatRows, #rowPool, tEnd - t0
   ))
+end
+
+------------------------------------------------------------------------
+-- Toolbar: search box, then order and filter menus as borderless gold
+-- icons, the same row the Loot Browser has.
+------------------------------------------------------------------------
+local function describeFilters(tip)
+  tip:SetText(S.filters, 1, 1, 1)
+  tip:AddLine(filter.slot or S.noFilters, 0.8, 0.8, 0.8)
+end
+
+local function orderLabel()
+  for _, o in ipairs(LootWishlist.Const.WISHLIST_ORDERS) do
+    if o.key == LootWishlist.Layout.Order() then return o.label end
+  end
+end
+
+local function describeOrder(tip)
+  tip:SetText(orderLabel() or S.order, 1, 1, 1)
+  tip:AddLine(S.orderTip, 0.8, 0.8, 0.8)
+end
+
+local function buildOrderMenu(_, root)
+  root:CreateTitle(S.order)
+  for _, o in ipairs(LootWishlist.Const.WISHLIST_ORDERS) do
+    root:CreateRadio(o.label,
+      function() return LootWishlist.Layout.Order() == o.key end,
+      function() LootWishlist.Layout.SetOrder(o.key) end)
+  end
+end
+
+local function buildFilterMenu(_, root)
+  root:CreateTitle(S.filterSlot)
+  local function slotRadio(label, slot)
+    root:CreateRadio(label,
+      function() return filter.slot == slot end,
+      function()
+        filter.slot = slot
+        LootWishlist.UI.refresh()
+      end)
+  end
+  slotRadio(S.allSlots, nil)
+  for _, slot in ipairs(slotsOnList()) do slotRadio(slot, slot) end
+  root:CreateDivider()
+  root:CreateButton(S.resetFilters, function()
+    filter.slot = nil
+    searchBox:SetText("")
+    LootWishlist.UI.refresh()
+  end)
+end
+
+local function createToolbar(f)
+  local toolbar = CreateFrame("Frame", nil, f)
+  toolbar:SetPoint("TOPLEFT",  f, "TOPLEFT",  2, -34)
+  toolbar:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -34)
+  toolbar:SetHeight(TOOLBAR_H)
+
+  local pad = 8
+  local function toolbarIcon(icon, tooltip)
+    local btn = UI.CreateIconButton(toolbar, { icon = icon, size = ICON_SIZE, tooltip = tooltip, anchor = "ANCHOR_BOTTOM" })
+    btn:SetHitRectInsets(-4, -4, -4, -4)
+    return btn
+  end
+
+  filterBtn = toolbarIcon("filter", describeFilters)
+  filterBtn:SetPoint("RIGHT", toolbar, "RIGHT", -pad, 0)
+  filterBtn:SetScript("OnClick", function(self)
+    MenuUtil.CreateContextMenu(self, buildFilterMenu)
+  end)
+
+  local orderBtn = toolbarIcon("layers", describeOrder)
+  orderBtn:SetPoint("RIGHT", filterBtn, "LEFT", -pad, 0)
+  orderBtn:SetScript("OnClick", function(self)
+    MenuUtil.CreateContextMenu(self, buildOrderMenu)
+  end)
+
+  searchBox = UI.CreateSearchBox(toolbar, {
+    height = 24,
+    placeholder = S.searchPlaceholder,
+    onChange = function(query)
+      if query == filter.search then return end
+      filter.search = query
+      LootWishlist.UI.refresh()
+    end,
+  })
+  searchBox:ClearAllPoints()
+  searchBox:SetPoint("LEFT",  toolbar, "LEFT", 6, 0)
+  searchBox:SetPoint("RIGHT", orderBtn, "LEFT", -pad, 0)
 end
 
 ------------------------------------------------------------------------
@@ -833,15 +862,17 @@ local function createMainFrame()
     renderVisibleRows()
   end)
 
+  createToolbar(f)
+
   -- Scroll viewport
   viewport = CreateFrame("Frame", nil, f)
-  viewport:SetPoint("TOPLEFT",     f, "TOPLEFT",     2,  -34)
+  viewport:SetPoint("TOPLEFT",     f, "TOPLEFT",     2,  -(34 + TOOLBAR_H))
   viewport:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(2 + SCROLLBAR_W + 2), 36)
   viewport:SetClipsChildren(true)
 
   -- Scrollbar
   scrollBar = CreateFrame("Slider", "LootWishlistScrollBar", f, "UIPanelScrollBarTemplate")
-  scrollBar:SetPoint("TOPRIGHT",    f, "TOPRIGHT",    -4,  -50)
+  scrollBar:SetPoint("TOPRIGHT",    f, "TOPRIGHT",    -4,  -(50 + TOOLBAR_H))
   scrollBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -4,   52)
   scrollBar:SetWidth(SCROLLBAR_W)
   -- Replace the template's OnValueChanged before any value is set: the
