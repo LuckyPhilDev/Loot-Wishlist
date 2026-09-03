@@ -941,6 +941,12 @@ local function createMainFrame()
     if LootWishlist.Share and LootWishlist.Share.Import then LootWishlist.Share.Import() end
   end)
 
+  local pasteBtn = UI.CreateButton(statusBar, S.paste, 70, 22, "secondary")
+  pasteBtn:SetPoint("LEFT", importBtn, "RIGHT", 4, 0)
+  pasteBtn:SetScript("OnClick", function()
+    if LootWishlist.GearImport then LootWishlist.GearImport.Show() end
+  end)
+
   -- Browse Loot button (primary): opens the season drop-table browser
   local browseBtn = UI.CreateButton(statusBar, S.browseLoot, 100, 22, "primary")
   browseBtn:SetPoint("RIGHT", statusBar, "RIGHT", -4, -2)

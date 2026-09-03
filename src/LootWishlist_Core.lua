@@ -810,6 +810,8 @@ SlashCmdList.WISHLIST = function(msg)
     if LootWishlist.Share and LootWishlist.Share.Export then LootWishlist.Share.Export() else print(S.slash.shareNotLoaded) end
   elseif msg == "import" then
     if LootWishlist.Share and LootWishlist.Share.Import then LootWishlist.Share.Import() else print(S.slash.shareNotLoaded) end
+  elseif msg == "paste" then
+    if LootWishlist.GearImport then LootWishlist.GearImport.Show() else print(S.slash.shareNotLoaded) end
   else
     print(S.slash.usage)
   end

@@ -83,6 +83,21 @@ local function browsingOwnClass()
   return state.classID == playerClassID()
 end
 
+-- Restore persisted browse state. The class always opens as the player's
+-- own: another class's loot is view-only, and coming back a session later
+-- to a browser that cannot add anything would read as broken. The spec
+-- sticks, it is a preference about your own loot.
+local function loadState()
+  local db = charDB()
+  state.track = db.track or state.track
+  state.view = db.view or state.view
+  state.group = db.group or state.group
+  state.instanceID, state.instanceName, state.isRaid = db.instanceID, db.instanceName, db.isRaid
+  if state.view == "instance" and not state.instanceID then state.view = "dungeons" end
+  state.classID = playerClassID()
+  state.specID = db.specID or 0
+end
+
 local function classNameAndColor(classID)
   local name, file = GetClassInfo(classID)
   local color = file and RAID_CLASS_COLORS and RAID_CLASS_COLORS[file]
@@ -567,6 +582,43 @@ local function trackEntry()
     if t.key == state.track then return t end
   end
   return LootWishlist.Const.TRACKS[3]
+end
+
+-- Every season instance's loot at the current track, keyed by lower-cased
+-- item name and by item ID, for the pasted-list importer. Each entry carries
+-- what a wishlist add needs, recorded the way a click in the browser would
+-- record it. Returns nil while any table is still being read; asking queues
+-- the missing scans, so callers poll.
+function LootWishlist.Browser.SeasonIndex()
+  loadState()
+  local s = getSeason()
+  if not s then return nil end
+  local tr = trackEntry()
+  local index = { byName = {}, byID = {} }
+  local function addInstance(inst)
+    local diffID = inst.isRaid and tr.raidDiff or tr.dungeonScanDiff
+    local cache = requestLoot(inst.id, inst.isRaid, diffID)
+    if not cache then return false end
+    local trackDiff = cache.diffID
+    if not inst.isRaid and cache.diffID == tr.dungeonScanDiff then trackDiff = tr.dungeonTrackDiff end
+    for _, it in ipairs(cache.items) do
+      local entry = {
+        itemID = it.itemID, encounterID = it.encounterID, boss = bossName(it.encounterID),
+        instanceID = inst.id, instanceName = inst.name, isRaid = inst.isRaid, diffID = trackDiff,
+        link = (not inst.isRaid and trackItemLink(it.itemID, tr)) or it.link,
+      }
+      index.byID[it.itemID] = index.byID[it.itemID] or entry
+      if it.name then
+        local key = it.name:lower()
+        index.byName[key] = index.byName[key] or entry
+      end
+    end
+    return true
+  end
+  local ready = true
+  for _, inst in ipairs(s.dungeons) do if not addInstance(inst) then ready = false end end
+  for _, inst in ipairs(s.raids) do if not addInstance(inst) then ready = false end end
+  return ready and index or nil
 end
 
 local function instancesForView()
@@ -1635,19 +1687,7 @@ end
 
 local function ensureFrame()
   if frame then return end
-
-  -- Restore persisted browse state. The class always opens as the player's
-  -- own: another class's loot is view-only, and coming back a session later
-  -- to a browser that cannot add anything would read as broken. The spec
-  -- sticks, it is a preference about your own loot.
-  local db = charDB()
-  state.track = db.track or state.track
-  state.view = db.view or state.view
-  state.group = db.group or state.group
-  state.instanceID, state.instanceName, state.isRaid = db.instanceID, db.instanceName, db.isRaid
-  if state.view == "instance" and not state.instanceID then state.view = "dungeons" end
-  state.classID = playerClassID()
-  state.specID = db.specID or 0
+  loadState()
 
   frame = CreateFrame("Frame", "LootWishlistBrowserFrame", UIParent, "BackdropTemplate")
   frame:SetSize(DEFAULT_W, DEFAULT_H)
