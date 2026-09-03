@@ -41,6 +41,8 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 - **Multi-difficulty tracking** — adding an item on Normal automatically tracks it on Heroic and Mythic too; items tracked across difficulties appear as a single row with combined tags (e.g. `[N·H·M]`) so the list stays clean
 - **Tooltip status** — every item tooltip, in a bag, at a vendor, in a chat link or the Adventure Guide, says when the item is on your wishlist and names the boss it drops from and the difficulties you track it at
 - **Great Vault highlights** — a gold star marks every vault reward slot that contains a wishlisted item; hover the star or the reward itself to see which boss and dungeon it comes from, so you can pick the right chest at a glance
+- **Search and filters** — a search box at the top of the wishlist window narrows the list by item, boss or instance, and the funnel icon beside it filters to one gear slot
+- **Boss order** — the layers icon on the wishlist window orders bosses the way the Adventure Guide lists them or by most wishlist items first; the summary window follows the same order
 - **Sticky summary window** — a compact, draggable overview of dungeons and raid bosses with remaining wishlist items; click to open the full list; position is remembered between sessions
 - **Custom message templates** — configure Whisper and Party messages with `%item%` and `%looter%` placeholders
 - **Multiple difficulty support** — track items across Normal, Heroic, Mythic, and LFR
@@ -92,6 +94,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Choose what a plain, Ctrl- and Shift-click on the minimap button opens: both windows, the wishlist, or the Loot Browser
 - Toggle the sticky summary window
 - Adjust summary window opacity when your mouse isn't hovering over it
+- Order bosses by Adventure Guide order or by most wishlist items first, in the summary and wishlist windows alike
 - Toggle automatic multi-difficulty tracking (on by default)
 - Toggle Great Vault highlights (on by default)
 - Toggle the wishlist line on item tooltips (on by default)

@@ -122,6 +122,7 @@ local function InitializeDB()
   if acctS.minimapCtrlClick == nil then acctS.minimapCtrlClick = "wishlist" end
   if acctS.minimapShiftClick == nil then acctS.minimapShiftClick = "browser" end
   if acctS.hideObtained == nil then acctS.hideObtained = false end
+  if acctS.wishlistOrder == nil then acctS.wishlistOrder = "journal" end
 
   -- Restore window position is handled by Ace frame status table
 

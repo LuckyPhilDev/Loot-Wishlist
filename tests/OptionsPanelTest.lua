@@ -141,6 +141,7 @@ LootWishlistCharDB = { settings = {} }
 
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Constants.lua")
+dofile("src/LootWishlist_Layout.lua")
 
 LootWishlist.IsDebug = function() return debugMode end
 LootWishlist.SetDebug = function(v) debugMode = v end

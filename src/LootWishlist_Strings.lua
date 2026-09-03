@@ -77,6 +77,18 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         bonusRollTitle     = "Mark as bonus roll target",
         bonusRollLine1     = "Reminds you to spend a Nebulous Voidcore charge",
         bonusRollLine2     = "after a M+ 10+ run or Heroic/Mythic raid boss kill.",
+        searchPlaceholder  = "Search items, bosses, instances...",
+        noMatches          = "No matches.",
+        filters            = "Filters",
+        noFilters          = "Showing everything",
+        filterSlot         = "Slot",
+        allSlots           = "All Slots",
+        otherSlot          = "Other",
+        resetFilters       = "Reset Filters",
+        order              = "Order",
+        orderTip           = "Click to change how bosses are ordered",
+        orderJournal       = "Journal order",
+        orderCount         = "Most items first",
     },
 
     browser = {
@@ -255,6 +267,8 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         hideSummaryDesc    = "The summary window is the small note listing what you track, grouped by dungeon and boss. Ticking this keeps it off the screen without changing your wishlist.",
         hideSummaryCombat  = "Hide the summary in combat and Mythic+",
         hideSummaryCombatDesc = "The summary window disappears while you are in combat or inside a Mythic+ run, then comes back when you leave.",
+        summaryOrder       = "Order bosses by",
+        summaryOrderDesc   = "Journal order lists bosses the way the raid runs. Most items first puts the boss you track the most items on at the top, and does the same for dungeons and raids. The wishlist window follows the same order.",
         summaryOpacity     = "Summary opacity when not hovered",
         summaryOpacityDesc = "How solid the summary window looks while your mouse is away from it. At 0% it vanishes, and reappears when you hover where it sits.",
 
