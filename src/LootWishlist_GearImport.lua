@@ -1,6 +1,6 @@
 -- Loot Wishlist - Gear list import
--- Paste a best-in-slot table copied from a guide site (Wowhead, Icy Veins,
--- Archon) or any item links, and track whatever matches this season's loot.
+-- Paste a best-in-slot table copied from a guide site (Wowhead, Icy Veins)
+-- or any item links, and track whatever matches this season's loot.
 -- None of those sites exports item IDs, so names are matched against the
 -- Loot Browser's season scan, which also supplies the boss and instance.
 
@@ -11,7 +11,7 @@ local GearImport = LootWishlist.GearImport
 local S = LootWishlist.Strings.gearImport
 local P = LootWishlist.Strings.addon.prefix
 
-local PANEL_W, PANEL_H = 460, 340
+local PANEL_W, PANEL_H = 460, 360
 local MAX_CELL  = 120   -- longer than any item name; keeps prose out of the name pool
 local MAX_ITEMS = 500   -- same ceiling as a share-string import
 local POLL      = 0.5   -- seconds between checks while the season scan runs
@@ -217,7 +217,7 @@ local function buildPanel()
   scrollBg:SetBackdrop(LuckyUI.Backdrop)
   scrollBg:SetBackdropColor(c.bgInput[1], c.bgInput[2], c.bgInput[3], c.bgInput[4])
   scrollBg:SetBackdropBorderColor(c.borderDark[1], c.borderDark[2], c.borderDark[3])
-  scrollBg:SetPoint("TOPLEFT", 14, -90)
+  scrollBg:SetPoint("TOPLEFT", 14, -104)
   scrollBg:SetPoint("BOTTOMRIGHT", -14, 52)
 
   local scroll = CreateFrame("ScrollFrame", nil, scrollBg, "UIPanelScrollFrameTemplate")

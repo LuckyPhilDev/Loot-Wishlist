@@ -198,7 +198,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
 
     gearImport = {
         title             = "Paste a Gear List",
-        hint              = "Paste a best-in-slot table copied from Wowhead, Icy Veins or Archon, or any item links. Items are matched against this season's dungeon and raid loot at the Loot Browser's current track.",
+        hint              = "Paste a best-in-slot table copied from Wowhead or Icy Veins, or any item links. Items are matched against this season's dungeon and raid loot at the Loot Browser's current track. If a paste does not work, join the Discord from the settings panel and share what you tried.",
         importButton      = "Import",
         close             = "Close",
         nothingPasted     = "Nothing to import. Paste a list first.",
