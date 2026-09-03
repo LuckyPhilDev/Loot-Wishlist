@@ -55,6 +55,29 @@ function GearImport.Parse(text)
   return { ids = ids, names = names }
 end
 
+local function isWordChar(ch)
+  return ch ~= "" and ch:match("%w") ~= nil
+end
+
+-- Every index name that appears whole inside the cell. A cell is rarely just
+-- the name: Wowhead copies the icon's title beside the link text, so the
+-- name comes doubled, and a paste that loses its tabs runs the slot, name
+-- and source together on one line.
+local function namesIn(index, cell, take)
+  local exact = index.byName[cell]
+  if exact then take(exact); return end
+  for name, entry in pairs(index.byName) do
+    local s, f = cell:find(name, 1, true)
+    while s do
+      if not isWordChar(cell:sub(s - 1, s - 1)) and not isWordChar(cell:sub(f + 1, f + 1)) then
+        take(entry)
+        break
+      end
+      s, f = cell:find(name, f + 1, true)
+    end
+  end
+end
+
 -- Match parsed cells against the season index. Names resolve only through
 -- the index; IDs the index does not know come back as loose IDs, which still
 -- import but without a source.
@@ -74,9 +97,8 @@ function GearImport.Resolve(parsed, index)
       loose[#loose + 1] = id
     end
   end
-  for _, name in ipairs(parsed.names) do
-    local entry = index.byName[name]
-    if entry then take(entry) end
+  for _, cell in ipairs(parsed.names) do
+    namesIn(index, cell, take)
   end
   return entries, loose
 end

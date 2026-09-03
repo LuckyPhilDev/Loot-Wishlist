@@ -91,4 +91,23 @@ check(#entries == 1, "the same item by id and by name is one entry")
 entries, loose = GI.Resolve(GI.Parse("Helm\nNeck\nCrafted"), index)
 check(#entries == 0 and #loose == 0, "nothing matching resolves to nothing")
 
+-- Wowhead's BiS table as it actually pastes: the icon title doubles the link
+-- text in the item cell, sometimes with a trailing space.
+local DOUBLED = "Slot\tItem\tSource\n"
+  .. "Head\tTempered Horns of the Jade Warlord Tempered Horns of the Jade Warlord\tUla'tek\n"
+  .. "Neck\tAqirbane Reliquary Aqirbane Reliquary \tUla'tek\n"
+  .. "Wrist\tMartyr's Bindings Martyr's Bindings\tCrafting\n"
+entries, loose = GI.Resolve(GI.Parse(DOUBLED), index)
+check(#entries == 2 and entries[1] == horns and entries[2] == reliquary, "doubled names resolve once each")
+
+-- The same table with its tabs lost, so slot, name and source share a cell
+entries = GI.Resolve(GI.Parse((DOUBLED:gsub("\t", " "))), index)
+check(#entries == 2, "names are found inside a run-together line")
+
+-- A name inside a longer word is not that item
+local band = { itemID = 5, instanceName = "X", isRaid = false, diffID = 8 }
+local partial = { byID = {}, byName = { ["band"] = band } }
+check(#GI.Resolve(GI.Parse("Bubbleband\nHusband's ring"), partial) == 0, "no match inside a word")
+check(#GI.Resolve(GI.Parse("Ring\tBand Band\tSomeone"), partial) == 1, "whole word matches")
+
 print("GearImportTest: " .. checks .. " checks passed")
