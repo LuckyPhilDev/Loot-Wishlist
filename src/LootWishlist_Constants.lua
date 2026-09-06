@@ -56,6 +56,17 @@ LootWishlist.Const = {
   -- types read low → high with M0 before M+.
   DIFF_TAG_ORDER = { LFR=1, N=2, H=3, M=4, ["M+"]=5 },
 
+  -- Midnight splits tier tokens by armour type, so a fair split puts a quarter
+  -- of a group in each. Values are Enum.ItemArmorSubclass, spelled as numbers
+  -- because this file is read outside the game.
+  TIER_TOKEN_ARMOURS = { 1, 2, 3, 4 },  -- Cloth, Leather, Mail, Plate
+  TIER_TOKEN_ARMOUR = {
+    MAGE        = 1, PRIEST      = 1, WARLOCK = 1,
+    DEMONHUNTER = 2, DRUID       = 2, MONK    = 2, ROGUE = 2,
+    EVOKER      = 3, HUNTER      = 3, SHAMAN  = 3,
+    DEATHKNIGHT = 4, PALADIN     = 4, WARRIOR = 4,
+  },
+
   -- Gear-track picker for the Loot Browser, Midnight-era track model.
   --
   -- Raids carry one EJ difficulty per track, so raidDiff is both what the

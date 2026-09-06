@@ -185,6 +185,22 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         reportHeader  = "Bonus roll odds in %s:",
     },
 
+    tokenOdds = {
+        title      = "Tier Token Odds",
+        alone      = "No one else wears %s in your %d player group.",
+        oneOther   = "1 other %s wearer in your %d player group.",
+        manyOthers = "%d other %s wearers in your %d player group.",
+        yourOdds   = "Your odds",
+        fairOdds   = "A fair split",
+        pctWhole   = "%d%%",
+        pctTenth   = "%.1f%%",
+        worse      = "|cffe06c6cWorse than a fair split for a group this size.|r",
+        better     = "|cff69db7cBetter than a fair split for a group this size.|r",
+        even       = "Exactly a fair split for a group this size.",
+        notInRaid  = "tier token odds need a raid group. Join one and try again.",
+        noToken    = "Your class takes no tier token.",
+    },
+
     share = {
         exportTitle       = "Export Wishlist",
         importTitle       = "Import Wishlist",
@@ -281,6 +297,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         groupMessages      = "Messages",
 
         wishlistBehaviour  = "Wishlist behaviour",
+        raidSection        = "In a raid",
 
         trackHigher        = "Also track higher difficulties",
         trackHigherDesc    = "Adding a dungeon item on Normal also tracks it on Heroic, Mythic and Mythic+. Turn this off to track only the difficulty you picked.",
@@ -290,6 +307,10 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         vaultStarDesc      = "Puts a pulsing star on any Great Vault reward you track. A silver star means the reward is a lower track than the copy you track. Hover the star to see which wishlist entries it matches.",
         tooltipStatus      = "Wishlist status on item tooltips",
         tooltipStatusDesc  = "Any item on your wishlist says so on its tooltip, naming the boss it drops from and the difficulties you track it at. Bags, vendors, chat links, the Adventure Guide and the Great Vault included.",
+
+        raidTokenOdds      = "Show tier token odds in a raid",
+        raidTokenOddsDesc  = "Tier tokens are split by armour type, so every token of yours is shared between everyone in the group wearing it. Joining a raid, or anyone joining yours, opens a window counting the others in your armour and what that leaves your odds at, against the odds a fair split of a group that size would give. Turning this off leaves /wishlist tokens to open it.",
+        raidTokenOddsNote  = "Still being built, so it will keep changing. Say what you want from it on the Discord: https://discord.gg/ptTtYyAjdZ",
 
         hideSummary        = "Hide the summary window",
         hideSummaryDesc    = "The summary window is the small note listing what you track, grouped by dungeon and boss. Ticking this keeps it off the screen without changing your wishlist.",
@@ -390,6 +411,6 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         openOptions      = "Open Interface Options and look for 'Loot Wishlist'.",
         specReset        = "Loot Wishlist: spec reminder reset. Target a boss or re-enter to trigger again.",
         clearedAll       = "Loot Wishlist: cleared all tracked items",
-        usage            = "/wishlist commands: show | hide | browse | odds | settings | add <ID> | remove <ID> | list | clear | export | import | paste | debug | reset-spec | raidinfo",
+        usage            = "/wishlist commands: show | hide | browse | odds | tokens | settings | add <ID> | remove <ID> | list | clear | export | import | paste | debug | reset-spec | raidinfo",
     },
 })

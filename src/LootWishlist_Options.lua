@@ -200,6 +200,18 @@ local function buildWishlist(g)
     checked  = function() return isOn("enableTooltipStatus") end,
     onToggle = function(checked) write("enableTooltipStatus", checked) end,
   })
+
+  g:Section(S.raidSection)
+
+  g:Toggle({
+    label    = S.raidTokenOdds,
+    desc     = S.raidTokenOddsDesc,
+    note     = S.raidTokenOddsNote,
+    since    = "1.17.0",
+    wip      = true,
+    checked  = function() return isOn("raidTokenOdds") end,
+    onToggle = function(checked) write("raidTokenOdds", checked) end,
+  })
 end
 
 local function buildSummary(g)
