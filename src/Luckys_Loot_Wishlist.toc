@@ -28,4 +28,6 @@ LootWishlist_ReminderPlanner.lua
 LootWishlist_Reminders.lua
 LootWishlist_Alerts.lua
 LootWishlist_BonusRoll.lua
+LootWishlist_BonusRollOdds.lua
 LootWishlist_BonusRollBlock.lua
+LootWishlist_TokenOdds.lua

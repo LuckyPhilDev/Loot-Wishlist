@@ -48,6 +48,11 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 - **Custom message templates** — configure Whisper and Party messages with `%item%` and `%looter%` placeholders
 - **Multiple difficulty support** — track items across Normal, Heroic, Mythic, and LFR
 - **Bonus roll targets** — mark any wishlist item as a bonus roll chase with the "BR" button in the Encounter Journal or on a wishlist row; a popup reminds you to spend Nebulous Voidcore charges after a Mythic+ 10+ run or a Heroic/Mythic raid boss kill when a flagged item could drop
+- **Tier Token Odds** — tier tokens are split by armour type, so joining a raid opens a window counting how many others wear yours and what that leaves your odds at, beside the odds a fair split of a group that size would give
+  - Reopens as people join, and counts itself away along the foot of the window before fading out; resting your mouse on it puts the time back to full
+  - `/wishlist tokens` calls it back any time, and one you open yourself stays until you close it
+  - Drag it where you want it and it opens there from then on, per character
+- **Bonus roll odds** — a line under Blizzard's Bonus Roll popup counting how many of that boss's drops are on your wishlist, the charges you have already spent there, and the loot spec that would give better odds
 - **Auto-dismiss Bonus Roll** — handles Blizzard's Bonus Roll popup for you, keeping it only in the content you pick per character; an unwanted popup is either passed outright or left on screen with the dice locked and the reason on hover, and can be narrowed to bosses you flagged an item on
 - **Mark as obtained** — tick an item off on the wishlist and it stays on the list, greyed out, while its alerts and reminders stop; untick it if you were wrong, or hide obtained items entirely from settings
 - **Wishlist sharing** — the Export button on the wishlist window turns your list into a copyable string; Import reads one back and asks whether to add it to your current list or replace it, so you can back up a wishlist or move it between characters
@@ -77,6 +82,8 @@ Install from [CurseForge](https://www.curseforge.com/wow/addons/luckys-loot-wish
 | `/wishlist show` | Open the wishlist window |
 | `/wishlist hide` | Hide the wishlist window |
 | `/wishlist browse` | Open the season loot browser |
+| `/wishlist odds` | Print the bonus roll odds for each boss in the instance you are in |
+| `/wishlist tokens` | Open the tier token odds window for your raid |
 | `/wishlist settings` | Open the settings panel (also accepts `options`) |
 | `/wishlist add <itemID or link>` | Manually add an item by ID or item link |
 | `/wishlist list` | Print the number of tracked items |
@@ -103,6 +110,8 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Toggle raid roll reminder alerts
 - Toggle the sound played when a tracked item drops
 - Toggle bonus roll reminders and their sound
+- Toggle the odds line under the Bonus Roll popup (on by default)
+- Toggle the tier token odds window opening itself in a raid (on by default)
 - Handle the Bonus Roll popup automatically, keeping it only in the content you pick (per character). Chat names the setting that acted
 - Choose what an unwanted popup gets: the roll locked with the reason on hover, or passed outright
 - Narrow that to bosses you flagged a wishlist item on, so the popup only appears where the roll could land something you want

@@ -8,8 +8,8 @@ local S = LootWishlist.Strings.alerts
 local LootParser = LootWishlist.LootParser
 local db
 local eventFrame
-local alertFrame, alertFS, alertHideAt
-local rollAlertFrame, rollAlertFS, rollHideAt
+local alertFrame, alertFS
+local rollAlertFrame, rollAlertFS
 
 -- Debug helper
 local function dprint(...)
@@ -126,9 +126,8 @@ local function ShowRaidRollAlert(itemLink)
     local rollBtnDismiss = LuckyUI.CreateButton(rollAlertFrame, "Dismiss", 100, 22, "secondary")
     rollBtnDismiss:SetPoint("BOTTOM", rollAlertFrame, "BOTTOM", 0, 10)
     rollBtnDismiss:SetScript("OnClick", function()
-      rollHideAt = nil
+      rollAlertFrame:StopAutoHide()
       rollAlertFrame:Hide()
-      if wipe then wipe(rollAlertItems) end
     end)
     local w = db and db.raidRollWindow
     if w and w.point then
@@ -136,14 +135,11 @@ local function ShowRaidRollAlert(itemLink)
       rollAlertFrame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
     end
     rollAlertFrame:Hide()
-    rollAlertFrame:SetScript("OnUpdate", function(_, elapsed)
-      if rollHideAt and GetTime() >= rollHideAt then
-        rollAlertFrame:Hide()
-        rollHideAt = nil
-        -- Clear accumulated items when the alert hides
-        wipe(rollAlertItems)
-      end
-    end)
+    LuckyUI.EnableAutoHide(rollAlertFrame,
+      (LootWishlist.Const and LootWishlist.Const.ROLL_ALERT_AUTOHIDE_SECONDS) or 8)
+    -- The list gathers rolls while the alert is up, so it empties however the
+    -- alert goes away rather than only when the countdown runs it out.
+    rollAlertFrame:HookScript("OnHide", function() wipe(rollAlertItems) end)
   end
   -- Accumulate unique items into the roll list
   local exists = false
@@ -161,8 +157,7 @@ local function ShowRaidRollAlert(itemLink)
   local desiredH = (rollAlertFS.GetStringHeight and (rollAlertFS:GetStringHeight() + 40)) or 80
   rollAlertFrame:SetHeight(math.max(60, math.min(200, desiredH)))
   rollAlertFrame:Show()
-  -- Extend visibility timer with each new item
-  rollHideAt = GetTime() + 8
+  rollAlertFrame:StartAutoHide()  -- each new item buys the alert its full time again
 end
 local btnRemove, btnKeep, btnWhisper, btnParty, btnDismiss
 local currentDifficultyID
@@ -240,12 +235,8 @@ local function ensureAlertFrame()
   end
 
   alertFrame:Hide()
-  alertFrame:SetScript("OnUpdate", function(_, elapsed)
-    if alertHideAt and GetTime() >= alertHideAt then
-      alertFrame:Hide()
-      alertHideAt = nil
-    end
-  end)
+  LuckyUI.EnableAutoHide(alertFrame,
+    (LootWishlist.Const and LootWishlist.Const.ALERT_AUTOHIDE_SECONDS) or 6)
   return alertFrame
 end
 
@@ -269,7 +260,7 @@ local function ShowDropAlert(itemLink, note)
   end
   f:SetWidth(width)
   f:Show()
-  alertHideAt = GetTime() + ((LootWishlist.Const and LootWishlist.Const.ALERT_AUTOHIDE_SECONDS) or 6)
+  f:StartAutoHide()
 end
 
 -- Resolve a proper clickable item link from an itemID, asynchronously if needed
@@ -339,7 +330,7 @@ end
 
 local function configureSelfActions(itemID, itemLink)
   hideAllButtons()
-  alertHideAt = nil -- keep visible until action
+  if alertFrame then alertFrame:StopAutoHide() end  -- keep visible until action
   -- Expand alert for two buttons
   if alertFrame then
     local minW = (LootWishlist.Const and LootWishlist.Const.ALERT_MIN_WIDTH_SELF) or 460
@@ -375,7 +366,7 @@ end
 
 local function configureOtherActions(looterName, itemID, itemLink)
   hideAllButtons()
-  alertHideAt = nil -- keep visible until action
+  if alertFrame then alertFrame:StopAutoHide() end  -- keep visible until action
   -- Expand alert for three buttons
   if alertFrame then
     local minW = (LootWishlist.Const and LootWishlist.Const.ALERT_MIN_WIDTH_OTHER) or 540

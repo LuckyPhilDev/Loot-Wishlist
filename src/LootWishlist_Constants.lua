@@ -27,6 +27,7 @@ LootWishlist.Const = {
   ALERT_TEXT_LOWER_TRACK = S.alerts.lowerTrack,
   ALERT_TEXT_LOWER_TRACK_UNNAMED = S.alerts.lowerTrackUnnamed,
   ALERT_AUTOHIDE_SECONDS = 6,
+  ROLL_ALERT_AUTOHIDE_SECONDS = 8,
   ALERT_WIDTH_MIN_DEFAULT = 360,
   ALERT_WIDTH_MAX_DEFAULT = 700,
   ALERT_WIDTH_PAD = 80,
@@ -54,6 +55,17 @@ LootWishlist.Const = {
   -- Display order for difficulty tags. Raids never carry "M+" so both source
   -- types read low → high with M0 before M+.
   DIFF_TAG_ORDER = { LFR=1, N=2, H=3, M=4, ["M+"]=5 },
+
+  -- Midnight splits tier tokens by armour type, so a fair split puts a quarter
+  -- of a group in each. Values are Enum.ItemArmorSubclass, spelled as numbers
+  -- because this file is read outside the game.
+  TIER_TOKEN_ARMOURS = { 1, 2, 3, 4 },  -- Cloth, Leather, Mail, Plate
+  TIER_TOKEN_ARMOUR = {
+    MAGE        = 1, PRIEST      = 1, WARLOCK = 1,
+    DEMONHUNTER = 2, DRUID       = 2, MONK    = 2, ROGUE = 2,
+    EVOKER      = 3, HUNTER      = 3, SHAMAN  = 3,
+    DEATHKNIGHT = 4, PALADIN     = 4, WARRIOR = 4,
+  },
 
   -- Gear-track picker for the Loot Browser, Midnight-era track model.
   --

@@ -118,6 +118,7 @@ local function InitializeDB()
   if acctS.addHigherDifficulties == nil then acctS.addHigherDifficulties = true end
   if acctS.enableVaultOverlay == nil then acctS.enableVaultOverlay = true end
   if acctS.enableTooltipStatus == nil then acctS.enableTooltipStatus = true end
+  if acctS.raidTokenOdds == nil then acctS.raidTokenOdds = true end
   if acctS.minimapClick == nil then acctS.minimapClick = "both" end
   if acctS.minimapCtrlClick == nil then acctS.minimapCtrlClick = "wishlist" end
   if acctS.minimapShiftClick == nil then acctS.minimapShiftClick = "browser" end
@@ -613,6 +614,19 @@ SlashCmdList.WISHLIST = function(msg)
       LootWishlist.Browser.DiagnoseTracks()
     else
       print(S.slash.browserNotLoaded)
+    end
+  elseif msg == "odds" then
+    if LootWishlist.BonusRollOdds and LootWishlist.BonusRollOdds.Report then
+      LootWishlist.BonusRollOdds.Report()
+    end
+  elseif msg == "testtokens" or msg:match("^testtokens%s") then
+    local size, sharing = msg:match("^testtokens%s+(%d+)%s*(%d*)")
+    if LootWishlist.TokenOdds and LootWishlist.TokenOdds.Test then
+      LootWishlist.TokenOdds.Test(size, sharing)
+    end
+  elseif msg == "tokens" or msg == "token" then
+    if LootWishlist.TokenOdds and LootWishlist.TokenOdds.Toggle then
+      LootWishlist.TokenOdds.Toggle()
     end
   elseif msg == "browse" or msg == "browser" then
     if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() else print(S.slash.browserNotLoaded) end

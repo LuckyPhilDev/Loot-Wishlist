@@ -200,6 +200,18 @@ local function buildWishlist(g)
     checked  = function() return isOn("enableTooltipStatus") end,
     onToggle = function(checked) write("enableTooltipStatus", checked) end,
   })
+
+  g:Section(S.raidSection)
+
+  g:Toggle({
+    label    = S.raidTokenOdds,
+    desc     = S.raidTokenOddsDesc,
+    note     = S.raidTokenOddsNote,
+    since    = "1.17.0",
+    wip      = true,
+    checked  = function() return isOn("raidTokenOdds") end,
+    onToggle = function(checked) write("raidTokenOdds", checked) end,
+  })
 end
 
 local function buildSummary(g)
@@ -264,6 +276,13 @@ local function buildBonusRolls(g)
     parent   = S.bonusRollRemind,
     checked  = function() return isOn("bonusRollSound") end,
     onToggle = function(checked) write("bonusRollSound", checked) end,
+  })
+
+  g:Toggle({
+    label    = S.bonusRollOdds,
+    desc     = S.bonusRollOddsDesc,
+    checked  = function() return isOn("bonusRollOdds") end,
+    onToggle = function(checked) write("bonusRollOdds", checked) end,
   })
 
   local function charRead(key) return charSettings()[key] end

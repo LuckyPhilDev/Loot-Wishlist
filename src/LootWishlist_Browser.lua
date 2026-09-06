@@ -494,24 +494,29 @@ scanEvents:RegisterEvent("EJ_LOOT_DATA_RECIEVED")
 
 -- The loot filter shapes what a scan reads, so class and spec are part of the
 -- cache identity alongside instance and difficulty.
-local function cacheKey(instanceID, diffID)
-  return table.concat({ instanceID, diffID, state.classID, state.specID }, "@")
+local function cacheKey(instanceID, diffID, classID, specID)
+  return table.concat({ instanceID, diffID, classID or state.classID, specID or state.specID }, "@")
 end
 
 -- Returns the cache entry when ready, else queues a scan and returns nil.
-local function requestLoot(instanceID, isRaid, diffID)
-  local key = cacheKey(instanceID, diffID)
+-- Class and spec default to what the browser is showing, so callers outside
+-- the window (which may open before it ever does) name their own.
+local function requestLoot(instanceID, isRaid, diffID, classID, specID)
+  classID, specID = classID or state.classID, specID or state.specID
+  local key = cacheKey(instanceID, diffID, classID, specID)
   if lootCache[key] then return lootCache[key] end
   if not pendingKeys[key] then
     pendingKeys[key] = true
     queue[#queue + 1] = {
       key = key, instanceID = instanceID, isRaid = isRaid, diffID = diffID,
-      classID = state.classID, specID = state.specID,
+      classID = classID, specID = specID,
     }
     pump()
   end
   return nil
 end
+
+LootWishlist.Browser.RequestLoot = requestLoot
 
 -- The scan pipeline runs headless, so the test drives it without building the
 -- window that normally does.

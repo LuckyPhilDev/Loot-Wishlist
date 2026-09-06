@@ -88,6 +88,8 @@ local function getCurrentEJInstanceID()
     return nil
 end
 
+LootWishlist.GetCurrentEJInstanceID = getCurrentEJInstanceID
+
 local function ensureReminderFrame()
     if dungeonReminderFrame then return dungeonReminderFrame end
 
