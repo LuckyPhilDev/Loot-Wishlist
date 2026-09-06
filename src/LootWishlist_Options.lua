@@ -266,6 +266,13 @@ local function buildBonusRolls(g)
     onToggle = function(checked) write("bonusRollSound", checked) end,
   })
 
+  g:Toggle({
+    label    = S.bonusRollOdds,
+    desc     = S.bonusRollOddsDesc,
+    checked  = function() return isOn("bonusRollOdds") end,
+    onToggle = function(checked) write("bonusRollOdds", checked) end,
+  })
+
   local function charRead(key) return charSettings()[key] end
   local function charWrite(key, value) charSettings()[key] = value end
 

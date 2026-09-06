@@ -2,6 +2,7 @@
 
 ### Added
 - **Paste List** Paste a best-in-slot table copied from Wowhead or Icy Veins into the wishlist window and every item that drops in this season's dungeons and raids is added under its boss. Item links and Wowhead item URLs work too.
+- **Bonus roll odds** The Bonus Roll popup gains a line counting how many of that boss's drops are on your wishlist, the charges you have already spent there, and the loot spec that would give better odds.
 
 ## [1.16.0] - 2026-09-03
 

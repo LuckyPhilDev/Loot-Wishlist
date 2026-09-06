@@ -174,6 +174,17 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         testSubtitle  = "Test popup",
     },
 
+    bonusRollOdds = {
+        wanted        = "|cffe8dcc8%d|r of %d items here are on your wishlist (%d%%)",
+        nothingWanted = "None of the %d items here are on your wishlist",
+        emptyTable    = "No loot table for your class here",
+        spent         = "Charges spent here: |cffe8dcc8%d|r",
+        betterSpec    = "Loot spec |cffffd100%s|r would be %d of %d (%d%%)",
+        reading       = "Reading this boss's loot table...",
+        notInInstance = "odds need a dungeon or raid. Enter one and try again.",
+        reportHeader  = "Bonus roll odds in %s:",
+    },
+
     share = {
         exportTitle       = "Export Wishlist",
         importTitle       = "Import Wishlist",
@@ -300,6 +311,8 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         bonusRollRemindDesc = "A popup after a Mythic+ 10 or a Heroic or Mythic raid boss, listing the wishlist items you flagged for a bonus roll there. Only when you hold enough Nebulous Voidcore.",
         bonusRollSound     = "Play a sound with the reminder",
         bonusRollSoundDesc = "A raid warning sound plays alongside the bonus roll popup.",
+        bonusRollOdds      = "Show what a charge is worth",
+        bonusRollOddsDesc  = "A line under the Bonus Roll popup counting how much of that boss's table is on your wishlist, what you have already spent there, and whether another loot spec would do better.",
 
         blockDismiss       = "Prevent accidental bonus rolls",
         blockDismissDesc   = "Automatically passes on the Bonus Roll popup that appears at the end of content, except in the situations selected below.",
@@ -377,6 +390,6 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         openOptions      = "Open Interface Options and look for 'Loot Wishlist'.",
         specReset        = "Loot Wishlist: spec reminder reset. Target a boss or re-enter to trigger again.",
         clearedAll       = "Loot Wishlist: cleared all tracked items",
-        usage            = "/wishlist commands: show | hide | browse | settings | add <ID> | remove <ID> | list | clear | export | import | paste | debug | reset-spec | raidinfo",
+        usage            = "/wishlist commands: show | hide | browse | odds | settings | add <ID> | remove <ID> | list | clear | export | import | paste | debug | reset-spec | raidinfo",
     },
 })

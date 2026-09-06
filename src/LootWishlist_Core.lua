@@ -614,6 +614,10 @@ SlashCmdList.WISHLIST = function(msg)
     else
       print(S.slash.browserNotLoaded)
     end
+  elseif msg == "odds" then
+    if LootWishlist.BonusRollOdds and LootWishlist.BonusRollOdds.Report then
+      LootWishlist.BonusRollOdds.Report()
+    end
   elseif msg == "browse" or msg == "browser" then
     if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() else print(S.slash.browserNotLoaded) end
   elseif msg == "debug" then

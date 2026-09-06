@@ -335,6 +335,7 @@ f:SetScript("OnEvent", function(_, event, ...)
     if s then
       if s.enableBonusRollReminders == nil then s.enableBonusRollReminders = true end
       if s.bonusRollSound == nil then s.bonusRollSound = true end
+      if s.bonusRollOdds == nil then s.bonusRollOdds = true end
     end
   elseif event == "CHALLENGE_MODE_COMPLETED" then
     -- Small delay so completion info / instance state settles
