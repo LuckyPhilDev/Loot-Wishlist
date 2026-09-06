@@ -68,6 +68,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         clearAllConfirm    = "This will remove ALL wishlist items for this character. Are you sure?",
         export             = "Export",
         import             = "Import",
+        paste              = "Paste List",
         browseLoot         = "Browse Loot",
         removeFromWishlist = "Remove from wishlist",
         markObtained       = "Mark as obtained",
@@ -193,6 +194,22 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         importReplace     = "Replace",
         importCancel      = "Cancel",
         tooManyPopups     = "could not ask how to import, too many popups are on screen. Close them and import again.",
+    },
+
+    gearImport = {
+        title             = "Paste a Gear List",
+        hint              = "Paste a best-in-slot table copied from Wowhead or Icy Veins, or any item links. Items are matched against this season's dungeon and raid loot at the Loot Browser's current track. If a paste does not work, join the Discord from the settings panel and share what you tried.",
+        importButton      = "Import",
+        close             = "Close",
+        nothingPasted     = "Nothing to import. Paste a list first.",
+        readingTables     = "Reading this season's drop tables...",
+        waitingForJournal = "Waiting for the Adventure Guide to close...",
+        tablesTimedOut    = "Could not read the drop tables. Open the Loot Browser once, then try again.",
+        noMatches         = "Nothing on that list matches this season's dungeon or raid loot.",
+        tooMany           = "That list holds more than %d items and cannot be imported.",
+        added             = "added %s from the pasted list.",
+        addedExisting     = "added %s from the pasted list. %d already tracked.",
+        allExisting       = "every item on the pasted list was already on your wishlist.",
     },
 
     journal = {
@@ -360,6 +377,6 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         openOptions      = "Open Interface Options and look for 'Loot Wishlist'.",
         specReset        = "Loot Wishlist: spec reminder reset. Target a boss or re-enter to trigger again.",
         clearedAll       = "Loot Wishlist: cleared all tracked items",
-        usage            = "/wishlist commands: show | hide | browse | settings | add <ID> | remove <ID> | list | clear | export | import | debug | reset-spec | raidinfo",
+        usage            = "/wishlist commands: show | hide | browse | settings | add <ID> | remove <ID> | list | clear | export | import | paste | debug | reset-spec | raidinfo",
     },
 })

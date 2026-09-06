@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Added
+- **Paste List** Paste a best-in-slot table copied from Wowhead or Icy Veins into the wishlist window and every item that drops in this season's dungeons and raids is added under its boss. Item links and Wowhead item URLs work too.
+
 ## [1.16.0] - 2026-09-03
 
 ### Added

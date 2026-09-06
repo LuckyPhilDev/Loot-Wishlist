@@ -20,6 +20,7 @@ LootWishlist_UI.lua
 LootWishlist_Tooltips.lua
 LootWishlist_EncounterJournal.lua
 LootWishlist_Browser.lua
+LootWishlist_GearImport.lua
 LootWishlist_Summary.lua
 LootWishlist_Vault.lua
 LootWishlist_LootParser.lua
