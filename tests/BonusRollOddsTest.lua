@@ -69,13 +69,14 @@ check(Odds.Best(noneWanted, SPECS, 62), nil, "nothing wanted suggests nothing")
 
 -- Describe ------------------------------------------------------------------
 local text = Odds.Describe(tally, SPECS, 62, 3)
-contains(text, "1|r of 2 items", "current spec share")
+contains(text, "(1 of the 2 that can drop for you)", "current spec share")
+contains(text, "50%|r chance", "the chance leads")
 contains(text, "Charges spent here", "spend count")
 contains(text, "Fire", "better spec named")
-check(select(2, text:gsub("\n", "\n")), 2, "three lines")
+check(select(2, text:gsub("\n", "\n")), 3, "the count sits under the chance, over spend and better spec")
 
 local quiet = Odds.Describe(tally, SPECS, 63, 0)
-check(quiet:find("\n"), nil, "no spend line and no better spec")
+check(select(2, quiet:gsub("\n", "\n")), 1, "no spend line and no better spec")
 
 local empty = Odds.Describe({ [62] = { total = 0, wanted = 0 } }, { 62 }, 62, 0)
 contains(empty, "No loot table", "empty table")
@@ -124,7 +125,12 @@ LootWishlist.GetCurrentEJInstanceID = function() return 1200 end
 LootWishlist.GetTracked = function() return { [2] = { id = 2 } } end
 
 local table1200 = nil
-LootWishlist.Browser = { RequestLoot = function() return table1200 end }
+local lastRequest = {}
+LootWishlist.Browser = { RequestLoot = function(instanceID, isRaid, diffID, classID, specID)
+    lastRequest = { instanceID = instanceID, isRaid = isRaid, diffID = diffID,
+        classID = classID, specID = specID }
+    return table1200
+end }
 
 check(select(1, Odds.ForRoll(9001, 0, false)), LootWishlist.Strings.bonusRollOdds.reading,
     "an unread table says so")
@@ -138,6 +144,73 @@ table1200 = { items = {
 } }
 local rollText, rollReady = Odds.ForRoll(9001, 0, false)
 check(rollReady, true, "a read table is ready")
-contains(rollText, "1|r of 2 items", "only the rolled boss's items count")
+contains(rollText, "(1 of the 2 that can drop for you)", "only the rolled boss's items count")
+contains(rollText, "this boss", "a raid roll names the boss")
+contains(select(1, Odds.ForRoll(0, 1200, false)), "this dungeon", "a dungeon roll names the dungeon")
+
+-- Wins leave the table -------------------------------------------------------
+LootWishlist.IsObtained = function() return false end
+
+local fiveItems = { { itemID = 1 }, { itemID = 2 }, { itemID = 3 }, { itemID = 4 }, { itemID = 5 } }
+local threeWanted = wantedIs({ [1] = true, [2] = true, [3] = true })
+local openSpecs = function() return nil end
+
+local before = Odds.Tally(fiveItems, { 62 }, threeWanted, openSpecs, Odds.Owned(9500, 0))
+check(before[62].total, 5, "nothing won yet leaves five in the table")
+check(before[62].wanted, 3, "three of them wanted")
+
+Odds.RecordWin(4, 9500, 0)
+check(Odds.HasWon(4, 9500, 0), true, "the won item is remembered")
+local after = Odds.Tally(fiveItems, { 62 }, threeWanted, openSpecs, Odds.Owned(9500, 0))
+check(after[62].total, 4, "the won item leaves the table")
+check(after[62].wanted, 3, "the three you still want are untouched")
+check(math.floor(Odds.Ratio(after[62]) * 100 + 0.5), 75, "three of four is 75%")
+
+-- A dungeon win counts against every boss inside it --------------------------
+Odds.RecordWin(5, nil, 4200)
+check(Odds.HasWon(5, 9501, 4200), true, "a dungeon win covers its bosses")
+check(Odds.HasWon(5, 9501, 0), false, "and not some other dungeon's")
+
+-- The reward's item link is what gets filed ---------------------------------
+local link = "|cffa335ee|Hitem:12345::::::::80:::::|h[Thing]|h|r"
+Odds.OnRollResult(link)
+check(Odds.HasWon(12345, 9600, 0), false, "a result with no roll behind it is ignored")
+
+Odds.NoteRoll(9600, 0)
+Odds.OnRollResult(link)
+check(Odds.HasWon(12345, 9600, 0), true, "the reward is filed against the boss rolled on")
+check(Odds.GetSpent(9600, 0), 1, "and the charge is counted once")
+
+Odds.OnRollResult(nil)
+check(Odds.HasWon(0, 9600, 0), false, "a currency reward files nothing")
+
+-- Mythic+ --------------------------------------------------------------------
+-- A keystone run rolls on the whole dungeon, so the popup carries no encounter
+-- and the journal is read at Mythic, the table Mythic+ actually pays out from.
+function GetInstanceInfo() return "Some Dungeon", "party", 8 end
+LootWishlist.GetTracked = function() return { [1] = { id = 1 }, [3] = { id = 3 } } end
+table1200 = { items = {
+    { itemID = 1, encounterID = 9001 },
+    { itemID = 2, encounterID = 9001 },
+    { itemID = 3, encounterID = 9002 },
+    { itemID = 4, encounterID = 9002 },
+} }
+
+local keyText, keyReady = Odds.ForRoll(0, 1200, false)
+check(keyReady, true, "the keystone table reads")
+check(lastRequest.diffID, 23, "a keystone run is read at Mythic")
+check(lastRequest.isRaid, false, "and not as a raid")
+contains(keyText, "this dungeon", "a keystone roll names the dungeon")
+contains(keyText, "(2 of the 4 that can drop for you)", "every boss in the dungeon counts")
+contains(keyText, "50%|r chance", "two of four is 50%")
+
+Odds.NoteRoll(0, 1200)
+Odds.OnRollResult("|cffa335ee|Hitem:2::::::::80:::::|h[Spare]|h|r")
+check(Odds.GetSpent(0, 1200), 1, "the charge is counted against the dungeon")
+contains(select(1, Odds.ForRoll(0, 1200, false)), "(2 of the 3 that can drop for you)",
+    "what the keystone roll gave leaves the dungeon table")
+Odds.RecordWin(4, nil, 1200)
+contains(select(1, Odds.ForRoll(9002, 1200, false)), "(1 of the 1 that can drop for you)",
+    "a dungeon win leaves the table of a boss inside it too")
 
 print("BonusRollOddsTest: " .. passed .. " checks passed")

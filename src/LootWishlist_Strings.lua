@@ -175,11 +175,11 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
     },
 
     bonusRollOdds = {
-        wanted        = "|cffe8dcc8%d|r of %d items here are on your wishlist (%d%%)",
-        nothingWanted = "None of the %d items here are on your wishlist",
+        wanted        = "|cffe8dcc8%d%%|r chance of a wishlist item from %s\n(%d of the %d that can drop for you)",
+        nothingWanted = "None of the %d items that can drop for you from %s are on your wishlist",
         emptyTable    = "No loot table for your class here",
         spent         = "Charges spent here: |cffe8dcc8%d|r",
-        betterSpec    = "Loot spec |cffffd100%s|r would be %d of %d (%d%%)",
+        betterSpec    = "Loot spec |cffffd100%s|r would be |cffffd100%d%%|r (%d of %d)",
         reading       = "Reading this boss's loot table...",
         notInInstance = "odds need a dungeon or raid. Enter one and try again.",
         reportHeader  = "Bonus roll odds in %s:",
@@ -335,7 +335,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         bonusRollSound     = "Play a sound with the reminder",
         bonusRollSoundDesc = "A raid warning sound plays alongside the bonus roll popup.",
         bonusRollOdds      = "Show what a charge is worth",
-        bonusRollOddsDesc  = "A line under the Bonus Roll popup counting how much of that boss's table is on your wishlist, what you have already spent there, and whether another loot spec would do better.",
+        bonusRollOddsDesc  = "A line under the Bonus Roll popup giving your chance of a wishlist item, counted against the loot that can drop for you, plus what you have already spent there and whether another loot spec would do better.",
 
         blockDismiss       = "Prevent accidental bonus rolls",
         blockDismissDesc   = "Automatically passes on the Bonus Roll popup that appears at the end of content, except in the situations selected below.",
