@@ -2,6 +2,7 @@
 
 ### Improved
 - **Bonus roll odds** The line under the Bonus Roll popup now leads with your chance of a wishlist item, counted against the loot that can actually drop for you, and names whether that is one boss or the whole dungeon.
+- **Rolls remember what they gave you** An item a bonus roll hands over drops out of the count, so a second roll at the same boss reads the odds on what is actually left to win.
 
 ## [1.17.1] - 2026-09-07
 

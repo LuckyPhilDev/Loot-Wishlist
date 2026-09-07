@@ -49,6 +49,50 @@ function Odds.RecordSpend(encounterID, instanceID)
 end
 
 ------------------------------------------------------------------------
+-- What rolls have already handed over
+------------------------------------------------------------------------
+local function wins()
+  LootWishlistCharDB = LootWishlistCharDB or {}
+  LootWishlistCharDB.bonusRollWins = LootWishlistCharDB.bonusRollWins or {}
+  return LootWishlistCharDB.bonusRollWins
+end
+
+local function wonAt(key, itemID)
+  local bucket = key and wins()[key]
+  return (bucket and bucket[itemID]) and true or false
+end
+
+-- A Mythic+ win sits against the dungeon and a raid win against the boss, so
+-- both buckets are asked: a boss inside a dungeon shares the dungeon's wins.
+function Odds.HasWon(itemID, encounterID, instanceID)
+  return wonAt(spendKey(encounterID, nil), itemID)
+      or wonAt(spendKey(nil, instanceID), itemID)
+end
+
+-- ponytail: a win is remembered for good and never told apart by track, so a
+-- Normal copy keeps its Heroic twin out of the count too. Store the difficulty
+-- alongside if that starts to matter. Deliberately does not mark the wishlist
+-- entry obtained: that clears every difficulty variant, which is the player's
+-- call to make in the window, not a roll's.
+function Odds.RecordWin(itemID, encounterID, instanceID)
+  local key = spendKey(encounterID, instanceID)
+  if not (key and type(itemID) == "number") then return end
+  local bucket = wins()[key] or {}
+  bucket[itemID] = true
+  wins()[key] = bucket
+  DevLog("win recorded", tostring(key), itemID)
+end
+
+-- An item already in hand is no longer a good outcome, so it leaves the table
+-- entirely rather than counting against the odds.
+function Odds.Owned(encounterID, instanceID)
+  return function(itemID)
+    return Odds.HasWon(itemID, encounterID, instanceID)
+      or (LootWishlist.IsObtained and LootWishlist.IsObtained(itemID)) or false
+  end
+end
+
+------------------------------------------------------------------------
 -- Odds
 ------------------------------------------------------------------------
 local function inList(list, value)
@@ -60,18 +104,20 @@ end
 
 -- An item the game names no specs for counts for every spec: it is in the
 -- class table, so leaving it out would understate a spec that can be given it.
-function Odds.Tally(items, specs, isWanted, specsOf)
+function Odds.Tally(items, specs, isWanted, specsOf, isOwned)
   local tally = {}
   for _, specID in ipairs(specs) do tally[specID] = { total = 0, wanted = 0 } end
   for _, item in ipairs(items) do
     local itemID = item.itemID or item
-    local list = specsOf(itemID)
-    local wanted = isWanted(itemID)
-    for _, specID in ipairs(specs) do
-      if not list or #list == 0 or inList(list, specID) then
-        local row = tally[specID]
-        row.total = row.total + 1
-        if wanted then row.wanted = row.wanted + 1 end
+    if not (isOwned and isOwned(itemID)) then
+      local list = specsOf(itemID)
+      local wanted = isWanted(itemID)
+      for _, specID in ipairs(specs) do
+        if not list or #list == 0 or inList(list, specID) then
+          local row = tally[specID]
+          row.total = row.total + 1
+          if wanted then row.wanted = row.wanted + 1 end
+        end
       end
     end
   end
@@ -219,7 +265,8 @@ function Odds.ForRoll(encounterID, instanceID, giveUp)
 
   local set = wantedSet()
   local specs = playerSpecs()
-  local tally = Odds.Tally(items, specs, function(id) return set[id] == true end, specsOf)
+  local tally = Odds.Tally(items, specs, function(id) return set[id] == true end, specsOf,
+    Odds.Owned(encounterID, instanceID))
   local scope = (encounterID or 0) ~= 0 and Scope.thisBoss or Scope.thisDungeon
   return Odds.Describe(tally, specs, currentLootSpec(), spent, scope), true
 end
@@ -306,7 +353,7 @@ function Odds.Report()
   end
   for _, encounterID in ipairs(order) do
     local tally = Odds.Tally(byBoss[encounterID], specs,
-      function(id) return set[id] == true end, specsOf)
+      function(id) return set[id] == true end, specsOf, Odds.Owned(encounterID, instanceID))
     local name = (EJ_GetEncounterInfo and EJ_GetEncounterInfo(encounterID)) or tostring(encounterID)
     local lines = Odds.Describe(tally, specs, current, Odds.GetSpent(encounterID, nil))
     print("  " .. name .. ": " .. lines:gsub("\n", " "))
@@ -319,15 +366,30 @@ end
 -- The prompt's buttons are built with the roll, not with the frame, so the
 -- click hook waits for the first popup rather than for login.
 local rollHooked = false
+-- The result arrives after the popup has moved on, so the click records where
+-- the roll was spent and the reward is filed against that.
+local rolledAt
 local function hookRollButton()
   if rollHooked then return end
   local prompt = BonusRollFrame and BonusRollFrame.PromptFrame
   local rollButton = prompt and prompt.RollButton
   if not rollButton then return end
   rollButton:HookScript("OnClick", function()
-    Odds.RecordSpend(BonusRollFrame.encounterID, BonusRollFrame.instanceID)
+    Odds.NoteRoll(BonusRollFrame.encounterID, BonusRollFrame.instanceID)
   end)
   rollHooked = true
+end
+
+function Odds.NoteRoll(encounterID, instanceID)
+  rolledAt = { encounterID = encounterID, instanceID = instanceID }
+  Odds.RecordSpend(encounterID, instanceID)
+end
+
+-- A roll can pay out in currency instead, which carries no item link.
+function Odds.OnRollResult(itemLink)
+  if not (rolledAt and itemLink) then return end
+  local itemID = tonumber(tostring(itemLink):match("item:(%d+)"))
+  if itemID then Odds.RecordWin(itemID, rolledAt.encounterID, rolledAt.instanceID) end
 end
 
 local hooked = false
@@ -349,7 +411,9 @@ local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
-f:SetScript("OnEvent", function(_, event)
+f:RegisterEvent("BONUS_ROLL_RESULT")
+f:SetScript("OnEvent", function(_, event, _, itemLink)
+  if event == "BONUS_ROLL_RESULT" then return Odds.OnRollResult(itemLink) end
   if event == "PLAYER_ENTERING_WORLD" then C_Timer.After(WARM_DELAY, warm) end
   if tryHook() then f:UnregisterEvent("ADDON_LOADED") end
 end)
