@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.17.1] - 2026-09-07
 
 ### Improved
 - **Tier Token Odds** The window stays off until you switch it on in the Wishlist settings, under In a raid. /wishlist tokens opens it either way.
