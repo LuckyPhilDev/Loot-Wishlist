@@ -118,7 +118,16 @@ local function InitializeDB()
   if acctS.addHigherDifficulties == nil then acctS.addHigherDifficulties = true end
   if acctS.enableVaultOverlay == nil then acctS.enableVaultOverlay = true end
   if acctS.enableTooltipStatus == nil then acctS.enableTooltipStatus = true end
-  if acctS.raidTokenOdds == nil then acctS.raidTokenOdds = true end
+  if acctS.raidTokenOdds == nil then acctS.raidTokenOdds = false end
+  if acctS.raidTokenOddsDifficulties == nil then
+    acctS.raidTokenOddsDifficulties = { lfr = true, normal = true, heroic = true, mythic = true }
+  end
+  -- 1.17.0 shipped the token odds window opening itself for everyone. It is a
+  -- feature to opt into, so the first load after takes it back off once.
+  if not acctS.raidTokenOddsDefaultOff then
+    acctS.raidTokenOdds = false
+    acctS.raidTokenOddsDefaultOff = true
+  end
   if acctS.minimapClick == nil then acctS.minimapClick = "both" end
   if acctS.minimapCtrlClick == nil then acctS.minimapCtrlClick = "wishlist" end
   if acctS.minimapShiftClick == nil then acctS.minimapShiftClick = "browser" end
