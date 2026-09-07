@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Improved
+- **Tier Token Odds** The window stays off until you switch it on in the Wishlist settings, under In a raid. /wishlist tokens opens it either way.
+- **Difficulties** A picker under the tier token odds setting limits which raid difficulties open the window, so Raid Finder can be left out of it.
+
 ## [1.17.0] - 2026-09-06
 
 ### Added

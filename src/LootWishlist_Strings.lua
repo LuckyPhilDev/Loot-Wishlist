@@ -310,6 +310,8 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
 
         raidTokenOdds      = "Show tier token odds in a raid",
         raidTokenOddsDesc  = "Tier tokens are split by armour type, so every token of yours is shared between everyone in the group wearing it. Joining a raid, or anyone joining yours, opens a window counting the others in your armour and what that leaves your odds at, against the odds a fair split of a group that size would give. Turning this off leaves /wishlist tokens to open it.",
+        raidTokenOddsDifficulties     = "Difficulties",
+        raidTokenOddsDifficultiesDesc = "Limit which raid difficulties open the window. Whatever you leave unticked, /wishlist tokens still opens it there.",
         raidTokenOddsNote  = "Still being built, so it will keep changing. Say what you want from it on the Discord: https://discord.gg/ptTtYyAjdZ",
 
         hideSummary        = "Hide the summary window",

@@ -108,9 +108,32 @@ function TokenOdds.Current()
   return TokenOdds.Tally(rosterClasses()), armourOf((select(2, UnitClass("player"))))
 end
 
+-- Difficulty IDs the window can open itself on, keyed as the settings panel
+-- keys them. Anything else, a timewalking raid included, is not one of the four
+-- the player is offered, so it opens on none of them.
+local DIFFICULTY_KEYS = {
+  [7] = "lfr", [17] = "lfr",
+  [14] = "normal", [15] = "heroic",
+  [16] = "mythic", [233] = "mythic",
+}
+
+local function currentDifficultyID()
+  local _, instanceType, difficultyID = GetInstanceInfo()
+  if instanceType == "raid" then return difficultyID end
+  -- A raid fills before it zones in, so outside an instance the difficulty the
+  -- group is set to is the one it is about to run.
+  if instanceType == "none" then return GetRaidDifficultyID and GetRaidDifficultyID() end
+end
+
+function TokenOdds.DifficultyKey()
+  return DIFFICULTY_KEYS[currentDifficultyID()]
+end
+
 function TokenOdds.Enabled()
   local settings = (LootWishlistDB and LootWishlistDB.settings) or {}
-  return settings.raidTokenOdds ~= false
+  if settings.raidTokenOdds ~= true then return false end
+  local key = TokenOdds.DifficultyKey()
+  return key ~= nil and (settings.raidTokenOddsDifficulties or {})[key] ~= false
 end
 
 ------------------------------------------------------------------------

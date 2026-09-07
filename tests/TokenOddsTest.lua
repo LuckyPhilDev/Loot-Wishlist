@@ -27,7 +27,10 @@ function CreateColor() return stub() end
 function LuckyIcon() return stub() end
 
 local ROSTER = {}
+local INSTANCE_TYPE, INSTANCE_DIFFICULTY, GROUP_DIFFICULTY = "none", nil, 14
 function IsInRaid() return true end
+function GetInstanceInfo() return "Instance", INSTANCE_TYPE, INSTANCE_DIFFICULTY end
+function GetRaidDifficultyID() return GROUP_DIFFICULTY end
 function GetNumGroupMembers() return #ROSTER end
 function UnitClass(unit)
     if unit == "player" then return "Druid", "DRUID" end
@@ -173,5 +176,29 @@ TokenOdds.Test(4, 99)
 check(TokenOdds.Count(TokenOdds.Current(), LEATHER), 4, "more sharers than players is capped")
 TokenOdds.Test()
 check(TokenOdds.Current().size, 16, "a bare command previews a sixteen player group")
+
+-- Opening itself: off until asked for, and only where it was asked for --------
+local settings = LootWishlistDB.settings
+check(TokenOdds.Enabled(), false, "off until the player turns it on")
+
+settings.raidTokenOdds = true
+settings.raidTokenOddsDifficulties = { lfr = false, normal = true, heroic = true, mythic = true }
+
+INSTANCE_TYPE, GROUP_DIFFICULTY = "none", 16
+check(TokenOdds.Enabled(), true, "a group set to Mythic counts before it zones in")
+
+INSTANCE_TYPE, INSTANCE_DIFFICULTY = "raid", 17
+check(TokenOdds.Enabled(), false, "Raid Finder is left out when unticked")
+
+INSTANCE_DIFFICULTY = 15
+check(TokenOdds.Enabled(), true, "Heroic opens it")
+check(TokenOdds.DifficultyKey(), "heroic", "and reads as heroic")
+
+INSTANCE_TYPE = "party"
+check(TokenOdds.Enabled(), false, "a dungeon is no raid difficulty at all")
+
+INSTANCE_TYPE, INSTANCE_DIFFICULTY = "raid", 15
+settings.raidTokenOdds = false
+check(TokenOdds.Enabled(), false, "the master toggle beats the difficulty")
 
 print(passed .. " token odds tests passed")

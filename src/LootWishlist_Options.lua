@@ -209,8 +209,30 @@ local function buildWishlist(g)
     note     = S.raidTokenOddsNote,
     since    = "1.17.0",
     wip      = true,
-    checked  = function() return isOn("raidTokenOdds") end,
+    checked  = function() return isOff("raidTokenOdds") end,
     onToggle = function(checked) write("raidTokenOdds", checked) end,
+  })
+
+  local function tokenDifficulties()
+    local s = settings()
+    if not s then return {} end
+    s.raidTokenOddsDifficulties = s.raidTokenOddsDifficulties or {}
+    return s.raidTokenOddsDifficulties
+  end
+
+  g:MultiSelect({
+    label     = S.raidTokenOddsDifficulties,
+    desc      = S.raidTokenOddsDifficultiesDesc,
+    since     = "1.17.1",
+    parent    = S.raidTokenOdds,
+    options   = {
+      { key = "lfr",    label = S.blockRaidLFR },
+      { key = "normal", label = S.blockRaidNormal },
+      { key = "heroic", label = S.blockRaidHeroic },
+      { key = "mythic", label = S.blockRaidMythic },
+    },
+    isChecked = function(key) return tokenDifficulties()[key] ~= false end,
+    onToggle  = function(key, checked) tokenDifficulties()[key] = checked end,
   })
 end
 
