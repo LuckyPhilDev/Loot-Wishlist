@@ -69,13 +69,14 @@ check(Odds.Best(noneWanted, SPECS, 62), nil, "nothing wanted suggests nothing")
 
 -- Describe ------------------------------------------------------------------
 local text = Odds.Describe(tally, SPECS, 62, 3)
-contains(text, "1|r of 2 items", "current spec share")
+contains(text, "(1 of the 2 that can drop for you)", "current spec share")
+contains(text, "50%|r chance", "the chance leads")
 contains(text, "Charges spent here", "spend count")
 contains(text, "Fire", "better spec named")
-check(select(2, text:gsub("\n", "\n")), 2, "three lines")
+check(select(2, text:gsub("\n", "\n")), 3, "the count sits under the chance, over spend and better spec")
 
 local quiet = Odds.Describe(tally, SPECS, 63, 0)
-check(quiet:find("\n"), nil, "no spend line and no better spec")
+check(select(2, quiet:gsub("\n", "\n")), 1, "no spend line and no better spec")
 
 local empty = Odds.Describe({ [62] = { total = 0, wanted = 0 } }, { 62 }, 62, 0)
 contains(empty, "No loot table", "empty table")
@@ -138,6 +139,8 @@ table1200 = { items = {
 } }
 local rollText, rollReady = Odds.ForRoll(9001, 0, false)
 check(rollReady, true, "a read table is ready")
-contains(rollText, "1|r of 2 items", "only the rolled boss's items count")
+contains(rollText, "(1 of the 2 that can drop for you)", "only the rolled boss's items count")
+contains(rollText, "this boss", "a raid roll names the boss")
+contains(select(1, Odds.ForRoll(0, 1200, false)), "this dungeon", "a dungeon roll names the dungeon")
 
 print("BonusRollOddsTest: " .. passed .. " checks passed")

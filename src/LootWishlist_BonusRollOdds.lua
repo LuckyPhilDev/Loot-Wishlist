@@ -7,6 +7,7 @@ LootWishlist = LootWishlist or {}
 LootWishlist.BonusRollOdds = LootWishlist.BonusRollOdds or {}
 local Odds = LootWishlist.BonusRollOdds
 local S = LootWishlist.Strings.bonusRollOdds
+local Scope = LootWishlist.Strings.bonusRoll
 
 local DUNGEON_SCAN_DIFF = 23  -- the journal carries no Mythic+ dungeon table
 local MAX_WAITS         = 5   -- one-second retries while a table is still being read
@@ -104,16 +105,19 @@ local function specName(specID)
   return (ok and name) or tostring(specID)
 end
 
-function Odds.Describe(tally, specs, currentSpecID, spent)
+-- A dungeon roll is on the whole instance rather than one boss, so the scope
+-- has to be named or its larger table reads as a mistake.
+function Odds.Describe(tally, specs, currentSpecID, spent, scope)
   local lines = {}
   local row = tally[currentSpecID]
+  scope = scope or Scope.thisBoss
 
   if not row or row.total == 0 then
     lines[#lines + 1] = S.emptyTable
   elseif row.wanted == 0 then
-    lines[#lines + 1] = S.nothingWanted:format(row.total)
+    lines[#lines + 1] = S.nothingWanted:format(row.total, scope)
   else
-    lines[#lines + 1] = S.wanted:format(row.wanted, row.total, percent(row))
+    lines[#lines + 1] = S.wanted:format(percent(row), scope, row.wanted, row.total)
   end
 
   if (spent or 0) > 0 then lines[#lines + 1] = S.spent:format(spent) end
@@ -121,7 +125,7 @@ function Odds.Describe(tally, specs, currentSpecID, spent)
   local best = Odds.Best(tally, specs, currentSpecID)
   if best then
     local b = tally[best]
-    lines[#lines + 1] = S.betterSpec:format(specName(best), b.wanted, b.total, percent(b))
+    lines[#lines + 1] = S.betterSpec:format(specName(best), percent(b), b.wanted, b.total)
   end
 
   return table.concat(lines, "\n")
@@ -216,7 +220,8 @@ function Odds.ForRoll(encounterID, instanceID, giveUp)
   local set = wantedSet()
   local specs = playerSpecs()
   local tally = Odds.Tally(items, specs, function(id) return set[id] == true end, specsOf)
-  return Odds.Describe(tally, specs, currentLootSpec(), spent), true
+  local scope = (encounterID or 0) ~= 0 and Scope.thisBoss or Scope.thisDungeon
+  return Odds.Describe(tally, specs, currentLootSpec(), spent, scope), true
 end
 
 function Odds.Enabled()
