@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.17.2] - 2026-09-07
 
 ### Improved
 - **Bonus roll odds** The line under the Bonus Roll popup now leads with your chance of a wishlist item, counted against the loot that can actually drop for you, and names whether that is one boss or the whole dungeon.
