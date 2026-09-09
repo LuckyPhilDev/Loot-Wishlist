@@ -18,6 +18,8 @@ local DevLog = LuckyLog and LuckyLog:New("[Lwl-BR][debug]", function()
   return LootWishlist.IsDebug and LootWishlist.IsDebug()
 end) or function() end
 
+BR.RAID_COST = RAID_COST
+
 local function ensureFlagSet()
   LootWishlistCharDB = LootWishlistCharDB or {}
   LootWishlistCharDB.bonusRollItems = LootWishlistCharDB.bonusRollItems or {}

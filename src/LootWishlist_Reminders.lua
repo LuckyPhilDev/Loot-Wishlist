@@ -17,6 +17,11 @@ local bossReminded = {}
 local assistDungeonReminded = {}
 local lastInInstance
 local raidCheckPending = false
+local raidCheckWaits = 0
+local scheduleRaidCheck
+
+local MAX_ODDS_WAITS  = 3
+local ODDS_WAIT_DELAY = 4
 
 local function dprint(...)
     if not (LootWishlist.IsDebug and LootWishlist.IsDebug()) then return end
@@ -426,39 +431,71 @@ local function getAvailableRaidBosses()
     return availableFrom(ejInstanceID, bosses, killedFromLockout(bosses, instanceName, difficultyID))
 end
 
-local function collectRaidSpecLines()
+local function collectBonusRollOdds(availableBosses, ignoreCharges)
+    local Odds = LootWishlist.BonusRollOdds
+    local BR = LootWishlist.BonusRoll
+    if not (Odds and Odds.ForUpcoming and Odds.Enabled() and BR) then return nil, true end
+    if not ignoreCharges and BR.GetCharges() < BR.RAID_COST then return nil, true end
+
+    local bosses = {}
+    for name, encounterID in pairs(availableBosses) do
+        table.insert(bosses, { name = name, encounterID = encounterID })
+    end
+    table.sort(bosses, function(a, b) return a.name < b.name end)
+    return Odds.ForUpcoming(getCurrentEJInstanceID(), bosses)
+end
+
+-- giveUp drops the odds rather than waiting any longer on a loot table the
+-- journal is still reading, so the spec lines are not held up by them.
+local function collectRaidLines(giveUp)
     local inInstance, instanceType = IsInInstance()
-    if not inInstance or instanceType ~= "raid" then return nil end
+    if not inInstance or instanceType ~= "raid" then return nil, true end
     local instanceName = GetInstanceInfo and select(1, GetInstanceInfo()) or ""
     local dedupeKey = instanceName .. "|raid"
-    if bossReminded[dedupeKey] then return nil end
+    if bossReminded[dedupeKey] then return nil, true end
 
     local availableBosses = getAvailableRaidBosses()
-    if not availableBosses or not next(availableBosses) then return nil end
-    local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked()
-    if not tracked or not next(tracked) then return nil end
+    if not availableBosses or not next(availableBosses) then return nil, true end
 
-    local lines = Planner:BuildRaidSpecLines(tracked, {
+    local oddsLines, ready = collectBonusRollOdds(availableBosses)
+    if not ready and not giveUp then return nil, false end
+
+    local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked()
+    local lines = tracked and next(tracked) and Planner:BuildRaidSpecLines(tracked, {
         availableBosses = availableBosses,
         lootSpecID = getLootSpecID(),
         playerSpecIDs = getPlayerSpecIDs(),
         getSpecName = getSpecName,
-    })
-    if lines then bossReminded[dedupeKey] = true end
-    return lines
+    }) or {}
+
+    for index, line in ipairs(oddsLines or {}) do
+        if index == 1 and #lines > 0 then table.insert(lines, "") end
+        table.insert(lines, line)
+    end
+
+    if #lines == 0 then return nil, true end
+    bossReminded[dedupeKey] = true
+    return lines, true
 end
 
 local function runRaidCheck()
     raidCheckPending = false
-    local ok, lines = pcall(collectRaidSpecLines)
+    local lastAsk = raidCheckWaits >= MAX_ODDS_WAITS
+    local ok, lines, ready = pcall(collectRaidLines, lastAsk)
     if not ok then
         dprint("Raid reminder failed:", lines)
-    elseif lines then
-        showReminder(lines)
+        raidCheckWaits = 0
+        return
     end
+    if not ready then
+        raidCheckWaits = raidCheckWaits + 1
+        return scheduleRaidCheck(ODDS_WAIT_DELAY)
+    end
+    raidCheckWaits = 0
+    if lines then showReminder(lines) end
 end
 
-local function scheduleRaidCheck(delay)
+function scheduleRaidCheck(delay)
     if raidCheckPending then return end
     raidCheckPending = true
     C_Timer.After(delay or 1, runRaidCheck)
@@ -509,6 +546,7 @@ function Reminders:ResetDebounce()
     wipe(bossReminded)
     wipe(assistDungeonReminded)
     lastInInstance = nil
+    raidCheckWaits = 0
     dprint("Spec reminder debounce reset")
 end
 
@@ -574,11 +612,23 @@ function Reminders:TestNextBoss(ejInstanceID, bossFragments)
         lootSpecID = getLootSpecID(),
         playerSpecIDs = getPlayerSpecIDs(),
         getSpecName = getSpecName,
-    })
-    if lines then
+    }) or {}
+
+    -- Charges are not required here: the odds are what is being tested, and a
+    -- character short of a roll would never see them.
+    local oddsLines, ready = collectBonusRollOdds(available, true)
+    if not ready then
+        report("the loot table is still being read, run this again in a few seconds")
+    end
+    for index, line in ipairs(oddsLines or {}) do
+        if index == 1 and #lines > 0 then table.insert(lines, "") end
+        table.insert(lines, line)
+    end
+
+    if #lines > 0 then
         showReminder(lines)
     else
-        report("no reminder: nothing you track on an available boss wants a different loot spec")
+        report("no reminder: nothing you track on an available boss wants a different loot spec, and no charge would be worth spending on one")
     end
     return available
 end

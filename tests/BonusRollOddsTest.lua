@@ -213,4 +213,38 @@ Odds.RecordWin(4, nil, 1200)
 contains(select(1, Odds.ForRoll(9002, 1200, false)), "(1 of the 1 that can drop for you)",
     "a dungeon win leaves the table of a boss inside it too")
 
+
+-- Upcoming bosses ------------------------------------------------------------
+C_Item = { GetItemSpecInfo = function(itemID) return ITEM_SPECS[itemID] end }
+function GetInstanceInfo() return "The Venomous Abyss", "raid", 16 end
+LootWishlist.GetTracked = function() return { [1] = { id = 1 }, [3] = { id = 3 } } end
+
+local upcoming = {
+    { encounterID = 2888, name = "Nek'zali" },
+    { encounterID = 2874, name = "Sszorak" },
+}
+
+table1200 = nil
+check(select(2, Odds.ForUpcoming(1320, upcoming)), false, "an unread table is not ready")
+
+table1200 = { items = {
+    { itemID = 1, encounterID = 2888 },
+    { itemID = 2, encounterID = 2888 },
+    { itemID = 3, encounterID = 2874 },
+    { itemID = 4, encounterID = 2874 },
+} }
+
+local upcomingLines, upcomingReady = Odds.ForUpcoming(1320, upcoming)
+check(upcomingReady, true, "a read table is ready")
+check(#upcomingLines, 3, "a header and a line for each boss")
+check(upcomingLines[1], LootWishlist.Strings.bonusRollOdds.upcomingHeader, "the header leads")
+contains(upcomingLines[2], "Nek'zali", "the bosses keep the order they were asked in")
+contains(upcomingLines[2], "0%", "Fire wants nothing from the first boss")
+contains(upcomingLines[2], "Arcane", "but Arcane does")
+contains(upcomingLines[3], "50%", "Fire wants one of the two on the second boss")
+check(upcomingLines[3]:find("would be", 1, true), nil, "no spec beats Fire there")
+
+check(Odds.ForUpcoming(1320, { { encounterID = 9999, name = "Nobody" } }), nil,
+    "a boss with nothing on it gets no line")
+
 print("BonusRollOddsTest: " .. passed .. " checks passed")

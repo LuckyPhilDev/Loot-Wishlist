@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Added
+- **Bonus roll odds on upcoming bosses** The raid reminder now lists every boss still to come with the share of its loot table you want, and names the loot spec that would hold a bigger share. It shows once you have the charges to spend.
+
 ## [1.17.2] - 2026-09-07
 
 ### Improved
