@@ -456,8 +456,18 @@ f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("BONUS_ROLL_RESULT")
-f:SetScript("OnEvent", function(_, event, _, itemLink)
+-- The popup stays up while you change spec, and the odds it quotes are the
+-- reason to, so they are worked out again rather than left reading for the spec
+-- you killed the boss in. A loot spec of "current specialization" moves with the
+-- spec itself, which raises no loot spec event of its own.
+f:RegisterEvent("PLAYER_LOOT_SPEC_UPDATED")
+f:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+f:SetScript("OnEvent", function(_, event, unit, itemLink)
   if event == "BONUS_ROLL_RESULT" then return Odds.OnRollResult(itemLink) end
+  if event == "PLAYER_LOOT_SPEC_UPDATED"
+     or (event == "PLAYER_SPECIALIZATION_CHANGED" and unit == "player") then
+    return showOdds(0)
+  end
   if event == "PLAYER_ENTERING_WORLD" then C_Timer.After(WARM_DELAY, warm) end
   if tryHook() then f:UnregisterEvent("ADDON_LOADED") end
 end)
