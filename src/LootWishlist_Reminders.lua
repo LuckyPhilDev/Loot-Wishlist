@@ -431,11 +431,11 @@ local function getAvailableRaidBosses()
     return availableFrom(ejInstanceID, bosses, killedFromLockout(bosses, instanceName, difficultyID))
 end
 
-local function collectBonusRollOdds(availableBosses)
+local function collectBonusRollOdds(availableBosses, ignoreCharges)
     local Odds = LootWishlist.BonusRollOdds
     local BR = LootWishlist.BonusRoll
     if not (Odds and Odds.ForUpcoming and Odds.Enabled() and BR) then return nil, true end
-    if BR.GetCharges() < BR.RAID_COST then return nil, true end
+    if not ignoreCharges and BR.GetCharges() < BR.RAID_COST then return nil, true end
 
     local bosses = {}
     for name, encounterID in pairs(availableBosses) do
@@ -612,11 +612,23 @@ function Reminders:TestNextBoss(ejInstanceID, bossFragments)
         lootSpecID = getLootSpecID(),
         playerSpecIDs = getPlayerSpecIDs(),
         getSpecName = getSpecName,
-    })
-    if lines then
+    }) or {}
+
+    -- Charges are not required here: the odds are what is being tested, and a
+    -- character short of a roll would never see them.
+    local oddsLines, ready = collectBonusRollOdds(available, true)
+    if not ready then
+        report("the loot table is still being read, run this again in a few seconds")
+    end
+    for index, line in ipairs(oddsLines or {}) do
+        if index == 1 and #lines > 0 then table.insert(lines, "") end
+        table.insert(lines, line)
+    end
+
+    if #lines > 0 then
         showReminder(lines)
     else
-        report("no reminder: nothing you track on an available boss wants a different loot spec")
+        report("no reminder: nothing you track on an available boss wants a different loot spec, and no charge would be worth spending on one")
     end
     return available
 end
