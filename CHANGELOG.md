@@ -1,26 +1,4 @@
-## [Unreleased]
+## [1.18.0] - 2026-09-09
 
 ### Added
-- **Bonus roll odds on upcoming bosses** The raid reminder now lists every boss still to come with the share of its loot table you want, and names the loot spec that would hold a bigger share. It shows once you have the charges to spend.
-
-## [1.17.2] - 2026-09-07
-
-### Improved
-- **Bonus roll odds** The line under the Bonus Roll popup now leads with your chance of a wishlist item, counted against the loot that can actually drop for you, and names whether that is one boss or the whole dungeon.
-- **Rolls remember what they gave you** An item a bonus roll hands over drops out of the count, so a second roll at the same boss reads the odds on what is actually left to win.
-
-## [1.17.1] - 2026-09-07
-
-### Improved
-- **Tier Token Odds** The window stays off until you switch it on in the Wishlist settings, under In a raid. /wishlist tokens opens it either way.
-- **Difficulties** A picker under the tier token odds setting limits which raid difficulties open the window, so Raid Finder can be left out of it.
-
-## [1.17.0] - 2026-09-06
-
-### Added
-- **Paste List** Paste a best-in-slot table copied from Wowhead or Icy Veins into the wishlist window and every item that drops in this season's dungeons and raids is added under its boss. Item links and Wowhead item URLs work too.
-- **Tier Token Odds** Tier tokens are split by armour type, so joining a raid opens a window counting how many others wear yours and what that leaves your odds at, against the odds a fair split of a group that size would give. It counts itself away along the foot of the window, and /wishlist tokens calls it back any time.
-- **Bonus roll odds** The Bonus Roll popup gains a line counting how many of that boss's drops are on your wishlist, the charges you have already spent there, and the loot spec that would give better odds.
-
-### Improved
-- **Countdown on drop alerts** A gold bar along the foot of a drop alert and a raid roll alert shows how long it has left, and the alert fades out rather than vanishing. Resting your mouse on one puts its time back to full.
+- **Bonus roll odds on upcoming bosses** The raid reminder now rates every boss still to come, giving the share of its loot table that is on your wishlist and naming the loot spec that would hold a bigger share. It appears once you have the charges for a roll.
