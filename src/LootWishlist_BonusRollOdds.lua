@@ -177,6 +177,21 @@ function Odds.Describe(tally, specs, currentSpecID, spent, scope)
   return table.concat(lines, "\n")
 end
 
+-- The same answer in one line, for a boss you have not reached yet. Nil when a
+-- charge would buy nothing there in any of your specs.
+function Odds.BossLine(name, tally, specs, currentSpecID)
+  local row = tally[currentSpecID] or { total = 0, wanted = 0 }
+  local best = Odds.Best(tally, specs, currentSpecID)
+  if row.wanted == 0 and not best then return nil end
+
+  local line = S.upcomingLine:format(name, percent(row), row.wanted, row.total)
+  if best then
+    local b = tally[best]
+    line = line .. S.upcomingBetter:format(specName(best), percent(b), b.wanted, b.total)
+  end
+  return line
+end
+
 ------------------------------------------------------------------------
 -- Reading the boss's table
 ------------------------------------------------------------------------
@@ -269,6 +284,35 @@ function Odds.ForRoll(encounterID, instanceID, giveUp)
     Odds.Owned(encounterID, instanceID))
   local scope = (encounterID or 0) ~= 0 and Scope.thisBoss or Scope.thisDungeon
   return Odds.Describe(tally, specs, currentLootSpec(), spent, scope), true
+end
+
+-- Every boss still to come that a charge would be worth spending on. Returns
+-- the lines and whether the table behind them has been read, so a caller can
+-- come back for a better answer.
+function Odds.ForUpcoming(instanceID, bosses)
+  local items = instanceID and lootTable(instanceID, nil)
+  if not items then return nil, false end
+
+  local byBoss = {}
+  for _, item in ipairs(items) do
+    local id = item.encounterID or 0
+    byBoss[id] = byBoss[id] or {}
+    table.insert(byBoss[id], item)
+  end
+
+  local set, specs, current = wantedSet(), playerSpecs(), currentLootSpec()
+  local isWanted = function(id) return set[id] == true end
+  local lines = {}
+  for _, boss in ipairs(bosses) do
+    local tally = Odds.Tally(byBoss[boss.encounterID] or {}, specs, isWanted, specsOf,
+      Odds.Owned(boss.encounterID, instanceID))
+    local line = Odds.BossLine(boss.name, tally, specs, current)
+    if line then lines[#lines + 1] = line end
+  end
+
+  if #lines == 0 then return nil, true end
+  table.insert(lines, 1, S.upcomingHeader)
+  return lines, true
 end
 
 function Odds.Enabled()

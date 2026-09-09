@@ -183,6 +183,9 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         reading       = "Reading this boss's loot table...",
         notInInstance = "odds need a dungeon or raid. Enter one and try again.",
         reportHeader  = "Bonus roll odds in %s:",
+        upcomingHeader = "Bonus roll odds on upcoming bosses:",
+        upcomingLine   = "- |cffffd100%s|r: |cffe8dcc8%d%%|r (%d of %d)",
+        upcomingBetter = ", |cffffd100%s|r would be |cffe8dcc8%d%%|r (%d of %d)",
     },
 
     tokenOdds = {
