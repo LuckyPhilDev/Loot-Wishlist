@@ -36,6 +36,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - An item your loot spec cannot be given is greyed and struck through, and the line beside it names the spec those items need
   - Each raid boss row gives your bonus roll chance and what a loot spec switch would make it; a dungeon is a single row, since a keystone charge is spent on the whole instance
   - Changing loot spec while it is up redraws it, and closes it once the switch leaves nothing to say
+  - Your specs sit along the bottom, the one you are on ringed; click another to set your loot spec without leaving the reminder
   - Shows once per instance or boss and resets when you leave
 - **Group assist suggestions** — in dungeons, suggests party members who could switch loot spec to help funnel a tracked item, with one-click Whisper or Party prompts
 - **Gear track labels** — each wishlist row names the track it is tracked at, so a Hero entry and a Myth entry read apart at a glance
@@ -43,6 +44,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 - **Tooltip status** — every item tooltip, in a bag, at a vendor, in a chat link or the Adventure Guide, says when the item is on your wishlist and names the boss it drops from and the difficulties you track it at
 - **Great Vault highlights** — a gold star marks every vault reward slot that contains a wishlisted item; hover the star or the reward itself to see which boss and dungeon it comes from, so you can pick the right chest at a glance
 - **Search and filters** — a search box at the top of the wishlist window narrows the list by item, boss or instance, and the funnel icon beside it filters to one gear slot
+- **Collapsible headings** — click an instance or boss heading on the wishlist to fold everything under it away; folds are remembered between sessions, and a search shows every match whether its heading is folded or not
 - **Boss order** — the layers icon on the wishlist window orders bosses the way the Adventure Guide lists them or by most wishlist items first; the summary window follows the same order
 - **Sticky summary window** — a compact, draggable overview of dungeons and raid bosses with remaining wishlist items; click to open the full list; position is remembered between sessions
 - **Custom message templates** — configure Whisper and Party messages with `%item%` and `%looter%` placeholders
