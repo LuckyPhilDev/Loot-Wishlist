@@ -39,19 +39,6 @@ local function lootSpecMatches(specs, lootSpecID)
     return false
 end
 
-local function coversAllPlayerSpecs(specs, playerSpecIDs)
-    local specIDs = sortedSpecIDs(specs)
-    if #specIDs == 0 then return true end
-    if type(playerSpecIDs) ~= "table" or #playerSpecIDs == 0 then return false end
-
-    local available = {}
-    for _, specID in ipairs(specIDs) do available[specID] = true end
-    for _, playerSpecID in ipairs(playerSpecIDs) do
-        if not available[playerSpecID] then return false end
-    end
-    return true
-end
-
 local function specLabel(specs, getSpecName)
     local names = {}
     for _, specID in ipairs(sortedSpecIDs(specs)) do
@@ -60,29 +47,6 @@ local function specLabel(specs, getSpecName)
     end
     table.sort(names)
     return #names > 0 and table.concat(names, " or ") or S.appropriateSpec
-end
-
-local function classifyItem(item, context, bucket)
-    local specs = item.specs
-    local link = itemLink(item)
-    if type(specs) ~= "table" or not next(specs) then
-        table.insert(bucket.stayAny, link)
-        return false
-    end
-
-    if lootSpecMatches(specs, context.lootSpecID) then
-        if coversAllPlayerSpecs(specs, context.playerSpecIDs) then
-            table.insert(bucket.stayAny, link)
-        else
-            table.insert(bucket.stayStrict, link)
-        end
-        return false
-    end
-
-    local label = specLabel(specs, context.getSpecName)
-    bucket.bySpec[label] = bucket.bySpec[label] or {}
-    table.insert(bucket.bySpec[label], link)
-    return true
 end
 
 local function matchesDungeon(planner, item, context)
@@ -94,83 +58,57 @@ local function matchesDungeon(planner, item, context)
         or planner:NormalizeName(item.dungeon) == planner:NormalizeName(context.instanceName or "")
 end
 
-function Planner:BuildDungeonSpecLines(trackedItems, context)
-    local bucket = { bySpec = {}, stayStrict = {}, stayAny = {} }
-    local hasSwitch = false
-
-    for _, item in pairs(trackedItems or {}) do
-        if type(item) == "table" and matchesDungeon(self, item, context) then
-            hasSwitch = classifyItem(item, context, bucket) or hasSwitch
-        end
-    end
-
-    if not hasSwitch then return nil end
-
-    local lines = { S.wrongSpecItems }
-    local labels = {}
-    for label in pairs(bucket.bySpec) do table.insert(labels, label) end
-    table.sort(labels)
-    for _, label in ipairs(labels) do
-        table.sort(bucket.bySpec[label])
-        table.insert(lines, S.switchFor:format(label, table.concat(bucket.bySpec[label], ", ")))
-    end
-    if context.lootSpecID and #bucket.stayStrict > 0 then
-        table.sort(bucket.stayStrict)
-        local currentName = context.getSpecName(context.lootSpecID) or S.currentSpec
-        table.insert(lines, S.stayFor:format(currentName, table.concat(bucket.stayStrict, ", ")))
-    end
-    if #bucket.stayAny > 0 then
-        table.sort(bucket.stayAny)
-        table.insert(lines, S.okAnySpec .. table.concat(bucket.stayAny, ", "))
-    end
-    return lines
-end
-
-function Planner:BuildRaidSpecLines(trackedItems, context)
+-- One entry per upcoming boss you track something on: the items themselves, and
+-- the loot spec to move to when your current one cannot be given them.
+function Planner:BuildBossRows(trackedItems, context)
     local perBoss = {}
-    local hasSwitch = false
 
     for _, item in pairs(trackedItems or {}) do
-        if type(item) == "table" and item.isRaid and item.boss and context.availableBosses[item.boss] then
-            local boss = perBoss[item.boss]
-            if not boss then
-                boss = { bySpec = {}, stayStrict = {}, stayAny = {} }
-                perBoss[item.boss] = boss
+        if type(item) == "table" and item.boss and context.availableBosses[item.boss] then
+            local row = perBoss[item.boss]
+            if not row then
+                row = {
+                    boss = item.boss,
+                    encounterID = context.availableBosses[item.boss],
+                    items = {},
+                    seen = {},
+                    labels = {},
+                }
+                perBoss[item.boss] = row
             end
+            local needsSwitch = not lootSpecMatches(item.specs, context.lootSpecID)
+            local label = needsSwitch and specLabel(item.specs, context.getSpecName) or nil
 
-            hasSwitch = classifyItem(item, context, boss) or hasSwitch
+            -- An item tracked on several difficulties is several entries with
+            -- one item id, and one icon is what the player wants to see. The
+            -- entries themselves are the saved wishlist, so a view is built
+            -- rather than the switch being written back onto them.
+            if not row.seen[item.id] then
+                row.seen[item.id] = true
+                table.insert(row.items, {
+                    id = item.id,
+                    link = item.link,
+                    needsSwitch = needsSwitch,
+                    specLabel = label,
+                })
+            end
+            if needsSwitch then row.labels[label] = true end
         end
     end
 
-    if not hasSwitch then return nil end
-
-    local lines = { S.wrongSpecBosses }
-    local bossNames = {}
-    for bossName in pairs(perBoss) do table.insert(bossNames, bossName) end
-    table.sort(bossNames)
-    for _, bossName in ipairs(bossNames) do
-        local boss = perBoss[bossName]
+    local rows = {}
+    for _, row in pairs(perBoss) do
         local labels = {}
-        for label in pairs(boss.bySpec) do table.insert(labels, label) end
+        for label in pairs(row.labels) do table.insert(labels, label) end
         table.sort(labels)
-        for _, label in ipairs(labels) do
-            table.sort(boss.bySpec[label])
-            table.insert(lines, S.bossSwitchFor:format(
-                bossName, label, table.concat(boss.bySpec[label], ", ")))
-        end
-        if context.lootSpecID and #boss.stayStrict > 0 then
-            table.sort(boss.stayStrict)
-            local currentName = context.getSpecName(context.lootSpecID) or S.currentSpec
-            table.insert(lines, S.bossStayFor:format(
-                bossName, currentName, table.concat(boss.stayStrict, ", ")))
-        end
-        if #boss.stayAny > 0 then
-            table.sort(boss.stayAny)
-            table.insert(lines, S.bossOkAnySpec:format(
-                bossName, table.concat(boss.stayAny, ", ")))
-        end
+        row.labels = nil
+        row.seen = nil
+        row.switchTo = #labels > 0 and table.concat(labels, " or ") or nil
+        table.sort(row.items, function(a, b) return (a.id or 0) < (b.id or 0) end)
+        table.insert(rows, row)
     end
-    return lines
+    table.sort(rows, function(a, b) return a.boss < b.boss end)
+    return rows
 end
 
 local function matchesAssistContext(planner, item, context)

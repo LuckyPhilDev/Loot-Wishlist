@@ -177,21 +177,6 @@ function Odds.Describe(tally, specs, currentSpecID, spent, scope)
   return table.concat(lines, "\n")
 end
 
--- The same answer in one line, for a boss you have not reached yet. Nil when a
--- charge would buy nothing there in any of your specs.
-function Odds.BossLine(name, tally, specs, currentSpecID)
-  local row = tally[currentSpecID] or { total = 0, wanted = 0 }
-  local best = Odds.Best(tally, specs, currentSpecID)
-  if row.wanted == 0 and not best then return nil end
-
-  local line = S.upcomingLine:format(name, percent(row), row.wanted, row.total)
-  if best then
-    local b = tally[best]
-    line = line .. S.upcomingBetter:format(specName(best), percent(b), b.wanted, b.total)
-  end
-  return line
-end
-
 ------------------------------------------------------------------------
 -- Reading the boss's table
 ------------------------------------------------------------------------
@@ -286,9 +271,62 @@ function Odds.ForRoll(encounterID, instanceID, giveUp)
   return Odds.Describe(tally, specs, currentLootSpec(), spent, scope), true
 end
 
--- Every boss still to come that a charge would be worth spending on. Returns
--- the lines and whether the table behind them has been read, so a caller can
--- come back for a better answer.
+-- Shows the working behind a percentage: what the table held, what was dropped
+-- before counting, and what each of your specs could be given of the rest.
+local function explain(label, items, set, isOwned, tally, specs, currentSpecID)
+  if not (LootWishlist.IsDebug and LootWishlist.IsDebug()) then return end
+
+  DevLog(label, "loot table holds", #items, "for your class")
+  for _, item in ipairs(items) do
+    local itemID = item.itemID or item
+    local list = specsOf(itemID)
+    local reach = (not list or #list == 0) and "any spec" or table.concat(list, "/")
+    if isOwned and isOwned(itemID) then
+      DevLog("  ", itemID, "skipped, already yours")
+    elseif set[itemID] then
+      DevLog("  ", itemID, "wanted, drops for", reach)
+    end
+  end
+
+  for _, specID in ipairs(specs) do
+    local row = tally[specID]
+    DevLog("  ", specName(specID), row.wanted .. " of " .. row.total,
+      "=", percent(row) .. "%", specID == currentSpecID and "(your loot spec)" or "")
+  end
+end
+
+local function summarise(tally, specs, currentSpecID)
+  local row = tally[currentSpecID] or { total = 0, wanted = 0 }
+  local best = Odds.Best(tally, specs, currentSpecID)
+  return {
+    percent = percent(row),
+    wanted = row.wanted,
+    total = row.total,
+    best = best and {
+      name = specName(best),
+      percent = percent(tally[best]),
+      wanted = tally[best].wanted,
+      total = tally[best].total,
+    } or nil,
+  }
+end
+
+-- A keystone roll is on the whole dungeon rather than one boss, so its odds are
+-- a single figure for the instance.
+function Odds.ForInstance(instanceID)
+  local items = instanceID and lootTable(instanceID, nil)
+  if not items then return nil, false end
+
+  local set, specs, current = wantedSet(), playerSpecs(), currentLootSpec()
+  local isOwned = Odds.Owned(nil, instanceID)
+  local tally = Odds.Tally(items, specs, function(id) return set[id] == true end, specsOf, isOwned)
+  explain("instance " .. tostring(instanceID), items, set, isOwned, tally, specs, current)
+  return summarise(tally, specs, current), true
+end
+
+-- What a charge is worth on each boss still to come, keyed by encounter. Returns
+-- whether the table behind the numbers has been read, so a caller can come back
+-- for a better answer.
 function Odds.ForUpcoming(instanceID, bosses)
   local items = instanceID and lootTable(instanceID, nil)
   if not items then return nil, false end
@@ -302,17 +340,15 @@ function Odds.ForUpcoming(instanceID, bosses)
 
   local set, specs, current = wantedSet(), playerSpecs(), currentLootSpec()
   local isWanted = function(id) return set[id] == true end
-  local lines = {}
+  local odds = {}
   for _, boss in ipairs(bosses) do
-    local tally = Odds.Tally(byBoss[boss.encounterID] or {}, specs, isWanted, specsOf,
-      Odds.Owned(boss.encounterID, instanceID))
-    local line = Odds.BossLine(boss.name, tally, specs, current)
-    if line then lines[#lines + 1] = line end
+    local bossItems = byBoss[boss.encounterID] or {}
+    local isOwned = Odds.Owned(boss.encounterID, instanceID)
+    local tally = Odds.Tally(bossItems, specs, isWanted, specsOf, isOwned)
+    explain(boss.name, bossItems, set, isOwned, tally, specs, current)
+    odds[boss.encounterID] = summarise(tally, specs, current)
   end
-
-  if #lines == 0 then return nil, true end
-  table.insert(lines, 1, S.upcomingHeader)
-  return lines, true
+  return odds, true
 end
 
 function Odds.Enabled()

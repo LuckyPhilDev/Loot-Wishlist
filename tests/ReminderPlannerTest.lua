@@ -58,34 +58,60 @@ local tracked = {
     },
 }
 
-local lines = Planner:BuildDungeonSpecLines(tracked, {
-    instanceName = "The Example Vault",
-    instanceID = 501,
-    lootSpecID = 72,
-    playerSpecIDs = { 71, 72, 73 },
-    getSpecName = getSpecName,
-})
-
-assertEqual(#lines, 4, "dungeon line count")
-assertEqual(lines[1], "Wrong loot spec for wishlist items:", "dungeon heading")
-assertEqual(lines[2], "- Switch Arms for [Switch Item]", "switch line")
-assertEqual(lines[3], "- Stay Fury for [Stay Item]", "stay line")
-assertEqual(lines[4], "- OK in any spec: [Any Item]", "any-spec line")
-passed = passed + 1
-
-local raidLines = Planner:BuildRaidSpecLines({
+local bossRows = Planner:BuildBossRows({
     first = { id = 2001, link = "[Boss Item]", boss = "First Boss", isRaid = true, specs = { 71 } },
+    second = { id = 2000, link = "[Shared Item]", boss = "First Boss", isRaid = true, specs = { 71, 72 } },
+    open = { id = 2003, link = "[Open Item]", boss = "First Boss", isRaid = true, specs = {} },
     locked = { id = 2002, link = "[Locked Item]", boss = "Locked Boss", isRaid = true, specs = { 71 } },
 }, {
     availableBosses = { ["First Boss"] = 9001 },
     lootSpecID = 72,
-    playerSpecIDs = { 71, 72, 73 },
     getSpecName = getSpecName,
 })
 
-assertEqual(#raidLines, 2, "raid line count")
-assertEqual(raidLines[1], "Wrong loot spec for upcoming bosses:", "raid heading")
-assertEqual(raidLines[2], "- First Boss: switch Arms for [Boss Item]", "raid switch line")
+assertEqual(#bossRows, 1, "a boss that is not available gets no row")
+assertEqual(bossRows[1].boss, "First Boss", "the row names its boss")
+assertEqual(bossRows[1].encounterID, 9001, "the row carries the encounter id")
+assertEqual(#bossRows[1].items, 3, "every tracked item on the boss rides the row")
+assertEqual(bossRows[1].items[1].id, 2000, "items are ordered by id")
+assertEqual(bossRows[1].switchTo, "Arms", "the item your loot spec cannot be given names its spec")
+
+local function itemWithID(row, id)
+    for _, item in ipairs(row.items) do
+        if item.id == id then return item end
+    end
+end
+
+assertEqual(itemWithID(bossRows[1], 2001).needsSwitch, true, "the item out of reach is marked")
+assertEqual(itemWithID(bossRows[1], 2001).specLabel, "Arms", "and carries the spec it needs")
+assertEqual(itemWithID(bossRows[1], 2000).needsSwitch, false, "an item your loot spec covers is not")
+assertEqual(itemWithID(bossRows[1], 2000).specLabel, nil, "and names no spec")
+assertEqual(itemWithID(bossRows[1], 2003).needsSwitch, false, "nor is one open to every spec")
+passed = passed + 1
+
+local duplicateRows = Planner:BuildBossRows({
+    normal = { id = 2001, link = "[Boss Item]", boss = "First Boss", isRaid = true, specs = { 71 } },
+    heroic = { id = 2001, link = "[Boss Item]", boss = "First Boss", isRaid = true, specs = { 71 } },
+    mythic = { id = 2001, link = "[Boss Item]", boss = "First Boss", isRaid = true, specs = { 71 } },
+}, {
+    availableBosses = { ["First Boss"] = 9001 },
+    lootSpecID = 72,
+    getSpecName = getSpecName,
+})
+
+assertEqual(#duplicateRows[1].items, 1, "an item tracked on three difficulties is one icon")
+passed = passed + 1
+
+local coveredRows = Planner:BuildBossRows({
+    shared = { id = 2004, link = "[Shared Item]", boss = "First Boss", isRaid = true, specs = { 71, 72 } },
+}, {
+    availableBosses = { ["First Boss"] = 9001 },
+    lootSpecID = 72,
+    getSpecName = getSpecName,
+})
+
+assertEqual(#coveredRows, 1, "a boss you track something on still gets a row")
+assertEqual(coveredRows[1].switchTo, nil, "a loot spec that can be given everything is asked to switch to nothing")
 passed = passed + 1
 
 local assist = Planner:BuildAssistSuggestions({

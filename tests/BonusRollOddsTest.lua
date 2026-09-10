@@ -234,17 +234,17 @@ table1200 = { items = {
     { itemID = 4, encounterID = 2874 },
 } }
 
-local upcomingLines, upcomingReady = Odds.ForUpcoming(1320, upcoming)
+local upcomingOdds, upcomingReady = Odds.ForUpcoming(1320, upcoming)
 check(upcomingReady, true, "a read table is ready")
-check(#upcomingLines, 3, "a header and a line for each boss")
-check(upcomingLines[1], LootWishlist.Strings.bonusRollOdds.upcomingHeader, "the header leads")
-contains(upcomingLines[2], "Nek'zali", "the bosses keep the order they were asked in")
-contains(upcomingLines[2], "0%", "Fire wants nothing from the first boss")
-contains(upcomingLines[2], "Arcane", "but Arcane does")
-contains(upcomingLines[3], "50%", "Fire wants one of the two on the second boss")
-check(upcomingLines[3]:find("would be", 1, true), nil, "no spec beats Fire there")
+check(upcomingOdds[2888].percent, 0, "Fire wants nothing from the first boss")
+check(upcomingOdds[2888].total, 1, "and only one of its items can drop for Fire at all")
+check(upcomingOdds[2888].best.name, "Arcane", "Arcane holds what Fire cannot be given")
+check(upcomingOdds[2888].best.percent, 100, "and holds all of its own table")
+check(upcomingOdds[2874].percent, 50, "Fire wants one of the two on the second boss")
+check(upcomingOdds[2874].best, nil, "no spec beats Fire there")
 
-check(Odds.ForUpcoming(1320, { { encounterID = 9999, name = "Nobody" } }), nil,
-    "a boss with nothing on it gets no line")
+local barren = Odds.ForUpcoming(1320, { { encounterID = 9999, name = "Nobody" } })
+check(barren[9999].total, 0, "a boss with nothing on it counts nothing")
+check(barren[9999].best, nil, "and points at no other spec")
 
 print("BonusRollOddsTest: " .. passed .. " checks passed")

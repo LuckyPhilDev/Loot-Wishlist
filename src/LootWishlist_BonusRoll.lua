@@ -19,6 +19,8 @@ local DevLog = LuckyLog and LuckyLog:New("[Lwl-BR][debug]", function()
 end) or function() end
 
 BR.RAID_COST = RAID_COST
+BR.DUNGEON_COST = DUNGEON_COST
+BR.MIN_KEYSTONE_LEVEL = MIN_KEYSTONE_LEVEL
 
 local function ensureFlagSet()
   LootWishlistCharDB = LootWishlistCharDB or {}

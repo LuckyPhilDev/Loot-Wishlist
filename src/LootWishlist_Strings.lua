@@ -183,9 +183,6 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         reading       = "Reading this boss's loot table...",
         notInInstance = "odds need a dungeon or raid. Enter one and try again.",
         reportHeader  = "Bonus roll odds in %s:",
-        upcomingHeader = "Bonus roll odds on upcoming bosses:",
-        upcomingLine   = "- |cffffd100%s|r: |cffe8dcc8%d%%|r (%d of %d)",
-        upcomingBetter = ", |cffffd100%s|r would be |cffe8dcc8%d%%|r (%d of %d)",
     },
 
     tokenOdds = {
@@ -264,20 +261,18 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
 
     planner = {
         appropriateSpec  = "appropriate spec",
-        currentSpec      = "current spec",
-        wrongSpecItems   = "Wrong loot spec for wishlist items:",
-        switchFor        = "- Switch %s for %s",
-        stayFor          = "- Stay %s for %s",
-        okAnySpec        = "- OK in any spec: ",
-        wrongSpecBosses  = "Wrong loot spec for upcoming bosses:",
-        bossSwitchFor    = "- %s: switch %s for %s",
-        bossStayFor      = "- %s: stay %s for %s",
-        bossOkAnySpec    = "- %s: OK in any spec: %s",
         askGroup         = "Ask group to help with wishlist items:",
         askGroupLine     = "- %s (%s): %s",
     },
 
     reminders = {
+        upcomingTitle  = "Loot still to come",
+        markedOne      = "The marked item needs %s",
+        markedMany     = "The marked items need %s",
+        rollOdds       = "Bonus roll %d%%",
+        rollOddsSpec   = "Bonus roll %d%%, |cffffd100%d%% as %s|r",
+        moreItems      = "+%d more",
+        needsSpec      = "Needs loot spec: %s",
         assistWhisper  = "Hey %s, could you set your loot spec to %s for %s? It's on my wishlist.",
         assistParty    = "%s, could you set loot spec to %s for %s?",
         whisperCommand = "/w %s %s",
