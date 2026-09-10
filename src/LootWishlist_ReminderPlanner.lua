@@ -73,7 +73,6 @@ function Planner:BuildBossRows(trackedItems, context)
                     items = {},
                     seen = {},
                     labels = {},
-                    switchSpecs = {},
                 }
                 perBoss[item.boss] = row
             end
@@ -93,12 +92,7 @@ function Planner:BuildBossRows(trackedItems, context)
                     specLabel = label,
                 })
             end
-            if needsSwitch then
-                row.labels[label] = true
-                for _, specID in ipairs(sortedSpecIDs(item.specs)) do
-                    row.switchSpecs[specID] = true
-                end
-            end
+            if needsSwitch then row.labels[label] = true end
         end
     end
 
@@ -107,14 +101,8 @@ function Planner:BuildBossRows(trackedItems, context)
         local labels = {}
         for label in pairs(row.labels) do table.insert(labels, label) end
         table.sort(labels)
-        local switchSpecIDs = {}
-        for specID in pairs(row.switchSpecs) do table.insert(switchSpecIDs, specID) end
-        table.sort(switchSpecIDs)
-
         row.labels = nil
         row.seen = nil
-        row.switchSpecs = nil
-        row.switchSpecIDs = switchSpecIDs
         row.switchTo = #labels > 0 and table.concat(labels, " or ") or nil
         table.sort(row.items, function(a, b) return (a.id or 0) < (b.id or 0) end)
         table.insert(rows, row)

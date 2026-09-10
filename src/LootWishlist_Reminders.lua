@@ -63,19 +63,21 @@ end
 
 local ownSpecCache
 
-local function isOwnSpec(specID)
-    if not ownSpecCache then
-        local ids = {}
-        for index = 1, (GetNumSpecializations and GetNumSpecializations() or 0) do
-            local ok, id = pcall(GetSpecializationInfo, index)
-            if ok and type(id) == "number" then ids[id] = true end
+local function ownSpecs()
+    if ownSpecCache then return ownSpecCache end
+
+    local specs = {}
+    for index = 1, (GetNumSpecializations and GetNumSpecializations() or 0) do
+        local ok, specID, name, _, icon = pcall(GetSpecializationInfo, index)
+        if ok and type(specID) == "number" then
+            table.insert(specs, { id = specID, name = name, icon = icon })
         end
-        -- Specs read as none before the character is fully loaded, so an empty
-        -- read is not cached as the answer.
-        if next(ids) then ownSpecCache = ids end
-        return ids[specID] == true
     end
-    return ownSpecCache[specID] == true
+
+    -- Specs read as none until the character is loaded, so an empty read is not
+    -- cached as the answer.
+    if #specs > 0 then ownSpecCache = specs end
+    return specs
 end
 
 local function getSpecInfo(specID)
@@ -285,22 +287,6 @@ local function itemButton(row, index)
     return button
 end
 
-local SWITCH_HEIGHT = 20
-local SWITCH_PAD    = 18
-local SWITCH_GAP    = 4
-
-local function switchButton(row, index)
-    local button = row.switchButtons[index]
-    if button then return button end
-
-    button = LuckyUI.CreateButton(row, "", 90, SWITCH_HEIGHT, "primary")
-    button:SetScript("OnClick", function(self)
-        if self.specID then SetLootSpecialization(self.specID) end
-    end)
-    row.switchButtons[index] = button
-    return button
-end
-
 local function ensureRow(index)
     local row = bossRows[index]
     if row then return row end
@@ -308,7 +294,6 @@ local function ensureRow(index)
     row = CreateFrame("Frame", nil, dungeonReminderFrame)
     row:SetHeight(ROW_HEIGHT)
     row.itemButtons = {}
-    row.switchButtons = {}
 
     row.bossIcon = row:CreateTexture(nil, "ARTWORK")
     row.bossIcon:SetSize(BOSS_ICON, BOSS_ICON)
@@ -352,28 +337,6 @@ local function oddsText(data)
     return S.rollOddsSpec:format(odds.percent, odds.best.percent, odds.best.name)
 end
 
--- A button per loot spec the row is asking for, so the switch is one click
--- rather than a trip to the talent frame. Returns the width they took, which is
--- what the advice line has to keep clear of.
-local function paintSwitchButtons(row, data)
-    local used, shown = 0, 0
-    for _, specID in ipairs(data.switchSpecIDs or {}) do
-        if isOwnSpec(specID) then
-            shown = shown + 1
-            local button = switchButton(row, shown)
-            button.specID = specID
-            button:SetText(S.switchToSpec:format(getSpecName(specID)))
-            button:SetWidth(button.label:GetStringWidth() + SWITCH_PAD)
-            button:ClearAllPoints()
-            button:SetPoint("TOPRIGHT", -used, -32)
-            button:Show()
-            used = used + button:GetWidth() + SWITCH_GAP
-        end
-    end
-    for index = shown + 1, #row.switchButtons do row.switchButtons[index]:Hide() end
-    return used
-end
-
 local function paintRow(row, data)
     if data.icon then
         row.bossIcon:SetTexCoord(unpack(INSTANCE_ART))
@@ -415,7 +378,79 @@ local function paintRow(row, data)
     row.advice:SetText(table.concat(parts, "  "))
     row.advice:ClearAllPoints()
     row.advice:SetPoint("TOPLEFT", NAME_INSET + shown * (ITEM_ICON + ITEM_GAP) + 8, -35)
-    row.advice:SetPoint("TOPRIGHT", -paintSwitchButtons(row, data), -35)
+    row.advice:SetPoint("TOPRIGHT", 0, -35)
+end
+
+local SPEC_ICON   = 30
+local SPEC_GAP    = 10
+local SPEC_BOTTOM = 40
+local specButtons = {}
+
+local function specButton(index)
+    local button = specButtons[index]
+    if button then return button end
+
+    button = CreateFrame("Button", nil, dungeonReminderFrame)
+    button:SetSize(SPEC_ICON, SPEC_ICON)
+
+    button.ring = button:CreateTexture(nil, "BACKGROUND")
+    button.ring:SetColorTexture(LuckyUI.C.goldAccent[1], LuckyUI.C.goldAccent[2], LuckyUI.C.goldAccent[3])
+    button.ring:SetPoint("TOPLEFT", -2, 2)
+    button.ring:SetPoint("BOTTOMRIGHT", 2, -2)
+
+    button.icon = button:CreateTexture(nil, "ARTWORK")
+    button.icon:SetAllPoints()
+    button.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    button:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(self.specName or "")
+        local line = self.specID == getLootSpecID() and S.currentLootSpec
+            or S.switchToSpec:format(self.specName or "")
+        GameTooltip:AddLine(line, LuckyUI.C.goldPrimary[1], LuckyUI.C.goldPrimary[2], LuckyUI.C.goldPrimary[3])
+        GameTooltip:Show()
+    end)
+    button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    button:SetScript("OnClick", function(self)
+        if self.specID then SetLootSpecialization(self.specID) end
+    end)
+
+    specButtons[index] = button
+    return button
+end
+
+local function hideSpecStrip()
+    for _, button in ipairs(specButtons) do button:Hide() end
+end
+
+-- Every loot spec the character has, so the switch the rows are asking for is a
+-- click rather than a trip to the talent frame. The one in use is ringed and the
+-- rest greyed. Returns the height taken.
+local function layoutSpecStrip(frame)
+    local specs = ownSpecs()
+    if #specs == 0 then
+        hideSpecStrip()
+        return 0
+    end
+
+    local width = #specs * SPEC_ICON + (#specs - 1) * SPEC_GAP
+    local current = getLootSpecID()
+    local x = (SPEC_ICON - width) / 2
+
+    for index, spec in ipairs(specs) do
+        local button = specButton(index)
+        button.specID = spec.id
+        button.specName = spec.name
+        button.icon:SetTexture(spec.icon)
+        button.icon:SetDesaturated(spec.id ~= current)
+        button.ring:SetShown(spec.id == current)
+        button:ClearAllPoints()
+        button:SetPoint("BOTTOM", frame, "BOTTOM", x, SPEC_BOTTOM)
+        button:Show()
+        x = x + SPEC_ICON + SPEC_GAP
+    end
+    for index = #specs + 1, #specButtons do specButtons[index]:Hide() end
+    return SPEC_ICON + 8
 end
 
 local function setAssistMessages(targetName, targetSpec, items)
@@ -431,6 +466,7 @@ end
 local function hideBossRows()
     for _, row in ipairs(bossRows) do row:Hide() end
     if bossTitle then bossTitle:Hide() end
+    hideSpecStrip()
 end
 
 local function showBossReminder(opts)
@@ -489,7 +525,7 @@ local function showBossReminder(opts)
         dismissButton:SetPoint("BOTTOM", frame, "BOTTOM", 0, 10)
     end
 
-    frame:SetHeight(height + 42)
+    frame:SetHeight(height + 42 + layoutSpecStrip(frame))
     frame:Show()
     frame:StartAutoHide(HIDE_AFTER)
 end

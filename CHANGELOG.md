@@ -1,7 +1,7 @@
 ## [Unreleased]
 
 ### Added
-- **Switch to spec** Each boss row on the Loot still to come reminder carries a button for the loot spec its marked items need, setting it there and then. Only specs your character has are offered.
+- **Loot spec picker** The Loot still to come reminder carries your specs along the bottom. Click one to set your loot spec without leaving the reminder, and the one you are on is ringed.
 
 ## [1.19.0] - 2026-09-10
 
