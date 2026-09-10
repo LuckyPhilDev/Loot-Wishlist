@@ -890,9 +890,78 @@ end
 -- Run the reminder against a raid you are not standing in, so a layout can be
 -- checked without a raid night. Kills come from the named bosses, or from your
 -- real lockout when none are named. Returns the availability it worked out.
+-- Says what the row builder saw, so an empty reminder can be told apart from a
+-- boss name that never matched or a loot spec that wanted nothing.
+local function reportRows(report, availableBosses, odds)
+    local lootSpecID = getLootSpecID()
+    report("loot spec: " .. (getSpecName(lootSpecID) or "unset"))
+
+    local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or {}
+    local rows = Planner:BuildBossRows(tracked, {
+        availableBosses = availableBosses,
+        lootSpecID = lootSpecID,
+        getSpecName = getSpecName,
+    })
+    if #rows == 0 then
+        report("no boss here matched anything on your wishlist")
+        return
+    end
+
+    for _, row in ipairs(rows) do
+        local perBoss = odds and odds[row.encounterID]
+        report("  " .. row.boss .. ": " .. #row.items .. " tracked, switch: "
+            .. (row.switchTo or "not needed")
+            .. (perBoss and (", odds " .. perBoss.wanted .. "/" .. perBoss.total) or ""))
+    end
+end
+
+-- A keystone roll is on the instance, so a dungeon has no kill list to simulate
+-- and the charge and key level gates are dropped rather than worked around.
+local function testDungeonReminder(report)
+    local instanceID = getCurrentEJInstanceID()
+    if not instanceID then
+        report("no journal instance for this dungeon")
+        return nil
+    end
+
+    local bosses = bossList(instanceID)
+    report("instance " .. instanceID .. ", " .. #bosses .. " bosses")
+
+    local available = {}
+    for _, boss in ipairs(bosses) do
+        available[boss.name] = boss.encounterID
+        report("  " .. boss.name .. " (" .. tostring(boss.encounterID) .. ")")
+    end
+
+    local BR = LootWishlist.BonusRoll
+    report(("charges: %d, key level: %d, roll needs %d and %d"):format(
+        BR and BR.GetCharges() or 0, keystoneLevel(),
+        BR and BR.DUNGEON_COST or 0, BR and BR.MIN_KEYSTONE_LEVEL or 0))
+    report("the gates above are dropped for this test, the live reminder obeys them")
+
+    shownIgnoreGates = true
+    local gathered, ready = gatherDungeonRows(true, true)
+    if not ready then
+        report("the loot table is still being read, run this again in a few seconds")
+    end
+    reportRows(report, available, nil)
+
+    if gathered and #gathered.rows > 0 then
+        showBossReminder(gathered)
+    else
+        report("no reminder drawn")
+    end
+    return gathered
+end
+
 function Reminders:TestNextBoss(ejInstanceID, bossFragments)
     local prefix = "|cffC9A84CLoot Wishlist|r: "
     local function report(line) print(prefix .. line) end
+
+    local _, instanceType = IsInInstance()
+    if instanceType == "party" and not tonumber(ejInstanceID) then
+        return testDungeonReminder(report)
+    end
 
     ejInstanceID = tonumber(ejInstanceID) or getCurrentEJInstanceID()
     if not ejInstanceID then
@@ -934,6 +1003,8 @@ function Reminders:TestNextBoss(ejInstanceID, bossFragments)
     if not ready then
         report("the loot table is still being read, run this again in a few seconds")
     end
+
+    reportRows(report, available, odds)
 
     local rows = buildBossRows(available, odds)
     if #rows > 0 then
