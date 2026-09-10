@@ -271,6 +271,30 @@ function Odds.ForRoll(encounterID, instanceID, giveUp)
   return Odds.Describe(tally, specs, currentLootSpec(), spent, scope), true
 end
 
+-- Shows the working behind a percentage: what the table held, what was dropped
+-- before counting, and what each of your specs could be given of the rest.
+local function explain(label, items, set, isOwned, tally, specs, currentSpecID)
+  if not (LootWishlist.IsDebug and LootWishlist.IsDebug()) then return end
+
+  DevLog(label, "loot table holds", #items, "for your class")
+  for _, item in ipairs(items) do
+    local itemID = item.itemID or item
+    local list = specsOf(itemID)
+    local reach = (not list or #list == 0) and "any spec" or table.concat(list, "/")
+    if isOwned and isOwned(itemID) then
+      DevLog("  ", itemID, "skipped, already yours")
+    elseif set[itemID] then
+      DevLog("  ", itemID, "wanted, drops for", reach)
+    end
+  end
+
+  for _, specID in ipairs(specs) do
+    local row = tally[specID]
+    DevLog("  ", specName(specID), row.wanted .. " of " .. row.total,
+      "=", percent(row) .. "%", specID == currentSpecID and "(your loot spec)" or "")
+  end
+end
+
 local function summarise(tally, specs, currentSpecID)
   local row = tally[currentSpecID] or { total = 0, wanted = 0 }
   local best = Odds.Best(tally, specs, currentSpecID)
@@ -296,6 +320,7 @@ function Odds.ForInstance(instanceID)
   local set, specs, current = wantedSet(), playerSpecs(), currentLootSpec()
   local isOwned = Odds.Owned(nil, instanceID)
   local tally = Odds.Tally(items, specs, function(id) return set[id] == true end, specsOf, isOwned)
+  explain("instance " .. tostring(instanceID), items, set, isOwned, tally, specs, current)
   return summarise(tally, specs, current), true
 end
 
@@ -320,6 +345,7 @@ function Odds.ForUpcoming(instanceID, bosses)
     local bossItems = byBoss[boss.encounterID] or {}
     local isOwned = Odds.Owned(boss.encounterID, instanceID)
     local tally = Odds.Tally(bossItems, specs, isWanted, specsOf, isOwned)
+    explain(boss.name, bossItems, set, isOwned, tally, specs, current)
     odds[boss.encounterID] = summarise(tally, specs, current)
   end
   return odds, true
