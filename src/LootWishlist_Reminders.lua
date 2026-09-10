@@ -61,6 +61,25 @@ local function getSpecName(specID)
     return tostring(specID)
 end
 
+local ownSpecCache
+
+local function ownSpecs()
+    if ownSpecCache then return ownSpecCache end
+
+    local specs = {}
+    for index = 1, (GetNumSpecializations and GetNumSpecializations() or 0) do
+        local ok, specID, name, _, icon = pcall(GetSpecializationInfo, index)
+        if ok and type(specID) == "number" then
+            table.insert(specs, { id = specID, name = name, icon = icon })
+        end
+    end
+
+    -- Specs read as none until the character is loaded, so an empty read is not
+    -- cached as the answer.
+    if #specs > 0 then ownSpecCache = specs end
+    return specs
+end
+
 local function getSpecInfo(specID)
     if not specID then return nil, nil end
     local ok, _, name, _, _, _, classFile = pcall(GetSpecializationInfoByID, specID)
@@ -362,6 +381,78 @@ local function paintRow(row, data)
     row.advice:SetPoint("TOPRIGHT", 0, -35)
 end
 
+local SPEC_ICON   = 30
+local SPEC_GAP    = 10
+local SPEC_BOTTOM = 40
+local specButtons = {}
+
+local function specButton(index)
+    local button = specButtons[index]
+    if button then return button end
+
+    button = CreateFrame("Button", nil, dungeonReminderFrame)
+    button:SetSize(SPEC_ICON, SPEC_ICON)
+
+    button.ring = button:CreateTexture(nil, "BACKGROUND")
+    button.ring:SetColorTexture(LuckyUI.C.goldAccent[1], LuckyUI.C.goldAccent[2], LuckyUI.C.goldAccent[3])
+    button.ring:SetPoint("TOPLEFT", -2, 2)
+    button.ring:SetPoint("BOTTOMRIGHT", 2, -2)
+
+    button.icon = button:CreateTexture(nil, "ARTWORK")
+    button.icon:SetAllPoints()
+    button.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    button:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(self.specName or "")
+        local line = self.specID == getLootSpecID() and S.currentLootSpec
+            or S.switchToSpec:format(self.specName or "")
+        GameTooltip:AddLine(line, LuckyUI.C.goldPrimary[1], LuckyUI.C.goldPrimary[2], LuckyUI.C.goldPrimary[3])
+        GameTooltip:Show()
+    end)
+    button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    button:SetScript("OnClick", function(self)
+        if self.specID then SetLootSpecialization(self.specID) end
+    end)
+
+    specButtons[index] = button
+    return button
+end
+
+local function hideSpecStrip()
+    for _, button in ipairs(specButtons) do button:Hide() end
+end
+
+-- Every loot spec the character has, so the switch the rows are asking for is a
+-- click rather than a trip to the talent frame. The one in use is ringed and the
+-- rest greyed. Returns the height taken.
+local function layoutSpecStrip(frame)
+    local specs = ownSpecs()
+    if #specs == 0 then
+        hideSpecStrip()
+        return 0
+    end
+
+    local width = #specs * SPEC_ICON + (#specs - 1) * SPEC_GAP
+    local current = getLootSpecID()
+    local x = (SPEC_ICON - width) / 2
+
+    for index, spec in ipairs(specs) do
+        local button = specButton(index)
+        button.specID = spec.id
+        button.specName = spec.name
+        button.icon:SetTexture(spec.icon)
+        button.icon:SetDesaturated(spec.id ~= current)
+        button.ring:SetShown(spec.id == current)
+        button:ClearAllPoints()
+        button:SetPoint("BOTTOM", frame, "BOTTOM", x, SPEC_BOTTOM)
+        button:Show()
+        x = x + SPEC_ICON + SPEC_GAP
+    end
+    for index = #specs + 1, #specButtons do specButtons[index]:Hide() end
+    return SPEC_ICON + 8
+end
+
 local function setAssistMessages(targetName, targetSpec, items)
     assistTargetName = targetName
     if targetName and targetSpec and items then
@@ -375,6 +466,7 @@ end
 local function hideBossRows()
     for _, row in ipairs(bossRows) do row:Hide() end
     if bossTitle then bossTitle:Hide() end
+    hideSpecStrip()
 end
 
 local function showBossReminder(opts)
@@ -433,7 +525,7 @@ local function showBossReminder(opts)
         dismissButton:SetPoint("BOTTOM", frame, "BOTTOM", 0, 10)
     end
 
-    frame:SetHeight(height + 42)
+    frame:SetHeight(height + 42 + layoutSpecStrip(frame))
     frame:Show()
     frame:StartAutoHide(HIDE_AFTER)
 end
@@ -688,7 +780,7 @@ local function mergeDungeonRow(rows, name, icon, odds)
     if #rows == 0 then return nil end
 
     local merged = { boss = name, icon = icon, items = {}, odds = odds }
-    local seen, labels = {}, {}
+    local seen, labels, specs = {}, {}, {}
     for _, row in ipairs(rows) do
         for _, item in ipairs(row.items) do
             if not seen[item.id] then
@@ -697,12 +789,17 @@ local function mergeDungeonRow(rows, name, icon, odds)
             end
         end
         if row.switchTo then labels[row.switchTo] = true end
+        for _, specID in ipairs(row.switchSpecIDs or {}) do specs[specID] = true end
     end
 
     local names = {}
     for label in pairs(labels) do table.insert(names, label) end
     table.sort(names)
     merged.switchTo = #names > 0 and table.concat(names, " or ") or nil
+
+    merged.switchSpecIDs = {}
+    for specID in pairs(specs) do table.insert(merged.switchSpecIDs, specID) end
+    table.sort(merged.switchSpecIDs)
     return merged
 end
 
