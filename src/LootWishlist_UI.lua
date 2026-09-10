@@ -177,6 +177,29 @@ local function mergeItemsByID(items)
 end
 
 ------------------------------------------------------------------------
+-- Collapsed headings. A key names an instance, or a boss within one, and
+-- lives in the account settings so a folded raid stays folded next login.
+------------------------------------------------------------------------
+local function collapsedSet()
+  local settings = LootWishlistDB and LootWishlistDB.settings
+  if not settings then return nil end
+  settings.collapsed = settings.collapsed or {}
+  return settings.collapsed
+end
+
+local function isCollapsed(key)
+  local set = collapsedSet()
+  return (set and set[key]) and true or false
+end
+
+local function toggleCollapsed(key)
+  local set = collapsedSet()
+  if not set then return end
+  if set[key] then set[key] = nil else set[key] = true end
+  LootWishlist.UI.refresh()
+end
+
+------------------------------------------------------------------------
 -- buildFlatRows
 ------------------------------------------------------------------------
 local function buildFlatRows()
@@ -192,15 +215,26 @@ local function buildFlatRows()
     includeObtained = not (settings and settings.hideObtained),
     keep = filtering and matchesFilters or nil,
   })
+  -- A search shows every match wherever it sits, so folded headings only
+  -- hide their items while the list is unfiltered.
+  local folds = not filtering
   for _, inst in ipairs(layout) do
-    rows[#rows + 1] = { type = "instance", name = inst.name, count = inst.count, isRaid = inst.isRaid }
-    if inst.bosses then
-      for _, boss in ipairs(inst.bosses) do
-        rows[#rows + 1] = { type = "boss", name = boss.name, count = boss.count }
-        itemRows(boss.items, true)
+    local instKey  = inst.name
+    local instShut = folds and isCollapsed(instKey)
+    rows[#rows + 1] = { type = "instance", name = inst.name, count = inst.count, isRaid = inst.isRaid,
+                        key = instKey, collapsed = instShut }
+    if not instShut then
+      if inst.bosses then
+        for _, boss in ipairs(inst.bosses) do
+          local bossKey  = instKey .. "::" .. boss.name
+          local bossShut = folds and isCollapsed(bossKey)
+          rows[#rows + 1] = { type = "boss", name = boss.name, count = boss.count,
+                              key = bossKey, collapsed = bossShut }
+          if not bossShut then itemRows(boss.items, true) end
+        end
+      else
+        itemRows(inst.items, false)
       end
-    else
-      itemRows(inst.items, false)
     end
   end
   if #rows == 0 and filtering then
@@ -363,7 +397,7 @@ local function createPoolFrame(parent)
       GameTooltip:Show()
       LootWishlist.UI.PlaceComparisonTooltips()
     end
-    if self.rowType == "item" then
+    if self.rowType == "item" or self.headingKey then
       self.bg:SetColorTexture(C.highlight[1], C.highlight[2], C.highlight[3], C.highlight[4])
     end
   end)
@@ -377,6 +411,20 @@ local function createPoolFrame(parent)
   end)
 
   return f
+end
+
+------------------------------------------------------------------------
+-- Heading rows fold their contents away on click
+------------------------------------------------------------------------
+local function collapseIconFor(row)
+  return row.collapsed and S.expandIcon or S.collapseIcon
+end
+
+local function makeHeadingClickable(f, row)
+  local key = row.key
+  if not key then return end
+  f.headingKey = key
+  f:SetScript("OnClick", function() toggleCollapsed(key) end)
 end
 
 ------------------------------------------------------------------------
@@ -398,8 +446,10 @@ local function populatePoolFrame(f, row, rowIndex)
     f.obtainedBtn:Hide()
     f.obtainedBtn:SetScript("OnClick", nil)
   end
-  f.itemLink = nil
-  f.rowType  = row.type
+  f.itemLink   = nil
+  f.headingKey = nil
+  f.rowType    = row.type
+  f:SetScript("OnClick", nil)
   f._bgR, f._bgG, f._bgB, f._bgA = nil, nil, nil, nil
   f.bg:SetColorTexture(0, 0, 0, 0)
 
@@ -407,8 +457,9 @@ local function populatePoolFrame(f, row, rowIndex)
     f:SetHeight(INSTANCE_ROW_H)
     local raidTag = row.isRaid and S.raidTag or ""
     f.headingLabel:SetFont(UI.TITLE_FONT, 13, "OUTLINE")
-    f.headingLabel:SetText(S.instanceHeading:format(row.name, row.count, raidTag))
+    f.headingLabel:SetText(S.instanceHeading:format(collapseIconFor(row), row.name, row.count, raidTag))
     f.headingLabel:Show()
+    makeHeadingClickable(f, row)
     -- Dark warm background for instance headers
     f.bg:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.6)
     f._bgR, f._bgG, f._bgB, f._bgA = C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.6
@@ -418,8 +469,9 @@ local function populatePoolFrame(f, row, rowIndex)
   elseif row.type == "boss" then
     f:SetHeight(BOSS_ROW_H)
     f.headingLabel:SetFont(UI.TITLE_FONT, 11, "")
-    f.headingLabel:SetText(S.bossHeading:format(row.name, row.count))
+    f.headingLabel:SetText(S.bossHeading:format(collapseIconFor(row), row.name, row.count))
     f.headingLabel:Show()
+    makeHeadingClickable(f, row)
     f.bg:SetColorTexture(C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.5)
     f._bgR, f._bgG, f._bgB, f._bgA = C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.5
     f.sep:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.4)
@@ -1013,6 +1065,8 @@ local function deferredRefresh()
 end
 
 LootWishlist.UI.TrackKeyForEntry = trackKeyForEntry
+LootWishlist.UI.BuildRows       = buildFlatRows
+LootWishlist.UI.ToggleCollapsed = toggleCollapsed
 LootWishlist.UI.refresh         = scheduleRefresh
 LootWishlist.UI.deferredRefresh = deferredRefresh
 LootWishlist.UI.open            = open

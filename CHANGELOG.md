@@ -2,6 +2,7 @@
 
 ### Added
 - **Loot spec picker** The Loot still to come reminder carries your specs along the bottom. Click one to set your loot spec without leaving the reminder, and the one you are on is ringed.
+- **Collapsible headings** Click an instance or boss heading on the wishlist to fold everything under it away, and it stays folded next time you log in. Searching shows every match regardless.
 
 ## [1.19.0] - 2026-09-10
 
