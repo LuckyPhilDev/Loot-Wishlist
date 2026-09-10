@@ -61,6 +61,23 @@ local function getSpecName(specID)
     return tostring(specID)
 end
 
+local ownSpecCache
+
+local function isOwnSpec(specID)
+    if not ownSpecCache then
+        local ids = {}
+        for index = 1, (GetNumSpecializations and GetNumSpecializations() or 0) do
+            local ok, id = pcall(GetSpecializationInfo, index)
+            if ok and type(id) == "number" then ids[id] = true end
+        end
+        -- Specs read as none before the character is fully loaded, so an empty
+        -- read is not cached as the answer.
+        if next(ids) then ownSpecCache = ids end
+        return ids[specID] == true
+    end
+    return ownSpecCache[specID] == true
+end
+
 local function getSpecInfo(specID)
     if not specID then return nil, nil end
     local ok, _, name, _, _, _, classFile = pcall(GetSpecializationInfoByID, specID)
@@ -268,6 +285,22 @@ local function itemButton(row, index)
     return button
 end
 
+local SWITCH_HEIGHT = 20
+local SWITCH_PAD    = 18
+local SWITCH_GAP    = 4
+
+local function switchButton(row, index)
+    local button = row.switchButtons[index]
+    if button then return button end
+
+    button = LuckyUI.CreateButton(row, "", 90, SWITCH_HEIGHT, "primary")
+    button:SetScript("OnClick", function(self)
+        if self.specID then SetLootSpecialization(self.specID) end
+    end)
+    row.switchButtons[index] = button
+    return button
+end
+
 local function ensureRow(index)
     local row = bossRows[index]
     if row then return row end
@@ -275,6 +308,7 @@ local function ensureRow(index)
     row = CreateFrame("Frame", nil, dungeonReminderFrame)
     row:SetHeight(ROW_HEIGHT)
     row.itemButtons = {}
+    row.switchButtons = {}
 
     row.bossIcon = row:CreateTexture(nil, "ARTWORK")
     row.bossIcon:SetSize(BOSS_ICON, BOSS_ICON)
@@ -318,6 +352,28 @@ local function oddsText(data)
     return S.rollOddsSpec:format(odds.percent, odds.best.percent, odds.best.name)
 end
 
+-- A button per loot spec the row is asking for, so the switch is one click
+-- rather than a trip to the talent frame. Returns the width they took, which is
+-- what the advice line has to keep clear of.
+local function paintSwitchButtons(row, data)
+    local used, shown = 0, 0
+    for _, specID in ipairs(data.switchSpecIDs or {}) do
+        if isOwnSpec(specID) then
+            shown = shown + 1
+            local button = switchButton(row, shown)
+            button.specID = specID
+            button:SetText(S.switchToSpec:format(getSpecName(specID)))
+            button:SetWidth(button.label:GetStringWidth() + SWITCH_PAD)
+            button:ClearAllPoints()
+            button:SetPoint("TOPRIGHT", -used, -32)
+            button:Show()
+            used = used + button:GetWidth() + SWITCH_GAP
+        end
+    end
+    for index = shown + 1, #row.switchButtons do row.switchButtons[index]:Hide() end
+    return used
+end
+
 local function paintRow(row, data)
     if data.icon then
         row.bossIcon:SetTexCoord(unpack(INSTANCE_ART))
@@ -359,7 +415,7 @@ local function paintRow(row, data)
     row.advice:SetText(table.concat(parts, "  "))
     row.advice:ClearAllPoints()
     row.advice:SetPoint("TOPLEFT", NAME_INSET + shown * (ITEM_ICON + ITEM_GAP) + 8, -35)
-    row.advice:SetPoint("TOPRIGHT", 0, -35)
+    row.advice:SetPoint("TOPRIGHT", -paintSwitchButtons(row, data), -35)
 end
 
 local function setAssistMessages(targetName, targetSpec, items)
@@ -688,7 +744,7 @@ local function mergeDungeonRow(rows, name, icon, odds)
     if #rows == 0 then return nil end
 
     local merged = { boss = name, icon = icon, items = {}, odds = odds }
-    local seen, labels = {}, {}
+    local seen, labels, specs = {}, {}, {}
     for _, row in ipairs(rows) do
         for _, item in ipairs(row.items) do
             if not seen[item.id] then
@@ -697,12 +753,17 @@ local function mergeDungeonRow(rows, name, icon, odds)
             end
         end
         if row.switchTo then labels[row.switchTo] = true end
+        for _, specID in ipairs(row.switchSpecIDs or {}) do specs[specID] = true end
     end
 
     local names = {}
     for label in pairs(labels) do table.insert(names, label) end
     table.sort(names)
     merged.switchTo = #names > 0 and table.concat(names, " or ") or nil
+
+    merged.switchSpecIDs = {}
+    for specID in pairs(specs) do table.insert(merged.switchSpecIDs, specID) end
+    table.sort(merged.switchSpecIDs)
     return merged
 end
 

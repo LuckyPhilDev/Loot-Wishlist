@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Added
+- **Switch to spec** Each boss row on the Loot still to come reminder carries a button for the loot spec its marked items need, setting it there and then. Only specs your character has are offered.
+
 ## [1.19.0] - 2026-09-10
 
 ### Improved

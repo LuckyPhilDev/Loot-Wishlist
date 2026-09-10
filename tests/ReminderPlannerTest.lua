@@ -75,6 +75,8 @@ assertEqual(bossRows[1].encounterID, 9001, "the row carries the encounter id")
 assertEqual(#bossRows[1].items, 3, "every tracked item on the boss rides the row")
 assertEqual(bossRows[1].items[1].id, 2000, "items are ordered by id")
 assertEqual(bossRows[1].switchTo, "Arms", "the item your loot spec cannot be given names its spec")
+assertEqual(#bossRows[1].switchSpecIDs, 1, "only the spec that would help is offered")
+assertEqual(bossRows[1].switchSpecIDs[1], 71, "and it is offered by id, ready to be set")
 
 local function itemWithID(row, id)
     for _, item in ipairs(row.items) do
@@ -112,6 +114,7 @@ local coveredRows = Planner:BuildBossRows({
 
 assertEqual(#coveredRows, 1, "a boss you track something on still gets a row")
 assertEqual(coveredRows[1].switchTo, nil, "a loot spec that can be given everything is asked to switch to nothing")
+assertEqual(#coveredRows[1].switchSpecIDs, 0, "and is offered no switch button")
 passed = passed + 1
 
 local assist = Planner:BuildAssistSuggestions({

@@ -272,6 +272,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         rollOdds       = "Bonus roll %d%%",
         rollOddsSpec   = "Bonus roll %d%%, |cffffd100%d%% as %s|r",
         moreItems      = "+%d more",
+        switchToSpec   = "Switch to %s",
         needsSpec      = "Needs loot spec: %s",
         assistWhisper  = "Hey %s, could you set your loot spec to %s for %s? It's on my wishlist.",
         assistParty    = "%s, could you set loot spec to %s for %s?",
