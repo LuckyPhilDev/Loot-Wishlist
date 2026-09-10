@@ -31,12 +31,12 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Actions appear only when the drop reaches the gear track you track the item at; a copy on a lower track is highlighted and says so
   - When a teammate loots the item, the alert checks what they have equipped in that slot and warns you when the drop is likely an upgrade they cannot trade
   - Warbound items ("Warbound until equipped") are automatically filtered out of alerts
-- **Spec reminders** — on entering a dungeon or targeting a raid boss, shows a summary of what to switch to:
-  - Switch to a different spec for specific items
-  - Stay in your current spec for others
-  - Items usable in any spec
-  - Items your class can't use (highlighted in red)
-  - Reminders show once per instance or boss and reset when you leave
+- **Loot still to come** — entering a raid or a dungeon shows what is still ahead of you, a row at a time:
+  - Each row carries the boss portrait, its name, and an icon for every wishlist item it drops; hover an icon for the item
+  - An item your loot spec cannot be given is greyed and struck through, and the line beside it names the spec those items need
+  - Each raid boss row gives your bonus roll chance and what a loot spec switch would make it; a dungeon is a single row, since a keystone charge is spent on the whole instance
+  - Changing loot spec while it is up redraws it, and closes it once the switch leaves nothing to say
+  - Shows once per instance or boss and resets when you leave
 - **Group assist suggestions** — in dungeons, suggests party members who could switch loot spec to help funnel a tracked item, with one-click Whisper or Party prompts
 - **Gear track labels** — each wishlist row names the track it is tracked at, so a Hero entry and a Myth entry read apart at a glance
 - **Multi-difficulty tracking** — adding an item on Normal automatically tracks it on Heroic and Mythic too; items tracked across difficulties appear as a single row with combined tags (e.g. `[N·H·M]`) so the list stays clean
@@ -54,7 +54,6 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - `/wishlist tokens` calls it back any time, and one you open yourself stays until you close it
   - Drag it where you want it and it opens there from then on, per character
 - **Bonus roll odds** — a line under Blizzard's Bonus Roll popup giving your chance of a wishlist item, counted against the loot that can actually drop for you, plus the charges you have already spent there and the loot spec that would give better odds; a raid roll reads one boss, a keystone run the whole dungeon, and anything a roll already gave you drops out of the count
-- **Bonus roll odds on upcoming bosses** — in a raid, the reminder rates every boss still to come, giving the share of its loot table you have wishlisted and naming the loot spec that would hold a bigger share; it appears once you have the charges for a roll, and skips bosses a charge would buy nothing on
 - **Auto-dismiss Bonus Roll** — handles Blizzard's Bonus Roll popup for you, keeping it only in the content you pick per character; an unwanted popup is either passed outright or left on screen with the dice locked and the reason on hover, and can be narrowed to bosses you flagged an item on
 - **Mark as obtained** — tick an item off on the wishlist and it stays on the list, greyed out, while its alerts and reminders stop; untick it if you were wrong, or hide obtained items entirely from settings
 - **Wishlist sharing** — the Export button on the wishlist window turns your list into a copyable string; Import reads one back and asks whether to add it to your current list or replace it, so you can back up a wishlist or move it between characters
@@ -93,7 +92,7 @@ Install from [CurseForge](https://www.curseforge.com/wow/addons/luckys-loot-wish
 | `/wishlist clear` | Remove all tracked items |
 | `/wishlist export` | Show a copyable share string of your wishlist |
 | `/wishlist import` | Paste a share string to add to or replace your wishlist |
-| `/wishlist reset-spec` | Reset spec reminder debounce so they trigger again |
+| `/wishlist reset-spec` | Show the loot still to come reminder again for the instance you are in |
 | `/wishlist debug` | Toggle debug logging |
 
 ## Settings
