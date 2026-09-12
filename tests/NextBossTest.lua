@@ -114,5 +114,17 @@ assert(namesOf(Reminders:TestNextBoss(nil, "")) == "The Lost Explorers, Vashnik 
   "the bare command reads the raid you are in and your own lockout")
 checks = checks + 1
 
+-- Run from elsewhere, the odds are read for the raid named, not the zone you stand in.
+local oddsInstance
+LootWishlist.BonusRoll = { GetCharges = function() return 0 end, RAID_COST = 1 }
+LootWishlist.BonusRollOdds = {
+  Enabled = function() return true end,
+  ForUpcoming = function(instanceID) oddsInstance = instanceID return {}, true end,
+}
+C_Map = { GetBestMapForUnit = function() return 1 end }
+Reminders:TestNextBoss(VENOMOUS_ABYSS, "nek'zali")
+assert(oddsInstance == VENOMOUS_ABYSS, "odds read for " .. tostring(oddsInstance))
+checks = checks + 1
+
 print = realPrint
 print(string.format("NextBossTest: %d checks passed", checks))

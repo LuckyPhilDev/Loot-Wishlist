@@ -722,7 +722,7 @@ local function getAvailableRaidBosses()
     return availableFrom(ejInstanceID, bosses, killedFromLockout(bosses, instanceName, difficultyID))
 end
 
-local function collectBonusRollOdds(availableBosses, ignoreCharges)
+local function collectBonusRollOdds(ejInstanceID, availableBosses, ignoreCharges)
     local Odds = LootWishlist.BonusRollOdds
     local BR = LootWishlist.BonusRoll
     if not (Odds and Odds.ForUpcoming and Odds.Enabled() and BR) then return nil, true end
@@ -733,7 +733,7 @@ local function collectBonusRollOdds(availableBosses, ignoreCharges)
         table.insert(bosses, { name = name, encounterID = encounterID })
     end
     table.sort(bosses, function(a, b) return a.name < b.name end)
-    return Odds.ForUpcoming(getCurrentEJInstanceID(), bosses)
+    return Odds.ForUpcoming(ejInstanceID, bosses)
 end
 
 -- A boss earns a row when its loot needs a different spec, or when a charge
@@ -864,7 +864,7 @@ local function gatherBossRows(giveUp, ignoreGates)
     local availableBosses = getAvailableRaidBosses()
     if not availableBosses or not next(availableBosses) then return nil, true end
 
-    local odds, ready = collectBonusRollOdds(availableBosses, ignoreGates)
+    local odds, ready = collectBonusRollOdds(getCurrentEJInstanceID(), availableBosses, ignoreGates)
     if not ready and not giveUp then return nil, false end
 
     return { rows = buildBossRows(availableBosses, odds) }, true
@@ -1109,7 +1109,7 @@ function Reminders:TestNextBoss(ejInstanceID, bossFragments)
     -- Charges are not required here: the odds are what is being tested, and a
     -- character short of a roll would never see them.
     shownIgnoreGates = true
-    local odds, ready = collectBonusRollOdds(available, true)
+    local odds, ready = collectBonusRollOdds(ejInstanceID, available, true)
     if not ready then
         report("the loot table is still being read, run this again in a few seconds")
     end
