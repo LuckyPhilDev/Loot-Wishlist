@@ -265,6 +265,16 @@ local function isNonGearLoot(itemID)
   return false
 end
 
+local function outsideSpec(item, specID)
+  if (specID or 0) == 0 or not (C_Item and C_Item.GetItemSpecInfo) then return false end
+  local ok, specs = pcall(C_Item.GetItemSpecInfo, item.link or item.itemID)
+  if not (ok and type(specs) == "table" and #specs > 0) then return false end
+  for _, id in ipairs(specs) do
+    if id == specID then return false end
+  end
+  return true
+end
+
 local function selectedInstanceIs(instanceID)
   local okWant, want = pcall(EJ_GetInstanceInfo, instanceID)
   local okHave, have = pcall(EJ_GetInstanceInfo)
@@ -315,10 +325,14 @@ local function readLoot(scan)
   local n = (type(EJ_GetNumLoot) == "function") and (EJ_GetNumLoot() or 0) or 0
   scan.lastN = n
   if n == 0 then return nil, false end
-  local items, complete = {}, true
+  local items, complete, stale = {}, true, false
   for i = 1, n do
     local ok, info = pcall(C_EncounterJournal.GetLootInfoByIndex, i)
-    if ok and type(info) == "table" and info.itemID and not isNonGearLoot(info.itemID) then
+    -- A read can land before the journal applies a new spec filter and hand back
+    -- the last filter's table, so an item the spec cannot be given means wait.
+    if ok and type(info) == "table" and info.itemID and outsideSpec(info, scan.specID) then
+      stale = true
+    elseif ok and type(info) == "table" and info.itemID and not isNonGearLoot(info.itemID) then
       items[#items + 1] = {
         itemID      = info.itemID,
         encounterID = info.encounterID,
@@ -333,7 +347,7 @@ local function readLoot(scan)
       if not info.link then complete = false end
     end
   end
-  return items, complete and #items > 0
+  return items, complete and not stale and #items > 0
 end
 
 local function finishScan(scan, items)

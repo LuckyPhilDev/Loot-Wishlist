@@ -193,4 +193,21 @@ cache = scanner.requestLoot(INSTANCE3, false, 23)
 assert(cache and #cache.items == #LOOT and not cache.incomplete,
   "the table completes once its data arrives")
 
-print("13 browser scan tests passed")
+------------------------------------------------------------------------
+-- A read that lands before the spec filter applies hands back another
+-- spec's gear: it is left out and the scan waits for the real table.
+------------------------------------------------------------------------
+C_Item = {
+  GetItemSpecInfo = function(q) return tostring(q):find("222") and { 270 } or { 268, 270 } end,
+}
+assert(scanner.requestLoot(INSTANCE, false, 23, 10, 268) == nil, "a spec scan queues")
+dataReady = true
+runTimers()
+assert(scanner.requestLoot(INSTANCE, false, 23, 10, 268) == nil,
+  "a read holding another spec's item does not finish the scan")
+fireTimeout()
+cache = scanner.requestLoot(INSTANCE, false, 23, 10, 268)
+assert(cache and #cache.items == 1 and cache.items[1].itemID == 111 and cache.incomplete,
+  "the other spec's item stays out and the entry is flagged for a rescan")
+
+print("15 browser scan tests passed")

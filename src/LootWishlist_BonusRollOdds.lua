@@ -83,12 +83,11 @@ function Odds.RecordWin(itemID, encounterID, instanceID)
   DevLog("win recorded", tostring(key), itemID)
 end
 
--- An item already in hand is no longer a good outcome, so it leaves the table
--- entirely rather than counting against the odds.
-function Odds.Owned(encounterID, instanceID)
+-- A roll never hands over what an earlier roll gave you, so a win leaves the
+-- table. An item marked obtained stays in it: a roll can still hand it over.
+function Odds.Won(encounterID, instanceID)
   return function(itemID)
     return Odds.HasWon(itemID, encounterID, instanceID)
-      or (LootWishlist.IsObtained and LootWishlist.IsObtained(itemID)) or false
   end
 end
 
@@ -102,14 +101,13 @@ local function inList(list, value)
   return false
 end
 
--- An item the game names no specs for counts for every spec: it is in the
--- class table, so leaving it out would understate a spec that can be given it.
-function Odds.Tally(items, specs, isWanted, specsOf, isOwned)
+-- An item with no spec list counts for every spec.
+function Odds.Tally(items, specs, isWanted, specsOf, isWon)
   local tally = {}
   for _, specID in ipairs(specs) do tally[specID] = { total = 0, wanted = 0 } end
   for _, item in ipairs(items) do
     local itemID = item.itemID or item
-    if not (isOwned and isOwned(itemID)) then
+    if not (isWon and isWon(itemID)) then
       local list = specsOf(itemID)
       local wanted = isWanted(itemID)
       for _, specID in ipairs(specs) do
@@ -201,12 +199,6 @@ local function currentLootSpec()
   return index and GetSpecializationInfo(index) or nil
 end
 
-local function specsOf(itemID)
-  if not (C_Item and C_Item.GetItemSpecInfo) then return nil end
-  local ok, list = pcall(C_Item.GetItemSpecInfo, itemID)
-  return ok and list or nil
-end
-
 local function wantedSet()
   local set = {}
   local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked()
@@ -227,14 +219,14 @@ end
 
 -- The browser's scanner owns the journal reads, so this only asks it for a
 -- table and gets nil back while one is still on the way.
-local function lootTable(instanceID, encounterID)
+local function lootTable(instanceID, encounterID, specID)
   local Browser = LootWishlist.Browser
   if not (Browser and Browser.RequestLoot and instanceID) then return nil end
 
   local _, instanceType, difficultyID = GetInstanceInfo()
   local isRaid = instanceType == "raid"
   local cache = Browser.RequestLoot(instanceID, isRaid,
-    scanDiff(isRaid, difficultyID), playerClassID(), 0)
+    scanDiff(isRaid, difficultyID), playerClassID(), specID)
   if not cache then return nil end
 
   if (encounterID or 0) == 0 then return cache.items end
@@ -243,6 +235,35 @@ local function lootTable(instanceID, encounterID)
     if item.encounterID == encounterID then items[#items + 1] = item end
   end
   return items
+end
+
+-- What each spec can be given comes from the journal's own spec filter, the
+-- table you see in the Adventure Guide. Item spec info cannot stand in for it:
+-- it returns nothing for an item not yet cached, which counted most of the
+-- class table for every spec. Every spec is asked before giving up, so the
+-- scans queue together. Returns the items across all specs and a lookup of
+-- the specs each one drops for, or nil while any table is still being read.
+local function specTables(instanceID, encounterID)
+  local items, specsByItem, seen, missing = {}, {}, {}, false
+  for _, specID in ipairs(playerSpecs()) do
+    local list = lootTable(instanceID, encounterID, specID)
+    if not list then
+      missing = true
+    else
+      for _, item in ipairs(list) do
+        local key = item.itemID .. ":" .. tostring(item.encounterID)
+        if not seen[key] then
+          seen[key] = true
+          items[#items + 1] = item
+        end
+        local specs = specsByItem[item.itemID] or {}
+        if not inList(specs, specID) then specs[#specs + 1] = specID end
+        specsByItem[item.itemID] = specs
+      end
+    end
+  end
+  if missing then return nil end
+  return items, function(itemID) return specsByItem[itemID] end
 end
 
 ------------------------------------------------------------------------
@@ -255,7 +276,8 @@ function Odds.ForRoll(encounterID, instanceID, giveUp)
   local spent = Odds.GetSpent(encounterID, instanceID)
   local ejInstance = (instanceID or 0) ~= 0 and instanceID
     or (LootWishlist.GetCurrentEJInstanceID and LootWishlist.GetCurrentEJInstanceID())
-  local items = ejInstance and lootTable(ejInstance, encounterID)
+  local items, specsOf
+  if ejInstance then items, specsOf = specTables(ejInstance, encounterID) end
 
   if not items then
     local spentLine = spent > 0 and S.spent:format(spent) or ""
@@ -266,23 +288,23 @@ function Odds.ForRoll(encounterID, instanceID, giveUp)
   local set = wantedSet()
   local specs = playerSpecs()
   local tally = Odds.Tally(items, specs, function(id) return set[id] == true end, specsOf,
-    Odds.Owned(encounterID, instanceID))
+    Odds.Won(encounterID, instanceID))
   local scope = (encounterID or 0) ~= 0 and Scope.thisBoss or Scope.thisDungeon
   return Odds.Describe(tally, specs, currentLootSpec(), spent, scope), true
 end
 
 -- Shows the working behind a percentage: what the table held, what was dropped
 -- before counting, and what each of your specs could be given of the rest.
-local function explain(label, items, set, isOwned, tally, specs, currentSpecID)
+local function explain(label, items, specsOf, set, isWon, tally, specs, currentSpecID)
   if not (LootWishlist.IsDebug and LootWishlist.IsDebug()) then return end
 
-  DevLog(label, "loot table holds", #items, "for your class")
+  DevLog(label, "loot table holds", #items, "across your specs")
   for _, item in ipairs(items) do
     local itemID = item.itemID or item
     local list = specsOf(itemID)
     local reach = (not list or #list == 0) and "any spec" or table.concat(list, "/")
-    if isOwned and isOwned(itemID) then
-      DevLog("  ", itemID, "skipped, already yours")
+    if isWon and isWon(itemID) then
+      DevLog("  ", itemID, "skipped, a roll already gave you this")
     elseif set[itemID] then
       DevLog("  ", itemID, "wanted, drops for", reach)
     end
@@ -314,13 +336,14 @@ end
 -- A keystone roll is on the whole dungeon rather than one boss, so its odds are
 -- a single figure for the instance.
 function Odds.ForInstance(instanceID)
-  local items = instanceID and lootTable(instanceID, nil)
+  if not instanceID then return nil, false end
+  local items, specsOf = specTables(instanceID, nil)
   if not items then return nil, false end
 
   local set, specs, current = wantedSet(), playerSpecs(), currentLootSpec()
-  local isOwned = Odds.Owned(nil, instanceID)
-  local tally = Odds.Tally(items, specs, function(id) return set[id] == true end, specsOf, isOwned)
-  explain("instance " .. tostring(instanceID), items, set, isOwned, tally, specs, current)
+  local isWon = Odds.Won(nil, instanceID)
+  local tally = Odds.Tally(items, specs, function(id) return set[id] == true end, specsOf, isWon)
+  explain("instance " .. tostring(instanceID), items, specsOf, set, isWon, tally, specs, current)
   return summarise(tally, specs, current), true
 end
 
@@ -328,7 +351,8 @@ end
 -- whether the table behind the numbers has been read, so a caller can come back
 -- for a better answer.
 function Odds.ForUpcoming(instanceID, bosses)
-  local items = instanceID and lootTable(instanceID, nil)
+  if not instanceID then return nil, false end
+  local items, specsOf = specTables(instanceID, nil)
   if not items then return nil, false end
 
   local byBoss = {}
@@ -343,9 +367,9 @@ function Odds.ForUpcoming(instanceID, bosses)
   local odds = {}
   for _, boss in ipairs(bosses) do
     local bossItems = byBoss[boss.encounterID] or {}
-    local isOwned = Odds.Owned(boss.encounterID, instanceID)
-    local tally = Odds.Tally(bossItems, specs, isWanted, specsOf, isOwned)
-    explain(boss.name, bossItems, set, isOwned, tally, specs, current)
+    local isWon = Odds.Won(boss.encounterID, instanceID)
+    local tally = Odds.Tally(bossItems, specs, isWanted, specsOf, isWon)
+    explain(boss.name, bossItems, specsOf, set, isWon, tally, specs, current)
     odds[boss.encounterID] = summarise(tally, specs, current)
   end
   return odds, true
@@ -397,7 +421,7 @@ local function warm()
   local _, instanceType = GetInstanceInfo()
   if instanceType ~= "party" and instanceType ~= "raid" then return end
   local instanceID = LootWishlist.GetCurrentEJInstanceID and LootWishlist.GetCurrentEJInstanceID()
-  if instanceID then lootTable(instanceID, nil) end
+  if instanceID then specTables(instanceID, nil) end
 end
 
 ------------------------------------------------------------------------
@@ -411,7 +435,8 @@ function Odds.Report()
     return
   end
   local instanceID = LootWishlist.GetCurrentEJInstanceID and LootWishlist.GetCurrentEJInstanceID()
-  local items = instanceID and lootTable(instanceID, nil)
+  local items, specsOf
+  if instanceID then items, specsOf = specTables(instanceID, nil) end
   if not items then
     print(prefix .. S.reading)
     return
@@ -433,7 +458,7 @@ function Odds.Report()
   end
   for _, encounterID in ipairs(order) do
     local tally = Odds.Tally(byBoss[encounterID], specs,
-      function(id) return set[id] == true end, specsOf, Odds.Owned(encounterID, instanceID))
+      function(id) return set[id] == true end, specsOf, Odds.Won(encounterID, instanceID))
     local name = (EJ_GetEncounterInfo and EJ_GetEncounterInfo(encounterID)) or tostring(encounterID)
     local lines = Odds.Describe(tally, specs, current, Odds.GetSpent(encounterID, nil))
     print("  " .. name .. ": " .. lines:gsub("\n", " "))

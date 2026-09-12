@@ -125,11 +125,21 @@ LootWishlist.GetCurrentEJInstanceID = function() return 1200 end
 LootWishlist.GetTracked = function() return { [2] = { id = 2 } } end
 
 local table1200 = nil
+-- itemID -> specs the journal files it under; nil files everything under every spec.
+local journalSpecs = nil
 local lastRequest = {}
 LootWishlist.Browser = { RequestLoot = function(instanceID, isRaid, diffID, classID, specID)
     lastRequest = { instanceID = instanceID, isRaid = isRaid, diffID = diffID,
         classID = classID, specID = specID }
-    return table1200
+    if not (table1200 and journalSpecs) or specID == 0 then return table1200 end
+    local items = {}
+    for _, item in ipairs(table1200.items) do
+        local specs = journalSpecs[item.itemID]
+        local open = not specs or #specs == 0
+        for _, s in ipairs(specs or {}) do open = open or s == specID end
+        if open then items[#items + 1] = item end
+    end
+    return { items = items }
 end }
 
 check(select(1, Odds.ForRoll(9001, 0, false)), LootWishlist.Strings.bonusRollOdds.reading,
@@ -155,16 +165,20 @@ local fiveItems = { { itemID = 1 }, { itemID = 2 }, { itemID = 3 }, { itemID = 4
 local threeWanted = wantedIs({ [1] = true, [2] = true, [3] = true })
 local openSpecs = function() return nil end
 
-local before = Odds.Tally(fiveItems, { 62 }, threeWanted, openSpecs, Odds.Owned(9500, 0))
+local before = Odds.Tally(fiveItems, { 62 }, threeWanted, openSpecs, Odds.Won(9500, 0))
 check(before[62].total, 5, "nothing won yet leaves five in the table")
 check(before[62].wanted, 3, "three of them wanted")
 
 Odds.RecordWin(4, 9500, 0)
 check(Odds.HasWon(4, 9500, 0), true, "the won item is remembered")
-local after = Odds.Tally(fiveItems, { 62 }, threeWanted, openSpecs, Odds.Owned(9500, 0))
+local after = Odds.Tally(fiveItems, { 62 }, threeWanted, openSpecs, Odds.Won(9500, 0))
 check(after[62].total, 4, "the won item leaves the table")
 check(after[62].wanted, 3, "the three you still want are untouched")
 check(math.floor(Odds.Ratio(after[62]) * 100 + 0.5), 75, "three of four is 75%")
+
+LootWishlist.IsObtained = function(id) return id == 5 end
+check(Odds.Won(9500, 0)(5), false, "an item marked obtained can still come out of a roll")
+LootWishlist.IsObtained = function() return false end
 
 -- A dungeon win counts against every boss inside it --------------------------
 Odds.RecordWin(5, nil, 4200)
@@ -215,7 +229,10 @@ contains(select(1, Odds.ForRoll(9002, 1200, false)), "(1 of the 1 that can drop 
 
 
 -- Upcoming bosses ------------------------------------------------------------
-C_Item = { GetItemSpecInfo = function(itemID) return ITEM_SPECS[itemID] end }
+-- Spec reach comes from the journal's per-spec tables alone. Item spec info
+-- returns nothing for uncached items, so it must not be what decides it.
+C_Item = { GetItemSpecInfo = function() return nil end }
+journalSpecs = ITEM_SPECS
 function GetInstanceInfo() return "The Venomous Abyss", "raid", 16 end
 LootWishlist.GetTracked = function() return { [1] = { id = 1 }, [3] = { id = 3 } } end
 
