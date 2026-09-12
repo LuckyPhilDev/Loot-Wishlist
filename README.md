@@ -31,7 +31,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Actions appear only when the drop reaches the gear track you track the item at; a copy on a lower track is highlighted and says so
   - When a teammate loots the item, the alert checks what they have equipped in that slot and warns you when the drop is likely an upgrade they cannot trade
   - Warbound items ("Warbound until equipped") are automatically filtered out of alerts
-- **Loot still to come** — entering a raid or a dungeon shows what is still ahead of you, a row at a time:
+- **Upcoming loot** — entering a raid or a dungeon shows what is still ahead of you, a row at a time:
   - Each row carries the boss portrait, its name, and an icon for every wishlist item it drops; hover an icon for the item
   - An item your loot spec cannot be given is greyed and struck through, and the line beside it names the spec those items need
   - Each raid boss row gives your bonus roll chance and what a loot spec switch would make it; a dungeon is a single row, since a keystone charge is spent on the whole instance
@@ -94,7 +94,7 @@ Install from [CurseForge](https://www.curseforge.com/wow/addons/luckys-loot-wish
 | `/wishlist clear` | Remove all tracked items |
 | `/wishlist export` | Show a copyable share string of your wishlist |
 | `/wishlist import` | Paste a share string to add to or replace your wishlist |
-| `/wishlist reset-spec` | Show the loot still to come reminder again for the instance you are in |
+| `/wishlist reset-spec` | Show the upcoming loot reminder again for the instance you are in |
 | `/wishlist debug` | Toggle debug logging |
 
 ## Settings

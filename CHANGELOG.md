@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Improved
+- **Upcoming loot** The Loot still to come reminder goes by a shorter name.
+
 ## [1.19.1] - 2026-09-10
 
 ### Added

@@ -268,7 +268,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
     },
 
     reminders = {
-        upcomingTitle  = "Loot still to come",
+        upcomingTitle  = "Upcoming loot",
         markedOne      = "The marked item needs %s",
         markedMany     = "The marked items need %s",
         rollOdds       = "Bonus roll %d%%",
