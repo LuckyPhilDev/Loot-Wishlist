@@ -34,6 +34,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 - **Upcoming loot** — entering a raid or a dungeon shows what is still ahead of you, a row at a time:
   - Each row carries the boss portrait, its name, and an icon for every wishlist item it drops; hover an icon for the item
   - An item your loot spec cannot be given is greyed and struck through, and the line beside it names the spec those items need
+  - An item a bonus roll already gave you is ticked, and hovering it says so
   - Each raid boss row gives your bonus roll chance and what a loot spec switch would make it; a dungeon is a single row, since a keystone charge is spent on the whole instance
   - Changing loot spec while it is up redraws it, and closes it once the switch leaves nothing to say
   - Your specs sit along the bottom, the one you are on ringed; click another to set your loot spec without leaving the reminder

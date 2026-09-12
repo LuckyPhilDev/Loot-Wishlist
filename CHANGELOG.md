@@ -1,10 +1,11 @@
-## [Unreleased]
+## [1.19.2] - 2026-09-12
 
 ### Improved
 - **Upcoming loot** The Loot still to come reminder goes by a shorter name.
 - **Bonus roll wins on Upcoming loot** An item a bonus roll already gave you is ticked on its row, and hovering it says so.
 
 ### Fixed
+- The Bonus Rolls section of the settings panel no longer opens blank.
 - Bonus roll odds on the Bonus Roll popup and the Upcoming loot reminder count only the loot each of your specs can be given, and keep items you marked obtained in the count.
 
 ## [1.19.1] - 2026-09-10
