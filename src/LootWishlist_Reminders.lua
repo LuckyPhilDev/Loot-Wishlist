@@ -238,6 +238,7 @@ local ITEM_GAP     = 3
 local NAME_INSET   = BOSS_ICON + 10
 local TITLE_HEIGHT = 26
 local BLOCKED_ICON = "Interface\\Buttons\\UI-GroupLoot-Pass-Up"
+local WON_ICON     = "Interface\\RaidFrame\\ReadyCheck-Ready"
 
 -- The journal's instance art is 175x95 inside a 256x128 file and the rest is
 -- empty, which is why drawing the whole file leaves the dungeon in a corner of
@@ -272,12 +273,22 @@ local function itemButton(row, index)
     button.blocked:SetSize(ITEM_ICON * 0.8, ITEM_ICON * 0.8)
     button.blocked:SetPoint("CENTER")
     button.blocked:Hide()
+
+    button.won = button:CreateTexture(nil, "OVERLAY", nil, 1)
+    button.won:SetTexture(WON_ICON)
+    button.won:SetSize(ITEM_ICON * 0.5, ITEM_ICON * 0.5)
+    button.won:SetPoint("BOTTOMRIGHT", 2, -2)
+    button.won:Hide()
     button:SetScript("OnEnter", function(self)
         if not self.link then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetHyperlink(self.link)
         if self.specLabel then
             GameTooltip:AddLine(S.needsSpec:format(self.specLabel),
+                LuckyUI.C.goldPrimary[1], LuckyUI.C.goldPrimary[2], LuckyUI.C.goldPrimary[3])
+        end
+        if self.won:IsShown() then
+            GameTooltip:AddLine(S.wonFromRoll,
                 LuckyUI.C.goldPrimary[1], LuckyUI.C.goldPrimary[2], LuckyUI.C.goldPrimary[3])
         end
         GameTooltip:Show()
@@ -358,6 +369,7 @@ local function paintRow(row, data)
         button.icon:SetTexture(itemIconTexture(item.id))
         button.icon:SetDesaturated(item.needsSwitch and true or false)
         button.blocked:SetShown(item.needsSwitch and true or false)
+        button.won:SetShown(LootWishlist.BonusRollOdds.HasWon(item.id, data.encounterID, data.instanceID))
         button:Show()
         shown = index
         if item.needsSwitch then marked = marked + 1 end
@@ -827,6 +839,7 @@ local function gatherDungeonRows(giveUp, ignoreGates)
     local row = mergeDungeonRow(buildBossRows(available, nil, true), instanceName,
         instanceIcon(instanceID), odds)
     if not (row and worthShowing(row)) then return { rows = {} }, true end
+    row.instanceID = instanceID
     return { rows = { row } }, true
 end
 

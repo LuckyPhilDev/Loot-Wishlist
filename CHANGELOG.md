@@ -2,6 +2,7 @@
 
 ### Improved
 - **Upcoming loot** The Loot still to come reminder goes by a shorter name.
+- **Bonus roll wins on Upcoming loot** An item a bonus roll already gave you is ticked on its row, and hovering it says so.
 
 ### Fixed
 - Bonus roll odds on the Bonus Roll popup and the Upcoming loot reminder count only the loot each of your specs can be given, and keep items you marked obtained in the count.
