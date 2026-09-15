@@ -267,6 +267,14 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         askGroupLine     = "- %s (%s): %s",
     },
 
+    summary = {
+        buttonClick = "Click: Show or hide the summary",
+        buttonDrag  = "Right-click and drag: Move button",
+        modeButton  = "Folded into a button",
+        modeWindow  = "Always open",
+        modeHidden  = "Hidden",
+    },
+
     reminders = {
         upcomingTitle  = "Upcoming loot",
         markedOne      = "The marked item needs %s",
@@ -317,14 +325,16 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         raidTokenOddsDifficultiesDesc = "Limit which raid difficulties open the window. Whatever you leave unticked, /wishlist tokens still opens it there.",
         raidTokenOddsNote  = "Still being built, so it will keep changing. Say what you want from it on the Discord: https://discord.gg/ptTtYyAjdZ",
 
-        hideSummary        = "Hide the summary window",
-        hideSummaryDesc    = "The summary window is the small note listing what you track, grouped by dungeon and boss. Ticking this keeps it off the screen without changing your wishlist.",
+        summaryMode        = "Summary window",
+        summaryModeDesc    = "The summary window is the small note listing what you track, grouped by dungeon and boss. Folded into a button tucks it behind a button you click to show or hide it. Always open keeps it on screen, and Hidden keeps it off the screen without changing your wishlist.",
         hideSummaryCombat  = "Hide the summary in combat and Mythic+",
         hideSummaryCombatDesc = "The summary window disappears while you are in combat or inside a Mythic+ run, then comes back when you leave.",
         summaryOrder       = "Order bosses by",
         summaryOrderDesc   = "Journal order lists bosses the way the raid runs. Most items first puts the boss you track the most items on at the top, and does the same for dungeons and raids. The wishlist window follows the same order.",
         summaryOpacity     = "Summary opacity when not hovered",
         summaryOpacityDesc = "How solid the summary window looks while your mouse is away from it. At 0% it vanishes, and reappears when you hover where it sits.",
+        summaryButtonOpacity     = "Button opacity when not hovered",
+        summaryButtonOpacityDesc = "How solid the summary button looks while your mouse is away from it. At 0% it vanishes, and reappears when you hover where it sits.",
 
         dropSection        = "When a wishlist item drops",
         dropSound          = "Play a sound on a drop",

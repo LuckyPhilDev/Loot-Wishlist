@@ -237,12 +237,15 @@ local function buildWishlist(g)
 end
 
 local function buildSummary(g)
-  g:Toggle({
-    label    = S.hideSummary,
-    desc     = S.hideSummaryDesc,
-    checked  = function() return isOff("hideSummaryWindow") end,
-    onToggle = function(checked)
-      write("hideSummaryWindow", checked)
+  g:Select({
+    label    = S.summaryMode,
+    desc     = S.summaryModeDesc,
+    since    = "1.19.3",
+    newLine  = true,
+    options  = LootWishlist.Const.SUMMARY_MODES,
+    value    = function() return read("summaryMode", "button") end,
+    onSelect = function(mode)
+      write("summaryMode", mode)
       refreshSummary()
     end,
   })
@@ -261,6 +264,7 @@ local function buildSummary(g)
     label    = S.summaryOrder,
     desc     = S.summaryOrderDesc,
     since    = "1.16.0",
+    newLine  = true,
     options  = LootWishlist.Const.WISHLIST_ORDERS,
     value    = function() return LootWishlist.Layout.Order() end,
     onSelect = function(key) LootWishlist.Layout.SetOrder(key) end,
@@ -276,6 +280,21 @@ local function buildSummary(g)
     value     = function() return math.floor(read("summaryUnhoveredAlpha", 1) * 100 + 0.5) end,
     onChanged = function(value)
       write("summaryUnhoveredAlpha", value / 100)
+      refreshSummary()
+    end,
+  })
+
+  g:Slider({
+    label     = S.summaryButtonOpacity,
+    desc      = S.summaryButtonOpacityDesc,
+    since     = "1.19.3",
+    min       = 0,
+    max       = 100,
+    step      = 5,
+    suffix    = "%",
+    value     = function() return math.floor(read("summaryButtonUnhoveredAlpha", 1) * 100 + 0.5) end,
+    onChanged = function(value)
+      write("summaryButtonUnhoveredAlpha", value / 100)
       refreshSummary()
     end,
   })

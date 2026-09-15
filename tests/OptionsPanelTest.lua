@@ -53,6 +53,7 @@ local function newFrame(kind, parent)
   elseif kind == "DropdownButton" then
     frame.SetupMenu = function(self, fn) self.menu = fn end
     frame.SetDefaultText = function(self, text) self.text = text end
+    frame.Text = newText()
   elseif kind == "CheckButton" then
     frame.checked = false
     frame.SetChecked = function(self, v) self.checked = v and true or false end
@@ -151,9 +152,10 @@ local defaults = {
   addHigherDifficulties = true,
   enableVaultOverlay = true,
   enableTooltipStatus = true,
-  hideSummaryWindow = false,
+  summaryMode = "button",
   hideSummaryInCombatAndMythicPlus = true,
   summaryUnhoveredAlpha = 1.0,
+  summaryButtonUnhoveredAlpha = 1.0,
   enableDropSound = true,
   enableRaidRollAlert = true,
   enableBonusRollReminders = true,
@@ -224,8 +226,8 @@ check(settings.addHigherDifficulties == false, "unchecking writes false")
 clickToggle("Also track higher difficulties", true)
 check(settings.addHigherDifficulties == true, "checking writes true")
 
-clickToggle("Hide the summary window", true)
-check(settings.hideSummaryWindow == true, "a default-off toggle writes true when checked")
+clickToggle("Hide obtained items", true)
+check(settings.hideObtained == true, "a default-off toggle writes true when checked")
 
 clickToggle("Wishlist status on item tooltips", false)
 check(settings.enableTooltipStatus == false, "the tooltip toggle writes the key the tooltip hook reads")
@@ -241,6 +243,18 @@ check(settings.bossKillReminderDelay == 20, "the delay slider writes seconds")
 
 findRow("Summary opacity when not hovered").slider:SetValue(50)
 check(settings.summaryUnhoveredAlpha == 0.5, "the opacity slider writes a fraction")
+
+findRow("Button opacity when not hovered").slider:SetValue(30)
+check(settings.summaryButtonUnhoveredAlpha == 0.3, "so does the summary button's")
+
+-------------------------------------------------------------------------------
+-- The summary window is one choice between the button, the window and hidden.
+-------------------------------------------------------------------------------
+check(findRow("Summary window").dropdown.text == "Folded into a button",
+  "the summary opens folded into a button by default")
+
+pickOption("Summary window", 3)
+check(settings.summaryMode == "hidden", "picking Hidden writes the key the summary reads")
 
 -------------------------------------------------------------------------------
 -- The minimap click rows pick from the shared action list.

@@ -160,6 +160,12 @@ LootWishlist.Const.WISHLIST_ORDERS = {
   { key = "count",   label = S.wishlist.orderCount },
 }
 
+LootWishlist.Const.SUMMARY_MODES = {
+  { key = "button", label = S.summary.modeButton },
+  { key = "window", label = S.summary.modeWindow },
+  { key = "hidden", label = S.summary.modeHidden },
+}
+
 LootWishlist.Const.MINIMAP_CLICK_ACTIONS = {
   { key = "both",     label = S.minimap.actionBoth },
   { key = "wishlist", label = S.minimap.actionWishlist },

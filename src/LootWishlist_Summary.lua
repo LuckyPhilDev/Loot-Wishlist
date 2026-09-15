@@ -5,37 +5,84 @@ LootWishlist = LootWishlist or {}
 LootWishlist.Summary = LootWishlist.Summary or {}
 
 local Summary = LootWishlist.Summary
-local frame, textFS
+local frame, textFS, button
 local isDragging = false
+local unfurled = false
+local refresh
 
 local UI = LuckyUI
 local C  = UI.C
+local S  = LootWishlist.Strings.summary
+
+local BUTTON_SIZE = 36
+local BUTTON_GAP = 4
+
+local function settings()
+  return LootWishlistDB and LootWishlistDB.settings
+end
+
+local function mode()
+  local s = settings()
+  return s and s.summaryMode or "button"
+end
+
+local function unhoveredAlpha(key)
+  local s = settings()
+  return s and s[key] or 1.0
+end
+
+local function fadeUnlessHovered(f, key)
+  f:SetAlpha(f:IsMouseOver() and 1.0 or unhoveredAlpha(key))
+end
+
+local function savePosition(f, key)
+  local p, rel, rp, x, y = f:GetPoint(1)
+  if LootWishlistCharDB and p then
+    LootWishlistCharDB[key] = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
+  end
+end
+
+local function restorePosition(f, saved)
+  f:ClearAllPoints()
+  if saved and saved.point then
+    f:SetPoint(saved.point, saved.relative and _G[saved.relative] or UIParent, saved.relativePoint or saved.point, saved.x or 0, saved.y or 0)
+  else
+    f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -300, -220)
+  end
+end
+
+local function charDB()
+  return LootWishlistCharDB or {}
+end
+
+-- The summary hangs off the button while it is one, so dragging the summary
+-- has to move the button instead of pulling the two apart.
+local function mover()
+  if mode() == "button" then return button, "summaryButton" end
+  return frame, "summaryWindow"
+end
 
 local function ensureFrame()
   if frame then return frame end
   frame = CreateFrame("Frame", "LootWishlistSummary", UIParent, "BackdropTemplate")
   frame:SetSize(320, 120)
-  frame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -300, -220)
   frame:SetFrameStrata("MEDIUM")
   frame:SetClampedToScreen(true)
   frame:EnableMouse(true)
   frame:SetMovable(true)
   frame:RegisterForDrag("LeftButton")
-  frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
-  frame:SetScript("OnDragStop", function(self)
-    self:StopMovingOrSizing()
-    if LootWishlistCharDB and self:GetPoint(1) then
-      local p, rel, rp, x, y = self:GetPoint(1)
-      LootWishlistCharDB.summaryWindow = {point=p, relative=rel and rel:GetName(), relativePoint=rp, x=x, y=y}
-    end
+  frame:SetScript("OnDragStart", function() mover():StartMoving() end)
+  frame:SetScript("OnDragStop", function()
+    local f, key = mover()
+    f:StopMovingOrSizing()
+    savePosition(f, key)
+    refresh()
   end)
 
-  -- LuckyUI backdrop: dark bg with gold-muted border (subtle for sticky note)
   frame:SetBackdrop(UI.Backdrop)
   frame:SetBackdropColor(C.bgDark[1], C.bgDark[2], C.bgDark[3], 0.80)
   frame:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3], 0.6)
 
-  -- Text content
   textFS = frame:CreateFontString(nil, "OVERLAY")
   textFS:SetFont(UI.BODY_FONT, 11)
   textFS:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
@@ -45,37 +92,78 @@ local function ensureFrame()
   textFS:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
   textFS:SetText("")
 
-  -- Click anywhere to open full list
-  frame:SetScript("OnMouseUp", function(self, button)
-    if button == "LeftButton" and not isDragging then
+  frame:SetScript("OnMouseUp", function(_, mouseButton)
+    if mouseButton == "LeftButton" and not isDragging then
       if LootWishlist.UI and LootWishlist.UI.open then LootWishlist.UI.open() end
     end
   end)
   frame:HookScript("OnDragStart", function() isDragging = true end)
   frame:HookScript("OnDragStop", function() isDragging = false end)
 
-  -- Hover: brighten border, restore full alpha
   frame:SetScript("OnEnter", function(self)
     self:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 0.8)
     self:SetAlpha(1.0)
   end)
   frame:SetScript("OnLeave", function(self)
     self:SetBackdropBorderColor(C.goldMuted[1], C.goldMuted[2], C.goldMuted[3], 0.6)
-    local settings = LootWishlistDB and LootWishlistDB.settings
-    local a = settings and settings.summaryUnhoveredAlpha
-    if a == nil then a = 1.0 end
-    self:SetAlpha(a)
+    self:SetAlpha(unhoveredAlpha("summaryUnhoveredAlpha"))
   end)
 
-  -- Restore position if saved
-  local w = LootWishlistCharDB and LootWishlistCharDB.summaryWindow
-  if w and w.point then
-    frame:ClearAllPoints()
-    frame:SetPoint(w.point, w.relative and _G[w.relative] or UIParent, w.relativePoint or w.point, w.x or 0, w.y or 0)
-  end
-
+  restorePosition(frame, charDB().summaryWindow)
   frame:Hide()
   return frame
+end
+
+local function ensureButton()
+  if button then return button end
+  button = UI.CreateIconButton(UIParent, {
+    icon    = LuckyMedia("promo-loot-wishlist.tga"),
+    size    = BUTTON_SIZE,
+    color   = { 1, 1, 1 },
+    tooltip = function(tt)
+      tt:AddLine(LootWishlist.Strings.addon.title, C.goldPrimary[1], C.goldPrimary[2], C.goldPrimary[3])
+      tt:AddLine(S.buttonClick, C.textLight[1], C.textLight[2], C.textLight[3])
+      tt:AddLine(S.buttonDrag, C.textMuted[1], C.textMuted[2], C.textMuted[3])
+    end,
+  })
+  button:SetFrameStrata("MEDIUM")
+  button:SetClampedToScreen(true)
+  button:SetMovable(true)
+  -- A button's drag only starts once the cursor leaves it, so the press itself picks it up.
+  button:SetScript("OnMouseDown", function(self, mouseButton)
+    if mouseButton == "RightButton" then self:StartMoving() end
+  end)
+  button:SetScript("OnMouseUp", function(self, mouseButton)
+    if mouseButton ~= "RightButton" then return end
+    self:StopMovingOrSizing()
+    savePosition(self, "summaryButton")
+    refresh()
+  end)
+  button:SetScript("OnClick", function()
+    unfurled = not unfurled
+    refresh()
+  end)
+  button:HookScript("OnEnter", function(self) self:SetAlpha(1.0) end)
+  button:HookScript("OnLeave", function(self) self:SetAlpha(unhoveredAlpha("summaryButtonUnhoveredAlpha")) end)
+
+  -- A first button takes the spot the summary window was left in.
+  restorePosition(button, charDB().summaryButton or charDB().summaryWindow)
+  button:Hide()
+  return button
+end
+
+-- Opens toward the middle of the screen, so a button parked by an edge never
+-- pushes the summary off it.
+local function anchorToButton()
+  local x, y = button:GetCenter()
+  local below = y > UIParent:GetHeight() / 2
+  local side = x > UIParent:GetWidth() / 2 and "RIGHT" or "LEFT"
+  frame:ClearAllPoints()
+  if below then
+    frame:SetPoint("TOP" .. side, button, "BOTTOM" .. side, 0, -BUTTON_GAP)
+  else
+    frame:SetPoint("BOTTOM" .. side, button, "TOP" .. side, 0, BUTTON_GAP)
+  end
 end
 
 local function joinTags(set)
@@ -117,8 +205,8 @@ local function buildSummaryLines()
 end
 
 local function shouldAutoHide()
-  local settings = LootWishlistDB and LootWishlistDB.settings
-  if not settings or settings.hideSummaryInCombatAndMythicPlus == false then return false end
+  local s = settings()
+  if not s or s.hideSummaryInCombatAndMythicPlus == false then return false end
   if InCombatLockdown() then return true end
   if C_ChallengeMode and C_ChallengeMode.IsChallengeModeActive and C_ChallengeMode.IsChallengeModeActive() then
     return true
@@ -126,28 +214,36 @@ local function shouldAutoHide()
   return false
 end
 
-local function refresh()
-  local f = ensureFrame()
-  local settings = LootWishlistDB and LootWishlistDB.settings
-  if settings and settings.hideSummaryWindow then f:Hide(); return end
-  if shouldAutoHide() then f:Hide(); return end
+local function hideAll()
+  frame:Hide()
+  button:Hide()
+end
+
+function refresh()
+  local f, b = ensureFrame(), ensureButton()
+  if mode() == "hidden" or shouldAutoHide() then hideAll(); return end
   local lines = buildSummaryLines()
-  if not next(lines) then f:Hide(); return end
-  local content = table.concat(lines, "\n")
-  textFS:SetText(content)
+  if not next(lines) then hideAll(); return end
+
+  local asButton = mode() == "button"
+  b:SetShown(asButton)
+  fadeUnlessHovered(b, "summaryButtonUnhoveredAlpha")
+  if asButton and not unfurled then f:Hide(); return end
+
+  textFS:SetText(table.concat(lines, "\n"))
   local width = 300
   if textFS.GetStringWidth then width = math.max(200, math.min(300, textFS:GetStringWidth() + 24)) end
   frame:SetWidth(width)
   local height = 30 + (textFS.GetStringHeight and textFS:GetStringHeight() or 60)
   frame:SetHeight(height)
-  -- Apply unhovered alpha (unless mouse is currently over the frame)
-  local a = settings and settings.summaryUnhoveredAlpha
-  if a == nil then a = 1.0 end
-  if frame:IsMouseOver() then
-    frame:SetAlpha(1.0)
-  else
-    frame:SetAlpha(a)
+
+  if asButton then
+    anchorToButton()
+  elseif select(2, f:GetPoint(1)) == b then
+    restorePosition(f, charDB().summaryWindow)
   end
+
+  fadeUnlessHovered(f, "summaryUnhoveredAlpha")
   f:Show()
 end
 
@@ -169,7 +265,6 @@ function Summary.showIfNeeded()
   scheduleRefresh()
 end
 
--- Auto-hide on combat / Mythic+ transitions
 local autoHideWatcher = CreateFrame("Frame")
 autoHideWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")
 autoHideWatcher:RegisterEvent("PLAYER_REGEN_ENABLED")

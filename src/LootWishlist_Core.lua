@@ -111,10 +111,14 @@ local function InitializeDB()
   -- Account-wide toggle default
   if acctS.enableRaidRollAlert == nil then acctS.enableRaidRollAlert = true end
   if acctS.enableDropSound == nil then acctS.enableDropSound = true end
-  if acctS.hideSummaryWindow == nil then acctS.hideSummaryWindow = false end
+  if acctS.summaryMode == nil then
+    acctS.summaryMode = acctS.hideSummaryWindow and "hidden" or "button"
+  end
+  acctS.hideSummaryWindow = nil
   if acctS.hideSummaryInCombatAndMythicPlus == nil then acctS.hideSummaryInCombatAndMythicPlus = true end
   if acctS.bossKillReminderDelay == nil then acctS.bossKillReminderDelay = 10 end
   if acctS.summaryUnhoveredAlpha == nil then acctS.summaryUnhoveredAlpha = 1.0 end
+  if acctS.summaryButtonUnhoveredAlpha == nil then acctS.summaryButtonUnhoveredAlpha = 1.0 end
   if acctS.addHigherDifficulties == nil then acctS.addHigherDifficulties = true end
   if acctS.enableVaultOverlay == nil then acctS.enableVaultOverlay = true end
   if acctS.enableTooltipStatus == nil then acctS.enableTooltipStatus = true end
