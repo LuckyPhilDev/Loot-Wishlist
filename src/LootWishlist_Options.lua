@@ -240,7 +240,7 @@ local function buildSummary(g)
   g:Select({
     label    = S.summaryMode,
     desc     = S.summaryModeDesc,
-    since    = "1.19.3",
+    since    = "1.20.0",
     newLine  = true,
     options  = LootWishlist.Const.SUMMARY_MODES,
     value    = function() return read("summaryMode", "button") end,
@@ -287,7 +287,7 @@ local function buildSummary(g)
   g:Slider({
     label     = S.summaryButtonOpacity,
     desc      = S.summaryButtonOpacityDesc,
-    since     = "1.19.3",
+    since     = "1.20.0",
     min       = 0,
     max       = 100,
     step      = 5,

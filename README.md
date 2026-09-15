@@ -47,7 +47,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
 - **Search and filters** — a search box at the top of the wishlist window narrows the list by item, boss or instance, and the funnel icon beside it filters to one gear slot
 - **Collapsible headings** — click an instance or boss heading on the wishlist to fold everything under it away; folds are remembered between sessions, and a search shows every match whether its heading is folded or not
 - **Boss order** — the layers icon on the wishlist window orders bosses the way the Adventure Guide lists them or by most wishlist items first; the summary window follows the same order
-- **Sticky summary window** — a compact, draggable overview of dungeons and raid bosses with remaining wishlist items; click to open the full list; position is remembered between sessions
+- **Summary window**: a compact overview of dungeons and raid bosses with remaining wishlist items, folded into a small draggable button by default; click the button to show or hide it, or click the summary to open the full list
 - **Custom message templates** — configure Whisper and Party messages with `%item%` and `%looter%` placeholders
 - **Multiple difficulty support** — track items across Normal, Heroic, Mythic, and LFR
 - **Bonus roll targets** — mark any wishlist item as a bonus roll chase with the "BR" button in the Encounter Journal or on a wishlist row; a popup reminds you to spend Nebulous Voidcore charges after a Mythic+ 10+ run or a Heroic/Mythic raid boss kill when a flagged item could drop
@@ -104,8 +104,8 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 
 - Toggle the minimap button, which can also sit on a panel addon such as Titan Panel instead
 - Choose what a plain, Ctrl- and Shift-click on the minimap button opens: both windows, the wishlist, or the Loot Browser
-- Toggle the sticky summary window
-- Adjust summary window opacity when your mouse isn't hovering over it
+- Choose whether the summary window is folded into a button, always open, or hidden
+- Adjust summary window and summary button opacity when your mouse isn't hovering over them
 - Order bosses by Adventure Guide order or by most wishlist items first, in the summary and wishlist windows alike
 - Toggle automatic multi-difficulty tracking (on by default)
 - Toggle Great Vault highlights (on by default)
