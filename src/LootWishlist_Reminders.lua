@@ -665,11 +665,13 @@ local function bossList(ejInstanceID)
     return bosses
 end
 
+-- An expired lockout stays in the saved list with its kills intact, so the
+-- locked flag is what separates this week's progress from last week's.
 local function killedFromLockout(bosses, instanceName, difficultyID)
     local killedNames = {}
     for savedIndex = 1, GetNumSavedInstances() do
-        local savedName, _, _, savedDifficulty = GetSavedInstanceInfo(savedIndex)
-        if savedName == instanceName and savedDifficulty == difficultyID then
+        local savedName, _, _, savedDifficulty, locked, extended = GetSavedInstanceInfo(savedIndex)
+        if (locked or extended) and savedName == instanceName and savedDifficulty == difficultyID then
             for encounterIndex = 1, 20 do
                 local bossName, _, killed = GetSavedInstanceEncounterInfo(savedIndex, encounterIndex)
                 if not bossName then break end

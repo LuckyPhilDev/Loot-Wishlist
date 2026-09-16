@@ -1,3 +1,8 @@
+## [Unreleased]
+
+### Fixed
+- The Upcoming loot window no longer counts an expired raid lockout as this week's kills, so zoning in offers the first boss rather than the last one you had left.
+
 ## [1.20.0] - 2026-09-15
 
 ### Added
