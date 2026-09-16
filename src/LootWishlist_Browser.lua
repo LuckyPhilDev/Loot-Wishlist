@@ -1589,6 +1589,11 @@ local function updateLootRow(row, r)
   if lead then subParts[#subParts + 1] = lead end
   if trail then subParts[#subParts + 1] = WC.textMuted .. trail .. WC.reset end
   if it.veryRare then subParts[#subParts + 1] = WC.purple .. S.veryRare .. WC.reset end
+  -- A roll never hands over the same drop twice, so a win is worth seeing while
+  -- you are still deciding what to chase.
+  if LootWishlist.BonusRollOdds.HasWon(it.itemID, it.encounterID, r.instance and r.instance.id) then
+    subParts[#subParts + 1] = WC.goldAccent .. S.wonFromRoll .. WC.reset
+  end
   if #subParts > 0 then
     row.sub:SetText(table.concat(subParts, DOT))
     row.sub:Show()

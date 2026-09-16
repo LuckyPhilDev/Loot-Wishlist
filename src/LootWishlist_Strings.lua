@@ -116,6 +116,7 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         addToWishlist     = "Add to wishlist",
         removeFromWishlist = "Remove from wishlist",
         veryRare          = "Very Rare",
+        wonFromRoll       = "Won from a bonus roll",
         bySlot            = "By Slot",
         bySource          = "By Source",
         allSlots          = "All Slots",
