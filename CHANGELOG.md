@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Added
+- **Bonus roll marker** Items you have marked for a bonus roll carry a dice icon in the Upcoming loot window, so the odds on each boss line read against the drops you actually mean to spend a charge on.
+
 ### Fixed
 - The Upcoming loot window no longer counts an expired raid lockout as this week's kills, so zoning in offers the first boss rather than the last one you had left.
 

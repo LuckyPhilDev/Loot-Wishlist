@@ -279,6 +279,16 @@ local function itemButton(row, index)
     button.won:SetSize(ITEM_ICON * 0.5, ITEM_ICON * 0.5)
     button.won:SetPoint("BOTTOMRIGHT", 2, -2)
     button.won:Hide()
+
+    -- Which of these you are saving a charge for, so the odds above the row are
+    -- read against the items you actually mean to spend it on.
+    button.roll = button:CreateTexture(nil, "OVERLAY", nil, 1)
+    button.roll:SetTexture(LuckyIcon("dice"))
+    button.roll:SetVertexColor(LuckyUI.C.goldPrimary[1], LuckyUI.C.goldPrimary[2], LuckyUI.C.goldPrimary[3])
+    button.roll:SetSize(ITEM_ICON * 0.5, ITEM_ICON * 0.5)
+    button.roll:SetPoint("BOTTOMLEFT", -2, -2)
+    button.roll:Hide()
+
     button:SetScript("OnEnter", function(self)
         if not self.link then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -289,6 +299,10 @@ local function itemButton(row, index)
         end
         if self.won:IsShown() then
             GameTooltip:AddLine(S.wonFromRoll,
+                LuckyUI.C.goldPrimary[1], LuckyUI.C.goldPrimary[2], LuckyUI.C.goldPrimary[3])
+        end
+        if self.roll:IsShown() then
+            GameTooltip:AddLine(S.chasingRoll,
                 LuckyUI.C.goldPrimary[1], LuckyUI.C.goldPrimary[2], LuckyUI.C.goldPrimary[3])
         end
         GameTooltip:Show()
@@ -370,6 +384,7 @@ local function paintRow(row, data)
         button.icon:SetDesaturated(item.needsSwitch and true or false)
         button.blocked:SetShown(item.needsSwitch and true or false)
         button.won:SetShown(LootWishlist.BonusRollOdds.HasWon(item.id, data.encounterID, data.instanceID))
+        button.roll:SetShown(LootWishlist.BonusRoll.IsFlagged(item.id))
         button:Show()
         shown = index
         if item.needsSwitch then marked = marked + 1 end
