@@ -38,14 +38,20 @@ function Odds.GetSpent(encounterID, instanceID)
   return (key and spends()[key]) or 0
 end
 
+-- Backfill writes through here too, so a count typed into the browser and one
+-- counted from live rolls are the same record.
+function Odds.SetSpent(encounterID, instanceID, count)
+  local key = spendKey(encounterID, instanceID)
+  if not key then return end
+  count = math.max(0, math.floor(tonumber(count) or 0))
+  spends()[key] = count > 0 and count or nil
+  DevLog("spend set", tostring(key), count)
+end
+
 -- ponytail: counts the click, not the currency, so a roll the server refuses
 -- still counts. Watch the currency instead if that turns out to happen.
 function Odds.RecordSpend(encounterID, instanceID)
-  local key = spendKey(encounterID, instanceID)
-  if not key then return end
-  local t = spends()
-  t[key] = (t[key] or 0) + 1
-  DevLog("spend recorded", tostring(key), t[key])
+  Odds.SetSpent(encounterID, instanceID, Odds.GetSpent(encounterID, instanceID) + 1)
 end
 
 ------------------------------------------------------------------------
@@ -74,13 +80,17 @@ end
 -- alongside if that starts to matter. Deliberately does not mark the wishlist
 -- entry obtained: that clears every difficulty variant, which is the player's
 -- call to make in the window, not a roll's.
-function Odds.RecordWin(itemID, encounterID, instanceID)
+function Odds.SetWon(itemID, encounterID, instanceID, won)
   local key = spendKey(encounterID, instanceID)
   if not (key and type(itemID) == "number") then return end
   local bucket = wins()[key] or {}
-  bucket[itemID] = true
-  wins()[key] = bucket
-  DevLog("win recorded", tostring(key), itemID)
+  bucket[itemID] = won and true or nil
+  wins()[key] = next(bucket) and bucket or nil
+  DevLog("win set", tostring(key), itemID, tostring(won))
+end
+
+function Odds.RecordWin(itemID, encounterID, instanceID)
+  Odds.SetWon(itemID, encounterID, instanceID, true)
 end
 
 -- A roll never hands over what an earlier roll gave you, so a win leaves the

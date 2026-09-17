@@ -52,14 +52,16 @@ local TRACK_TIPS = {
 ------------------------------------------------------------------------
 -- Module state
 ------------------------------------------------------------------------
-local frame, sidebarList, lootList, searchBox, statusLabel, filterBtn
+local frame, sidebarList, lootList, searchBox, statusLabel, filterBtn, historyBtn
 local trackButtons = {}
 local season                 -- { dungeons = {..}, raids = {..} }
 local lootCache = {}         -- [cacheKey(...)] = { items = {..}, diffID = scanned }
 local bossNames = {}         -- encounterID -> name (false = lookup failed)
 -- classID/specID drive the EJ loot filter; specID 0 = all specs. A class other
 -- than the player's is browse-only: rows lose their add controls.
-local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceName = nil, isRaid = nil, search = "", slot = nil, group = "source", classID = nil, specID = 0, stats = {}, statMode = "only" }
+-- history is a mode rather than a preference, so it is never persisted:
+-- reopening into a browser that cannot add anything reads as broken.
+local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceName = nil, isRaid = nil, search = "", slot = nil, group = "source", classID = nil, specID = 0, stats = {}, statMode = "only", history = false }
 
 local scheduleRefresh        -- forward: defined with the UI, used by the scanner
 
@@ -82,6 +84,20 @@ end
 
 local function browsingOwnClass()
   return state.classID == playerClassID()
+end
+
+-- Filling in your roll history writes against this character, so another
+-- class's loot can no more be ticked than it can be wishlisted.
+local function historyActive()
+  return state.history and browsingOwnClass()
+end
+
+-- A raid roll is on the boss and a dungeon roll on the whole instance, which is
+-- what a live Mythic+ roll records. Backfill uses the same pair so both land in
+-- the same bucket.
+local function rollScope(inst, encounterID)
+  if inst and inst.isRaid then return encounterID, nil end
+  return nil, inst and inst.id or nil
 end
 
 -- Restore persisted browse state. The class always opens as the player's
@@ -1111,11 +1127,14 @@ local function buildRows()
   -- A slot filter leaves one or two items per instance, so headers would take
   -- as many rows as the loot; the item sub line already names boss and
   -- instance, so the headers go.
-  local hideHeaders = state.slot ~= nil
+  -- Roll history is filled in per boss and per dungeon, so it keeps the source
+  -- layout whatever the filters would otherwise do to the headings.
+  local history = historyActive()
+  local hideHeaders = state.slot ~= nil and not history
   -- Slot grouping replaces the instance/boss sections with one section per
   -- gear slot in paperdoll order. A slot filter already flattens the list to
   -- one slot, so the filtered view keeps the source layout.
-  local slotGrouping = state.group == "slot" and not hideHeaders
+  local slotGrouping = state.group == "slot" and not hideHeaders and not history
   -- A filtered view shows every match wherever it sits, so folds only hide
   -- their rows while the list is unfiltered.
   local folds = not filtering
@@ -1198,7 +1217,10 @@ local function buildRows()
           local name = (encID ~= -1 and bossName(encID)) or S.unknownBoss
           local key = inst.name .. "::" .. name
           local folded = shut(key)
-          section[#section + 1] = { kind = "boss", name = name, key = key, collapsed = folded }
+          section[#section + 1] = {
+            kind = "boss", name = name, key = key, collapsed = folded,
+            instance = inst, encounterID = encID ~= -1 and encID or nil,
+          }
           for _, it in ipairs(buckets[encID]) do addItem(it, folded) end
         end
       else
@@ -1215,7 +1237,7 @@ local function buildRows()
     elseif #section > 0 and (any or not filtering or not cache) then
       if not hideHeaders then
         rows[#rows + 1] = { kind = "instance", name = inst.name, isRaid = inst.isRaid,
-                            key = inst.name, collapsed = instFolded }
+                            key = inst.name, collapsed = instFolded, instance = inst }
       end
       if not instFolded then
         for _, r in ipairs(section) do rows[#rows + 1] = r end
@@ -1238,16 +1260,51 @@ local function buildRows()
   if #rows == 0 then
     rows[#rows + 1] = { kind = "note", text = S.noMatches }
   end
+  -- Prepended rather than built in, so an empty list still reads as empty.
+  if history then table.insert(rows, 1, { kind = "note", text = S.historyHint }) end
   return rows, shown, onList, readAt
 end
 
 ------------------------------------------------------------------------
 -- Actions
 ------------------------------------------------------------------------
+-- Roll history: whether a roll on this row's boss already handed the item over,
+-- and the click that says it did.
+local function rowWon(r)
+  local encounterID, instanceID = rollScope(r.instance, r.item.encounterID)
+  return LootWishlist.BonusRollOdds.HasWon(r.item.itemID, encounterID, instanceID)
+end
+
+local function toggleWon(r)
+  if r.viewOnly then return end
+  local encounterID, instanceID = rollScope(r.instance, r.item.encounterID)
+  LootWishlist.BonusRollOdds.SetWon(r.item.itemID, encounterID, instanceID, not rowWon(r))
+  scheduleRefresh()
+end
+
+-- Raid charges are spent on a boss and dungeon charges on the whole instance,
+-- so the heading that carries the stepper is whichever of the two the key is.
+local function ownsSpends(r)
+  if not (historyActive() and r.instance) then return false end
+  if r.kind == "boss" then return r.instance.isRaid and r.encounterID ~= nil end
+  return r.kind == "instance" and not r.instance.isRaid
+end
+
+LootWishlist.Browser.rollScope = rollScope
+LootWishlist.Browser.ownsSpends = ownsSpends
+
+local function bumpSpent(r, delta)
+  local encounterID, instanceID = rollScope(r.instance, r.encounterID)
+  local Odds = LootWishlist.BonusRollOdds
+  Odds.SetSpent(encounterID, instanceID, Odds.GetSpent(encounterID, instanceID) + delta)
+  scheduleRefresh()
+end
+
 local function toggleRow(r)
   -- Another class's loot is browse-only: this character could never loot it,
   -- so a wishlist entry would only produce reminders that cannot pay off.
   if r.viewOnly then return end
+  if historyActive() then return toggleWon(r) end
   local it = r.item
   if isTracked(it.itemID) then
     LootWishlist.RemoveTrackedItem(it.itemID)
@@ -1325,6 +1382,12 @@ local function paintFilterIcon()
   filterBtn:SetIconColor(c[1], c[2], c[3])
 end
 
+local function paintHistoryIcon()
+  if not historyBtn then return end
+  local c = historyActive() and C.goldPrimary or C.goldMuted
+  historyBtn:SetIconColor(c[1], c[2], c[3])
+end
+
 local STAT_TIPS = { any = S.statsTipAny, all = S.statsTipAll, only = S.statsTipOnly }
 
 -- What the filter icon's tooltip lists: one line per filter that is on.
@@ -1358,6 +1421,7 @@ local function refreshNow()
   lootList:SetData(rows)
   updateStatus(shown, onList, readAt)
   paintFilterIcon()
+  paintHistoryIcon()
 end
 
 do
@@ -1553,6 +1617,53 @@ local function createLootRow(parent)
   row.removeBtn = actionIcon("x", S.removeFromWishlist)
   row.removeBtn:SetIconColor(C.danger[1], C.danger[2], C.danger[3], 0.75)
 
+  -- Roll history. The tick is one button tinted by state rather than the pair
+  -- add and remove use, because both states read as the same word.
+  row.wonBtn = UI.CreateIconButton(row, { icon = "check", size = ICON_SIZE })
+  row.wonBtn:SetPoint("RIGHT", -8, 0)
+  row.wonBtn:SetScript("OnClick", function()
+    if row._r and row._r.kind == "item" then toggleWon(row._r) end
+  end)
+  row.wonBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(self.won and S.historyWon or S.historyNotWon, 1, 1, 1)
+    GameTooltip:Show()
+  end)
+  row.wonBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  row.wonBtn:Hide()
+
+  -- The spend stepper on a heading row. Its count is a font string rather than
+  -- an edit box: every charge was spent one at a time, so the clicks match.
+  -- The shared icons carry no minus, so the pair are labelled buttons.
+  local function stepper(label, tooltip, delta)
+    local btn = UI.CreateButton(row, label, 18, 16, "secondary")
+    btn:SetScript("OnClick", function()
+      if row._r then bumpSpent(row._r, delta) end
+    end)
+    btn:HookScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText(tooltip, 1, 1, 1)
+      GameTooltip:Show()
+    end)
+    btn:HookScript("OnLeave", function() GameTooltip:Hide() end)
+    btn:Hide()
+    return btn
+  end
+  row.spentMore = stepper("+", S.historyMore, 1)
+  row.spentMore:SetPoint("RIGHT", -8, 0)
+
+  row.spentText = row:CreateFontString(nil, "OVERLAY")
+  row.spentText:SetFont(UI.BODY_FONT, 11)
+  row.spentText:SetTextColor(C.textLight[1], C.textLight[2], C.textLight[3])
+  row.spentText:SetPoint("RIGHT", row.spentMore, "LEFT", -6, 0)
+  -- Fixed width, so the minus does not shift sideways between one roll and ten.
+  row.spentText:SetWidth(52)
+  row.spentText:SetJustifyH("CENTER")
+  row.spentText:Hide()
+
+  row.spentFewer = stepper("-", S.historyFewer, -1)
+  row.spentFewer:SetPoint("RIGHT", row.spentText, "LEFT", -6, 0)
+
   row:SetScript("OnEnter", function(self)
     if self._link then
       LootWishlist.ApplyWardrobePreviewFlag(self)
@@ -1596,12 +1707,33 @@ local function updateLootRow(row, r)
   row.right:Hide()
   row.addBtn:Hide()
   row.removeBtn:Hide()
+  row.wonBtn:Hide()
+  row.spentMore:Hide()
+  row.spentFewer:Hide()
+  row.spentText:Hide()
   row.sep:Show()
   row.bg:SetColorTexture(0, 0, 0, 0)
   row._r = r
   row._link = nil
 
   row.hl:SetAlpha((r.kind == "item" or r.key) and 1 or 0)
+
+  if ownsSpends(r) then
+    local encounterID, instanceID = rollScope(r.instance, r.encounterID)
+    local spent = LootWishlist.BonusRollOdds.GetSpent(encounterID, instanceID)
+    row.spentText:SetText((spent == 1 and S.historyRolls or S.historyRollsMany):format(spent))
+    row.spentText:Show()
+    row.spentMore:Show()
+    row.spentFewer:Show()
+    -- Nothing to take away at zero. Left clickable so it keeps its tooltip;
+    -- SetSpent floors at zero anyway.
+    local tone = spent > 0 and C.textLight or C.textMuted
+    row.spentFewer.label:SetTextColor(tone[1], tone[2], tone[3])
+    -- A dungeon name is long enough to run under the stepper otherwise.
+    row.heading:SetPoint("RIGHT", row.spentFewer, "LEFT", -6, 0)
+  else
+    row.heading:SetPoint("RIGHT", -10, 0)
+  end
 
   if r.kind == "instance" then
     row.heading:SetFont(UI.TITLE_FONT, 13, "OUTLINE")
@@ -1713,10 +1845,16 @@ local function updateLootRow(row, r)
     row.sub:Show()
   end
 
-  if not r.viewOnly then
-    local btn = r.tracked and row.removeBtn or row.addBtn
-    btn:Show()
+  if r.viewOnly then return end
+  if historyActive() then
+    local won = rowWon(r)
+    row.wonBtn.won = won
+    row.wonBtn:SetIconColor(unpack(won and C.success or C.textMuted))
+    row.wonBtn:Show()
+    return
   end
+  local btn = r.tracked and row.removeBtn or row.addBtn
+  btn:Show()
 end
 
 -- A pooled, mixed-height scrolling list over rows built by createLootRow.
@@ -2074,6 +2212,28 @@ local function ensureFrame()
     self:GetScript("OnEnter")(self)
   end)
 
+  -- Roll history: the dice the Bonus Roll popup itself uses, so the mode names
+  -- what it is about before the tooltip does. Another class's loot cannot be
+  -- ticked, so browsing one leaves the icon dimmed.
+  historyBtn = toolbarIcon("dice", function(tip)
+    if not browsingOwnClass() then
+      tip:SetText(S.historyOn, 1, 1, 1)
+      tip:AddLine(S.historyOwnClass, 0.8, 0.8, 0.8, true)
+      return
+    end
+    tip:SetText(state.history and S.historyOn or S.historyOff, 1, 1, 1)
+    tip:AddLine(state.history and S.historyToOff or S.historyToOn, 0.8, 0.8, 0.8, true)
+  end)
+  historyBtn:SetPoint("RIGHT", groupBtn, "LEFT", -pad, 0)
+  historyBtn:SetScript("OnClick", function(self)
+    if not browsingOwnClass() then return end
+    state.history = not state.history
+    paintHistoryIcon()
+    refreshNow()
+    self:GetScript("OnEnter")(self)
+  end)
+  paintHistoryIcon()
+
   searchBox = UI.CreateSearchBox(toolbar, {
     height = searchH,
     placeholder = S.searchPlaceholder,
@@ -2085,7 +2245,7 @@ local function ensureFrame()
   })
   searchBox:ClearAllPoints()
   searchBox:SetPoint("BOTTOMLEFT", 4, 4)
-  searchBox:SetPoint("BOTTOMRIGHT", -(pad * 3 + ICON_SIZE * 2), 4)
+  searchBox:SetPoint("BOTTOMRIGHT", -(pad * 4 + ICON_SIZE * 3), 4)
 
   -- Loot list
   lootList = createLootList(frame)
@@ -2144,6 +2304,11 @@ function LootWishlist.Browser.open()
   frame:Raise()
   sidebarList:SetData(buildSidebarRows())
   refreshNow()
+end
+
+function LootWishlist.Browser.openHistory()
+  state.history = true
+  LootWishlist.Browser.open()
 end
 
 function LootWishlist.Browser.hide()
