@@ -6,6 +6,7 @@
 - **Folding headings in the Loot Browser** Click a raid, dungeon, boss or slot heading to fold its loot away, the same as the wishlist window. A folded heading stays folded next time you open the browser, and a search or slot filter shows every match regardless.
 
 ### Fixed
+- Picking All for a class in the Loot Browser's Class and Spec filter no longer lists armour and weapons that class cannot use. (Thanks for the report Tuulani)
 - The Upcoming loot window no longer counts an expired raid lockout as this week's kills, so zoning in offers the first boss rather than the last one you had left.
 
 ## [1.20.0] - 2026-09-15
