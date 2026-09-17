@@ -34,8 +34,9 @@ function EJ_GetInstanceForMap(mapID)
 end
 
 local lockoutKills = {}
+local lockoutLocked = true
 function GetNumSavedInstances() return 1 end
-function GetSavedInstanceInfo() return "The Venomous Abyss", nil, nil, 16 end
+function GetSavedInstanceInfo() return "The Venomous Abyss", nil, nil, 16, lockoutLocked, false end
 function GetSavedInstanceEncounterInfo(_, encounterIndex)
   local boss = BOSSES[encounterIndex]
   if not boss then return nil end
@@ -113,6 +114,14 @@ lockoutKills = { ["Nek'zali the Soulcoiler"] = true, ["Entombed Sentinels"] = tr
 assert(namesOf(Reminders:TestNextBoss(nil, "")) == "The Lost Explorers, Vashnik the Malignant",
   "the bare command reads the raid you are in and your own lockout")
 checks = checks + 1
+
+-- An expired lockout keeps its kills in the saved list, so a fresh week has to
+-- read as a raid nobody has touched rather than one cleared to the last boss.
+lockoutLocked = false
+assert(namesOf(Reminders:TestNextBoss(nil, "")) == "Nek'zali the Soulcoiler",
+  "last week's expired kills do not carry into this week")
+checks = checks + 1
+lockoutLocked = true
 
 -- Run from elsewhere, the odds are read for the raid named, not the zone you stand in.
 local oddsInstance
