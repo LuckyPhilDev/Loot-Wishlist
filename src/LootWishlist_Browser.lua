@@ -10,6 +10,7 @@ LootWishlist.Browser = LootWishlist.Browser or {}
 
 local UI = LuckyUI
 local S = LootWishlist.Strings.browser
+local W = LootWishlist.Strings.wishlist  -- the wishlist's own fold icons
 local C  = UI.C
 local WC = UI.WC
 
@@ -1011,6 +1012,27 @@ local function matchesFilters(it, inst)
   return hay:find(state.search:lower(), 1, true) ~= nil
 end
 
+------------------------------------------------------------------------
+-- Folded headings. A key names an instance, a slot section, or a boss within
+-- an instance, and lives beside the rest of the per-character browse state so
+-- a folded raid is still folded next session.
+------------------------------------------------------------------------
+local function collapsedSet()
+  local db = charDB()
+  db.collapsed = db.collapsed or {}
+  return db.collapsed
+end
+
+local function isCollapsed(key)
+  return collapsedSet()[key] and true or false
+end
+
+local function toggleCollapsed(key)
+  local set = collapsedSet()
+  if set[key] then set[key] = nil else set[key] = true end
+  scheduleRefresh()
+end
+
 local function buildRows()
   local insts = instancesForView()
   if not insts then
@@ -1030,12 +1052,19 @@ local function buildRows()
   -- gear slot in paperdoll order. A slot filter already flattens the list to
   -- one slot, so the filtered view keeps the source layout.
   local slotGrouping = state.group == "slot" and not hideHeaders
+  -- A filtered view shows every match wherever it sits, so folds only hide
+  -- their rows while the list is unfiltered.
+  local folds = not filtering
+  local function shut(key) return folds and isCollapsed(key) end
   local bySlot, slotNotes = {}, {}
   for _, inst in ipairs(insts) do
     local diffID = inst.isRaid and tr.raidDiff or tr.dungeonScanDiff
     local cache = requestLoot(inst.id, inst.isRaid, diffID)
     if cache and cache.diffID and cache.diffID ~= diffID then readAt = cache.diffID end
     local section, any = {}, false
+    -- Only a section that draws its own header can be folded: a slot-filtered
+    -- or slot-grouped view has no instance header to click.
+    local instFolded = (not hideHeaders and not slotGrouping) and shut(inst.name) or false
     if not cache then
       local waiting = journalShown() and S.waitingForJournal or S.loading
       section[#section + 1] = {
@@ -1063,10 +1092,13 @@ local function buildRows()
       -- Dungeon loot on a keystone track is the Mythic table's items rebuilt
       -- at the track's own rank, since the journal has no table of its own.
       local trackIlvl = (not inst.isRaid) and tr.trackIlvl or nil
-      local function addItem(it)
+      -- A folded section still counts towards the status line: the items are
+      -- there, they are just not drawn.
+      local function addItem(it, folded)
         shown = shown + 1
         local on = isTracked(it.itemID)
         if on then onList = onList + 1 end
+        if folded then return end
         local row = {
           kind = "item", item = it, instance = inst,
           -- What the headings above the row already name, so the sub line can
@@ -1099,8 +1131,11 @@ local function buildRows()
           b[#b + 1] = it
         end
         for _, encID in ipairs(order) do
-          section[#section + 1] = { kind = "boss", name = (encID ~= -1 and bossName(encID)) or S.unknownBoss }
-          for _, it in ipairs(buckets[encID]) do addItem(it) end
+          local name = (encID ~= -1 and bossName(encID)) or S.unknownBoss
+          local key = inst.name .. "::" .. name
+          local folded = shut(key)
+          section[#section + 1] = { kind = "boss", name = name, key = key, collapsed = folded }
+          for _, it in ipairs(buckets[encID]) do addItem(it, folded) end
         end
       else
         for _, it in ipairs(matched) do addItem(it) end
@@ -1115,9 +1150,12 @@ local function buildRows()
     -- While filtering, drop instances with no matches entirely.
     elseif #section > 0 and (any or not filtering or not cache) then
       if not hideHeaders then
-        rows[#rows + 1] = { kind = "instance", name = inst.name, isRaid = inst.isRaid }
+        rows[#rows + 1] = { kind = "instance", name = inst.name, isRaid = inst.isRaid,
+                            key = inst.name, collapsed = instFolded }
       end
-      for _, r in ipairs(section) do rows[#rows + 1] = r end
+      if not instFolded then
+        for _, r in ipairs(section) do rows[#rows + 1] = r end
+      end
     end
   end
   if slotGrouping then
@@ -1126,8 +1164,11 @@ local function buildRows()
     for s in pairs(bySlot) do slots[#slots + 1] = s end
     sortSlots(slots)
     for _, s in ipairs(slots) do
-      rows[#rows + 1] = { kind = "instance", name = s }
-      for _, r in ipairs(bySlot[s]) do rows[#rows + 1] = r end
+      local folded = shut(s)
+      rows[#rows + 1] = { kind = "instance", name = s, key = s, collapsed = folded }
+      if not folded then
+        for _, r in ipairs(bySlot[s]) do rows[#rows + 1] = r end
+      end
     end
   end
   if #rows == 0 then
@@ -1467,10 +1508,19 @@ local function createLootRow(parent)
   end)
   row:SetScript("OnLeave", function() GameTooltip:Hide() end)
   row:SetScript("OnMouseUp", function(self)
-    if self._r and self._r.kind == "item" then toggleRow(self._r) end
+    local r = self._r
+    if not r then return end
+    if r.kind == "item" then toggleRow(r)
+    elseif r.key then toggleCollapsed(r.key) end
   end)
 
   return row
+end
+
+-- A heading that can fold carries the same plus/minus the wishlist window uses.
+local function foldIcon(r)
+  if not r.key then return "" end
+  return r.collapsed and W.expandIcon or W.collapseIcon
 end
 
 local function updateLootRow(row, r)
@@ -1487,12 +1537,12 @@ local function updateLootRow(row, r)
   row._r = r
   row._link = nil
 
-  row.hl:SetAlpha(r.kind == "item" and 1 or 0)
+  row.hl:SetAlpha((r.kind == "item" or r.key) and 1 or 0)
 
   if r.kind == "instance" then
     row.heading:SetFont(UI.TITLE_FONT, 13, "OUTLINE")
     local raidTag = r.isRaid and "  |cffff8000[Raid]|r" or ""
-    row.heading:SetText(string.format("|cffffd100%s|r%s", r.name or "", raidTag))
+    row.heading:SetText(string.format("%s|cffffd100%s|r%s", foldIcon(r), r.name or "", raidTag))
     row.heading:Show()
     row.bg:SetColorTexture(C.borderDark[1], C.borderDark[2], C.borderDark[3], 0.6)
     row.sep:SetColorTexture(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3], 0.4)
@@ -1502,7 +1552,7 @@ local function updateLootRow(row, r)
 
   if r.kind == "boss" then
     row.heading:SetFont(UI.TITLE_FONT, 11, "")
-    row.heading:SetText(string.format("  |cffc9a84c%s|r", r.name or ""))
+    row.heading:SetText(string.format("  %s|cffc9a84c%s|r", foldIcon(r), r.name or ""))
     row.heading:Show()
     row.bg:SetColorTexture(C.bgPanel[1], C.bgPanel[2], C.bgPanel[3], 0.5)
     return
