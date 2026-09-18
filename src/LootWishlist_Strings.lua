@@ -153,6 +153,14 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         statVersatility   = "Vers",
     },
 
+    rollHistoryNotice = {
+        title   = "Spent bonus rolls before installing this addon?",
+        body    = "Loot Wishlist only knows the rolls it has seen, so your bonus roll odds may count items you already have. Tick what a roll gave you and count the charges you spent, and the odds are right from your next kill.",
+        later   = "You can do this any time from the dice icon in the Loot Browser, or with /wishlist rolls.",
+        fillIn  = "Fill in my rolls",
+        dismiss = "Don't show again",
+    },
+
     bonusRollBlock = {
         passed     = "Bonus Roll passed. %s",
         locked     = "Bonus Roll locked. %s Click the dice to unlock it.",

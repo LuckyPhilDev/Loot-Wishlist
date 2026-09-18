@@ -2228,6 +2228,9 @@ local function ensureFrame()
   historyBtn:SetScript("OnClick", function(self)
     if not browsingOwnClass() then return end
     state.history = not state.history
+    if state.history and LootWishlist.RollHistoryNotice then
+      LootWishlist.RollHistoryNotice.Acknowledge()
+    end
     paintHistoryIcon()
     refreshNow()
     self:GetScript("OnEnter")(self)
@@ -2304,10 +2307,12 @@ function LootWishlist.Browser.open()
   frame:Raise()
   sidebarList:SetData(buildSidebarRows())
   refreshNow()
+  if LootWishlist.RollHistoryNotice then LootWishlist.RollHistoryNotice.MaybeShow(frame) end
 end
 
 function LootWishlist.Browser.openHistory()
   state.history = true
+  if LootWishlist.RollHistoryNotice then LootWishlist.RollHistoryNotice.Acknowledge() end
   LootWishlist.Browser.open()
 end
 
