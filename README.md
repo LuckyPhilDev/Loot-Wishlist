@@ -14,11 +14,13 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Peek at any other class's loot table, view only, so you can scout for an alt or a friend
   - Pick a gear track (Veteran, Champion, Hero, Myth) and items are tracked at the matching difficulty
   - Group the list by source or by gear slot with the layers icon beside the search box
+  - Click a raid, dungeon, boss or slot heading to fold its loot away; folds are remembered, and a search or slot filter shows every match regardless
   - The funnel icon beside it holds the filters: class and spec, slot, and secondary stats, with a Reset Filters entry at the foot of the menu
   - Filter by slot to see every trinket, weapon, or pair of hands in the pool, with tier tokens under the slot they create
   - Filter by stat, asking for pieces that carry any of the stats you pick, all of them, or only them
   - Search by item name, boss, slot, or armor type
   - Every row names the secondary stats a piece carries, largest first, beside its slot and item level
+  - An item a bonus roll already gave you says so under its name
   - Add or remove wishlist items with one click
 - **Adventure Guide integration** — a "Wishlist" button appears on each loot row in the Encounter Journal; click to track any item across all tiers and difficulties
 - **Manual add** — track any item by ID or item link with `/wishlist add`, handy for items outside the Adventure Guide
@@ -35,6 +37,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Each row carries the boss portrait, its name, and an icon for every wishlist item it drops; hover an icon for the item
   - An item your loot spec cannot be given is greyed and struck through, and the line beside it names the spec those items need
   - An item a bonus roll already gave you is ticked, and hovering it says so
+  - An item you marked as a bonus roll chase carries a dice icon, so the odds on each boss line read against what you mean to spend a charge on
   - Each raid boss row gives your bonus roll chance and what a loot spec switch would make it; a dungeon is a single row, since a keystone charge is spent on the whole instance
   - Changing loot spec while it is up redraws it, and closes it once the switch leaves nothing to say
   - Your specs sit along the bottom, the one you are on ringed; click another to set your loot spec without leaving the reminder
@@ -56,7 +59,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Reopens as people join, and counts itself away along the foot of the window before fading out; resting your mouse on it puts the time back to full
   - `/wishlist tokens` calls it back any time, and one you open yourself stays until you close it
   - Drag it where you want it and it opens there from then on, per character
-- **Roll History** — the dice icon on the Loot Browser switches it to Roll History, where you tick anything a bonus roll already gave you and count the charges you spent on each boss and dungeon, so the odds are right from the day you install rather than from your next roll
+- **Roll History** — the dice icon on the Loot Browser switches it to Roll History, where you tick anything a bonus roll already gave you and count the charges you spent on each boss and dungeon, so the odds are right from the day you install rather than from your next roll; the first time you open the wishlist or the Loot Browser on a character with no rolls on record, a card offers to take you there
 - **Bonus roll odds** — a line under Blizzard's Bonus Roll popup giving your chance of a wishlist item, counted against the loot that can actually drop for you, plus the charges you have already spent there and the loot spec that would give better odds; a raid roll reads one boss, a keystone run the whole dungeon, and anything a roll already gave you drops out of the count
 - **Auto-dismiss Bonus Roll** — handles Blizzard's Bonus Roll popup for you, keeping it only in the content you pick per character; an unwanted popup is either passed outright or left on screen with the dice locked and the reason on hover, and can be narrowed to bosses you flagged an item on
 - **Mark as obtained** — tick an item off on the wishlist and it stays on the list, greyed out, while its alerts and reminders stop; untick it if you were wrong, or hide obtained items entirely from settings
