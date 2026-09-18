@@ -56,6 +56,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Reopens as people join, and counts itself away along the foot of the window before fading out; resting your mouse on it puts the time back to full
   - `/wishlist tokens` calls it back any time, and one you open yourself stays until you close it
   - Drag it where you want it and it opens there from then on, per character
+- **Roll History** — the dice icon on the Loot Browser switches it to Roll History, where you tick anything a bonus roll already gave you and count the charges you spent on each boss and dungeon, so the odds are right from the day you install rather than from your next roll
 - **Bonus roll odds** — a line under Blizzard's Bonus Roll popup giving your chance of a wishlist item, counted against the loot that can actually drop for you, plus the charges you have already spent there and the loot spec that would give better odds; a raid roll reads one boss, a keystone run the whole dungeon, and anything a roll already gave you drops out of the count
 - **Auto-dismiss Bonus Roll** — handles Blizzard's Bonus Roll popup for you, keeping it only in the content you pick per character; an unwanted popup is either passed outright or left on screen with the dice locked and the reason on hover, and can be narrowed to bosses you flagged an item on
 - **Mark as obtained** — tick an item off on the wishlist and it stays on the list, greyed out, while its alerts and reminders stop; untick it if you were wrong, or hide obtained items entirely from settings
@@ -86,6 +87,7 @@ Install from [CurseForge](https://www.curseforge.com/wow/addons/luckys-loot-wish
 | `/wishlist show` | Open the wishlist window |
 | `/wishlist hide` | Hide the wishlist window |
 | `/wishlist browse` | Open the season loot browser |
+| `/wishlist rolls` | Open the loot browser in Roll History, to fill in bonus rolls you made before installing |
 | `/wishlist odds` | Print the bonus roll odds for each boss in the instance you are in |
 | `/wishlist tokens` | Open the tier token odds window for your raid |
 | `/wishlist settings` | Open the settings panel (also accepts `options`) |

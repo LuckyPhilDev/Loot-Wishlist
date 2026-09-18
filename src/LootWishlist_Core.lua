@@ -643,6 +643,8 @@ SlashCmdList.WISHLIST = function(msg)
     end
   elseif msg == "browse" or msg == "browser" then
     if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() else print(S.slash.browserNotLoaded) end
+  elseif msg == "rolls" then
+    if LootWishlist.Browser and LootWishlist.Browser.openHistory then LootWishlist.Browser.openHistory() else print(S.slash.browserNotLoaded) end
   elseif msg == "debug" then
     LootWishlist.SetDebug(not LootWishlist.IsDebug())
     if EncounterJournal and EncounterJournal:IsShown() then
