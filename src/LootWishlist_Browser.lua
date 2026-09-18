@@ -967,11 +967,75 @@ local function slotOf(it)
   return (facts and facts.slot) or OTHER_SLOT
 end
 
+-- "All <class>" leaves the journal unfiltered: EJ_SetLootFilter only cuts the
+-- loot table when it is handed a real spec, so a Paladin browsing All is shown
+-- cloth bracers and staves. The cut is made here instead, against every spec of
+-- the class at once, since an item no spec of a class can be given is not that
+-- class's loot whatever its armour type or weapon kind.
+local classSpecCache = {}
+
+-- The bare GetNumSpecializationsForClassID was deprecated in 11.0.5; the
+-- C_SpecializationInfo one is the live version and takes a classID.
+local function numSpecsForClass(classID)
+  local count = C_SpecializationInfo and C_SpecializationInfo.GetNumSpecializationsForClassID
+  return (count and count(classID)) or 0
+end
+
+local function specsOfClass(classID)
+  if not (classID and GetSpecializationInfoForClassID) then return nil end
+  local cached = classSpecCache[classID]
+  if cached then return cached end
+  local specs = {}
+  for i = 1, numSpecsForClass(classID) do
+    local specID = GetSpecializationInfoForClassID(classID, i)
+    if specID then specs[specID] = true end
+  end
+  if not next(specs) then return nil end
+  classSpecCache[classID] = specs
+  return specs
+end
+
+-- Keyed by link, so a dungeon item rebuilt at another track is not read twice
+-- for nothing. An empty answer is never kept: it means the client does not hold
+-- the item yet as often as it means the item is unrestricted, and keeping it
+-- would leave a foreign piece in the list for the session.
+local itemSpecCache = {}
+
+local function specsForItem(it)
+  local key = it.link or it.itemID
+  if not key then return nil end
+  local cached = itemSpecCache[key]
+  if cached then return cached end
+  if not (C_Item and C_Item.GetItemSpecInfo) then return nil end
+  local ok, specs = pcall(C_Item.GetItemSpecInfo, key)
+  if not (ok and type(specs) == "table") then return nil end
+  if #specs > 0 then itemSpecCache[key] = specs end
+  return specs
+end
+
+-- Pure so the tests can drive it: can any spec in `classSpecs` be given a piece
+-- the game offers to `itemSpecs`? Both an unread piece and one the game lists no
+-- specs for pass, so a missing answer shows the item rather than hiding it, and
+-- the row settles once its data lands.
+local function classMatch(itemSpecs, classSpecs)
+  if not (classSpecs and itemSpecs) then return true end
+  for _, specID in ipairs(itemSpecs) do
+    if classSpecs[specID] then return true end
+  end
+  return #itemSpecs == 0
+end
+LootWishlist.Browser.classMatch = classMatch
+
 local function usableByBrowsedClass(it)
-  if not isToken(it) then return true end
-  local facts = factsFor(it.itemID)
-  if not (facts and facts.classes) then return true end
-  return facts.classes[state.classID] == true
+  if isToken(it) then
+    local facts = factsFor(it.itemID)
+    if not (facts and facts.classes) then return true end
+    return facts.classes[state.classID] == true
+  end
+  -- A chosen spec is cut by the journal's own filter and by the scan's staleness
+  -- check, so only the All-specs case is left to answer here.
+  if state.specID ~= 0 then return true end
+  return classMatch(specsForItem(it), specsOfClass(state.classID))
 end
 
 -- Every slot present in the current view's cached loot, for the filter menu.
@@ -1899,7 +1963,7 @@ local function ensureFrame()
 
   local function addSpecEntries(parent, classID)
     specRadio(parent, classID, 0, "All " .. coloredClassName(classID))
-    for i = 1, GetNumSpecializationsForClassID(classID) or 0 do
+    for i = 1, numSpecsForClass(classID) do
       local specID, specName = GetSpecializationInfoForClassID(classID, i)
       if specID then
         specRadio(parent, classID, specID, specName .. " " .. coloredClassName(classID))
