@@ -59,8 +59,9 @@ local lootCache = {}         -- [cacheKey(...)] = { items = {..}, diffID = scann
 local bossNames = {}         -- encounterID -> name (false = lookup failed)
 -- classID/specID drive the EJ loot filter; specID 0 = all specs. A class other
 -- than the player's is browse-only: rows lose their add controls.
--- history is a mode rather than a preference, so it is never persisted:
--- reopening into a browser that cannot add anything reads as broken.
+-- history is a mode rather than a preference: it is never persisted, and it
+-- ends when the window closes, since reopening into a browser that cannot add
+-- anything reads as broken.
 local state = { track = "Hero", view = "dungeons", instanceID = nil, instanceName = nil, isRaid = nil, search = "", slot = nil, group = "source", classID = nil, specID = 0, stats = {}, statMode = "only", history = false }
 
 local scheduleRefresh        -- forward: defined with the UI, used by the scanner
@@ -2286,6 +2287,11 @@ local function ensureFrame()
   end
 
   table.insert(UISpecialFrames, "LootWishlistBrowserFrame")
+
+  -- Roll History changes what a click on a row does, so it ends with the window
+  -- however it closes. The next open is back to building the wishlist unless
+  -- the player asks for history again.
+  frame:HookScript("OnHide", function() state.history = false end)
 end
 
 ------------------------------------------------------------------------
