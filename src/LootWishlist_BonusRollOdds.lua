@@ -93,6 +93,11 @@ function Odds.RecordWin(itemID, encounterID, instanceID)
   Odds.SetWon(itemID, encounterID, instanceID, true)
 end
 
+-- Whether this character has any roll on record, counted live or filled in.
+function Odds.HasHistory()
+  return next(spends()) ~= nil or next(wins()) ~= nil
+end
+
 -- A roll never hands over what an earlier roll gave you, so a win leaves the
 -- table. An item marked obtained stays in it: a roll can still hand it over.
 function Odds.Won(encounterID, instanceID)

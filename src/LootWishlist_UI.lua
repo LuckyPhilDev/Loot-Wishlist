@@ -1032,6 +1032,7 @@ local function open()
   mainFrame:Raise()
   LootWishlist.UI.isOpen = true
   refresh()
+  if LootWishlist.RollHistoryNotice then LootWishlist.RollHistoryNotice.MaybeShow(mainFrame) end
 end
 
 local function hide()

@@ -31,3 +31,4 @@ LootWishlist_BonusRoll.lua
 LootWishlist_BonusRollOdds.lua
 LootWishlist_BonusRollBlock.lua
 LootWishlist_TokenOdds.lua
+RollHistoryNotice.lua
