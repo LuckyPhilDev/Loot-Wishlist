@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.21.1] - 2026-09-22
 
 ### Fixed
 - Looting or moving items in your bags no longer causes a brief stutter when your wishlist is long.
