@@ -51,47 +51,38 @@ local function getCurrentInstanceDifficulty()
   return nil, nil
 end
 
--- Get the number of a given itemID on the player (bags + equipped, excluding bank),
--- plus the link of the first copy found so alerts can inspect the actual item
-local function getInventoryCount(itemID)
-  if not itemID then return 0 end
-  local total = 0
-  local firstLink
-  if C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerItemInfo then
-    local maxBag = (NUM_BAG_SLOTS or 4)
-    for bag = 0, maxBag do
-      local slots = C_Container.GetContainerNumSlots(bag) or 0
-      for slot = 1, slots do
-        local info = C_Container.GetContainerItemInfo(bag, slot)
-        if info and info.itemID == itemID then
-          total = total + (info.stackCount or 1)
-          firstLink = firstLink or info.hyperlink
-        end
-      end
-    end
-    local reagentBag = rawget(_G, "REAGENTBAG_CONTAINER") or 5
-    if type(reagentBag) == "number" then
-      local slots = C_Container.GetContainerNumSlots(reagentBag) or 0
-      for slot = 1, slots do
-        local info = C_Container.GetContainerItemInfo(reagentBag, slot)
-        if info and info.itemID == itemID then
-          total = total + (info.stackCount or 1)
-          firstLink = firstLink or info.hyperlink
-        end
-      end
-    end
-    -- Count equipped items so gear set swaps don't trigger false alerts
-    for equipSlot = 1, 19 do
-      if GetInventoryItemID("player", equipSlot) == itemID then
-        total = total + 1
-        firstLink = firstLink or GetInventoryItemLink("player", equipSlot)
-      end
-    end
-    return total, firstLink
+-- Count every tracked item on the player (bags + equipped, excluding bank) in
+-- one pass, plus the link of the first copy found so alerts can inspect the
+-- actual item. One pass matters: each slot read allocates, and a per-item
+-- scan multiplied that by the size of the wishlist on every bag update.
+local function getInventoryCounts(tracked)
+  local counts, links = {}, {}
+  for _, info in pairs(tracked) do
+    if info and type(info.id) == "number" then counts[info.id] = 0 end
   end
-  -- Debug: legacy bag API path not available in this build; return 0
-  dprint("getInventoryCount fallback 0 for", tostring(itemID))
-  return 0
+  local function add(itemID, amount, link)
+    if itemID and counts[itemID] then
+      counts[itemID] = counts[itemID] + amount
+      links[itemID] = links[itemID] or link
+    end
+  end
+  local reagentBag = rawget(_G, "REAGENTBAG_CONTAINER") or 5
+  local function scanBag(bag)
+    for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      if info then add(info.itemID, info.stackCount or 1, info.hyperlink) end
+    end
+  end
+  for bag = 0, (NUM_BAG_SLOTS or 4) do scanBag(bag) end
+  scanBag(reagentBag)
+  -- Count equipped items so gear set swaps don't trigger false alerts
+  for equipSlot = 1, 19 do
+    local itemID = GetInventoryItemID("player", equipSlot)
+    if itemID and counts[itemID] then
+      add(itemID, 1, GetInventoryItemLink("player", equipSlot))
+    end
+  end
+  return counts, links
 end
 local rollAlertItems = {}
 -- Show a popup when a group loot roll starts in a raid for a tracked item
@@ -841,11 +832,9 @@ local function handleEvent(_, event, ...)
     -- and prompt to remove it from the wishlist with a self-style alert.
     local tracked = LootWishlist.GetTracked and LootWishlist.GetTracked() or nil
     if not tracked or not next(tracked) then dprint("no tracked items; skipping bag scan"); return end
+    local counts, links = getInventoryCounts(tracked)
     if bagsSettling then
-      for _, info in pairs(tracked) do
-        local iid = info and info.id
-        if type(iid) == "number" then bagCounts[iid] = getInventoryCount(iid) end
-      end
+      for iid, count in pairs(counts) do bagCounts[iid] = count end
       armBagSettle()
       dprint("bag baselines recorded (bags still settling)")
       return
@@ -853,7 +842,7 @@ local function handleEvent(_, event, ...)
     for _, info in pairs(tracked) do
       local iid = info and info.id or nil
       if type(iid) == "number" then
-        local current, bagLink = getInventoryCount(iid)
+        local current, bagLink = counts[iid], links[iid]
         local prev = bagCounts[iid]
         dprint("scan item:", tostring(iid), "prev=", tostring(prev), "now=", tostring(current))
         if prev == nil then
