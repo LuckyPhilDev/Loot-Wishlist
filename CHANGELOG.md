@@ -1,3 +1,8 @@
+## [1.21.2] - 2026-09-24
+
+### Fixed
+- Clicking the minimap button after closing the wishlist window with Escape now opens it on the first click.
+
 ## [1.21.1] - 2026-09-22
 
 ### Fixed
