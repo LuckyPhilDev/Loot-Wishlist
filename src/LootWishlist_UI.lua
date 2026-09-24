@@ -844,36 +844,17 @@ end
 -- createMainFrame
 ------------------------------------------------------------------------
 local function createMainFrame()
-  local f = CreateFrame("Frame", "LootWishlistMainFrame", UIParent, "BackdropTemplate")
-  f:SetSize(DEFAULT_W, DEFAULT_H)
-  f:SetPoint("CENTER")
-  f:SetMovable(true)
+  local f, header = UI.CreateWindow("LootWishlistMainFrame", DEFAULT_W, DEFAULT_H, S.title,
+    { db = LootWishlistCharDB, key = "windowPos", strata = "MEDIUM" })
   f:SetResizable(true)
   if f.SetResizeBounds then
     f:SetResizeBounds(MIN_W, MIN_H)
   elseif f.SetMinResize then
     f:SetMinResize(MIN_W, MIN_H)
   end
-  f:SetClampedToScreen(true)
-  f:SetFrameStrata("MEDIUM")
   f:SetFrameLevel(10)
-  f:EnableMouse(true)
   f.lootWishlistWindow = true
-
-  -- LuckyUI solid backdrop with gold border
-  f:SetBackdrop(UI.Backdrop)
-  f:SetBackdropColor(C.bgDark[1], C.bgDark[2], C.bgDark[3], C.bgDark[4])
-  f:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
-
-  -- Header (using LuckyUI.CreateHeader)
-  local header = UI.CreateHeader(f, S.title)
-  -- Override close to track isOpen state
-  -- Find the close button (last child of header)
-  for _, child in ipairs({ header:GetChildren() }) do
-    if child:GetObjectType() == "Button" then
-      child:SetScript("OnClick", function() f:Hide(); LootWishlist.UI.isOpen = false end)
-    end
-  end
+  f:HookScript("OnHide", function() LootWishlist.UI.isOpen = false end)
 
   -- Item count beside the title, where every window width has room for it
   statusCountLabel = header:CreateFontString(nil, "OVERLAY")
@@ -883,18 +864,6 @@ local function createMainFrame()
   statusCountLabel:SetPoint("RIGHT", header, "RIGHT", -36, -1)
   statusCountLabel:SetJustifyH("LEFT")
   statusCountLabel:SetWordWrap(false)
-
-  -- Drag the header to move
-  header:EnableMouse(true)
-  header:RegisterForDrag("LeftButton")
-  header:SetScript("OnDragStart", function() f:StartMoving() end)
-  header:SetScript("OnDragStop", function()
-    f:StopMovingOrSizing()
-    local pos = LootWishlistCharDB.windowPos or {}
-    pos.point, _, pos.relPoint, pos.x, pos.y = f:GetPoint(1)
-    pos.w, pos.h = f:GetSize()
-    LootWishlistCharDB.windowPos = pos
-  end)
 
   -- Resize grip (bottom-right)
   local resizer = CreateFrame("Button", nil, f)
@@ -1006,17 +975,10 @@ local function createMainFrame()
     if LootWishlist.Browser and LootWishlist.Browser.open then LootWishlist.Browser.open() end
   end)
 
-  -- Restore saved position, clamped so a size saved under an older, smaller
+  -- Restore saved size, clamped so a size saved under an older, smaller
   -- minimum cannot restore with the status bar buttons overlapping
   local pos = LootWishlistCharDB.windowPos
-  if pos and pos.point then
-    f:ClearAllPoints()
-    f:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
-    if pos.w and pos.h then f:SetSize(math.max(pos.w, MIN_W), math.max(pos.h, MIN_H)) end
-  end
-
-  -- ESC to close
-  table.insert(UISpecialFrames, "LootWishlistMainFrame")
+  if pos and pos.w and pos.h then f:SetSize(math.max(pos.w, MIN_W), math.max(pos.h, MIN_H)) end
 
   return f
 end

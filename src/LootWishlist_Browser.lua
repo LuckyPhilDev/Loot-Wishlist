@@ -1966,29 +1966,12 @@ local function ensureFrame()
   if frame then return end
   loadState()
 
-  frame = CreateFrame("Frame", "LootWishlistBrowserFrame", UIParent, "BackdropTemplate")
-  frame:SetSize(DEFAULT_W, DEFAULT_H)
-  frame:SetPoint("CENTER")
-  frame:SetMovable(true)
+  frame = UI.CreateWindow("LootWishlistBrowserFrame", DEFAULT_W, DEFAULT_H, S.title,
+    { db = charDB(), key = "windowPos", strata = "MEDIUM" })
   frame:SetResizable(true)
   if frame.SetResizeBounds then frame:SetResizeBounds(MIN_W, MIN_H) end
-  frame:SetClampedToScreen(true)
-  frame:SetFrameStrata("MEDIUM")
   frame:SetFrameLevel(20)
-  frame:EnableMouse(true)
   frame.lootWishlistWindow = true
-  frame:SetBackdrop(UI.Backdrop)
-  frame:SetBackdropColor(C.bgDark[1], C.bgDark[2], C.bgDark[3], C.bgDark[4])
-  frame:SetBackdropBorderColor(C.goldAccent[1], C.goldAccent[2], C.goldAccent[3])
-
-  local header = UI.CreateHeader(frame, S.title)
-  header:EnableMouse(true)
-  header:RegisterForDrag("LeftButton")
-  header:SetScript("OnDragStart", function() frame:StartMoving() end)
-  header:SetScript("OnDragStop", function()
-    frame:StopMovingOrSizing()
-    savePosition(frame)
-  end)
 
   local resizer = CreateFrame("Button", nil, frame)
   resizer:SetSize(16, 16)
@@ -2277,16 +2260,9 @@ local function ensureFrame()
   statusLabel:SetJustifyH("LEFT")
   statusLabel:SetWordWrap(false)
 
-  -- Restore saved position and size
+  -- Restore saved size. A size saved before the minimum grew would let controls overlap.
   local pos = charDB().windowPos
-  if pos and pos.point then
-    frame:ClearAllPoints()
-    frame:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
-    -- A size saved before the minimum grew would let controls overlap.
-    if pos.w and pos.h then frame:SetSize(math.max(pos.w, MIN_W), math.max(pos.h, MIN_H)) end
-  end
-
-  table.insert(UISpecialFrames, "LootWishlistBrowserFrame")
+  if pos and pos.w and pos.h then frame:SetSize(math.max(pos.w, MIN_W), math.max(pos.h, MIN_H)) end
 
   -- Roll History changes what a click on a row does, so it ends with the window
   -- however it closes. The next open is back to building the wishlist unless
