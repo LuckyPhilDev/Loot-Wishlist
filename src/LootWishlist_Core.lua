@@ -342,6 +342,7 @@ function LootWishlist.RemoveTrackedItem(keyOrID, difficultyID)
   else
     DevLog("RemoveTrackedItem: no matching entries removed")
   end
+  return removed
 end
 
 function LootWishlist.IterateTracked()
@@ -662,8 +663,7 @@ SlashCmdList.WISHLIST = function(msg)
   elseif msg:match("^remove ") then
     local idStr = msg:match("^remove%s+(%d+)") or msg:match("item:(%d+)")
     local itemID = idStr and tonumber(idStr)
-    if itemID and trackedItems[itemID] then
-      LootWishlist.RemoveTrackedItem(itemID)
+    if itemID and LootWishlist.RemoveTrackedItem(itemID) then
       print(S.slash.removed, itemID)
     else
       print(S.slash.notTracked)
