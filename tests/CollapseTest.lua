@@ -7,7 +7,7 @@ LuckyUI = { C = {}, WC = {}, DOT = "\194\183" }
 LuckyLog = { New = function() return function() end end }
 C_Item = {}
 
-dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Constants.lua")
 dofile("src/LootWishlist_UI.lua")

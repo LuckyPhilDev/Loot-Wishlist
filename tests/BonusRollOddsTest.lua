@@ -13,7 +13,7 @@ function UnitClass() return "Mage", "MAGE", 8 end
 local SPEC_NAMES = { [62] = "Arcane", [63] = "Fire", [64] = "Frost" }
 function GetSpecializationInfoByID(specID) return specID, SPEC_NAMES[specID] end
 
-dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_BonusRollOdds.lua")
 

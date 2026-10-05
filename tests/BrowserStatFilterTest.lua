@@ -17,7 +17,7 @@ ITEM_CLASSES_ALLOWED = "Classes: %s"
 function GetNumClasses() return 0 end
 function GetClassInfo() end
 
-dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Browser.lua")
 

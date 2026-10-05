@@ -73,7 +73,7 @@ Enum = { TooltipDataType = { Item = 10 } }
 function CreateFrame() return setmetatable({}, stubMeta) end
 function hooksecurefunc(target, name, fn) hooks[name] = fn end
 
-dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Tooltips.lua")
 assert(LootWishlist.UI.AnchorItemTooltip and LootWishlist.UI.PlaceComparisonTooltips,

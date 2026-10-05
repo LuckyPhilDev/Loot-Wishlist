@@ -22,7 +22,7 @@ function GetInstanceInfo() return "Somewhere", "none", 0 end
 local PLAYER_CLASS = 8
 function UnitClass() return "Mage", "MAGE", PLAYER_CLASS end
 
-dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Browser.lua")
 dofile("src/LootWishlist_BonusRollOdds.lua")
