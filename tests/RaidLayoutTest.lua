@@ -4,7 +4,7 @@
 -- boss. Typos have to fail here, since in game they look like working code.
 
 LootWishlist = {}
-dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Constants.lua")
 

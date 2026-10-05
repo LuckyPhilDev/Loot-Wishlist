@@ -39,7 +39,7 @@ function GetClassInfo(i)
   if c then return c.name, c.name:upper(), c.id end
 end
 
-dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Browser.lua")
 

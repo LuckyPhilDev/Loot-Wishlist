@@ -51,8 +51,8 @@ local CLASSES = {
     "PALADIN", "PRIEST", "ROGUE", "SHAMAN", "WARLOCK", "WARRIOR",
 }
 
-dofile("src/Luckys_Utils/LuckyStrings.lua")
-dofile("src/Luckys_Utils/LuckyUI.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyUI.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Constants.lua")
 dofile("src/LootWishlist_TokenOdds.lua")

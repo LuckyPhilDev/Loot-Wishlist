@@ -119,14 +119,14 @@ function UIDropDownMenu_EnableDropDown() end
 function UIDropDownMenu_DisableDropDown() end
 
 local ns = {}
-dofile("src/Luckys_Utils/LibStub.lua")
-loadfile("src/Luckys_Utils/VersionGate.lua")("Luckys_Utils")
-dofile("src/Luckys_Utils/LuckyStrings.lua")
-dofile("src/Luckys_Utils/Strings.lua")
-loadfile("src/Luckys_Utils/LuckyRichSettings/Core.lua")("Luckys_Utils", ns)
-loadfile("src/Luckys_Utils/LuckyRichSettings/About.lua")("Luckys_Utils", ns)
-loadfile("src/Luckys_Utils/LuckyRichSettings/Rows.lua")("Luckys_Utils", ns)
-loadfile("src/Luckys_Utils/LuckyRichSettings/Panel.lua")("Luckys_Utils", ns)
+dofile("../LuckyUtils/LibStub.lua")
+loadfile("../LuckyUtils/VersionGate.lua")("Luckys_Utils")
+dofile("../LuckyUtils/LuckyStrings.lua")
+dofile("../LuckyUtils/Strings.lua")
+loadfile("../LuckyUtils/LuckyRichSettings/Core.lua")("Luckys_Utils", ns)
+loadfile("../LuckyUtils/LuckyRichSettings/About.lua")("Luckys_Utils", ns)
+loadfile("../LuckyUtils/LuckyRichSettings/Rows.lua")("Luckys_Utils", ns)
+loadfile("../LuckyUtils/LuckyRichSettings/Panel.lua")("Luckys_Utils", ns)
 
 -- Hand the built panel back so its rows can be read and clicked.
 local builder

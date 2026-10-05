@@ -52,7 +52,7 @@ LootWishlistDB = { settings = { enableTooltipStatus = true } }
 
 local tracked = {}
 LootWishlist = { GetTracked = function() return tracked end }
-dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Constants.lua")
 dofile("src/LootWishlist_Tooltips.lua")

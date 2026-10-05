@@ -3,7 +3,7 @@
 -- strings are sanitized, and how an import lands in the tracked table.
 
 LootWishlist = {}
-dofile("src/Luckys_Utils/LuckyStrings.lua")
+dofile("../LuckyUtils/LuckyStrings.lua")
 dofile("src/LootWishlist_Strings.lua")
 dofile("src/LootWishlist_Share.lua")
 
