@@ -1,3 +1,9 @@
+## [1.21.3] - 2026-10-05
+
+### Fixed
+- Fixed an error with the settings panel.
+- `/wishlist remove` finds the items on your wishlist again.
+
 ## [1.21.2] - 2026-09-24
 
 ### Fixed
