@@ -2,7 +2,7 @@
 ## Title: Lucky's Loot Wishlist
 ## IconTexture: Interface\AddOns\Luckys_Loot_Wishlist\media\icon
 ## Notes: Track loot from the Adventure Guide and manage a per-character wishlist.
-## Version: 1.21.3
+## Version: 1.21.4
 ## Author: Lucky Phil
 ## OptionalDeps: Luckys_Utils
 ## SavedVariablesPerCharacter: LootWishlistCharDB
