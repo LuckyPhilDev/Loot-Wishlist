@@ -557,7 +557,6 @@ local function CreatePanel()
 
   panel = LuckySettings:NewRichPanel(LootWishlist.Strings.addon.title, {
     addonFolder   = ADDON_FOLDER,
-    minVersion    = LootWishlist.WHATS_NEW_MIN_VERSION,
     devMode       = {
       label    = S.debugMode,
       desc     = S.debugModeDesc,
