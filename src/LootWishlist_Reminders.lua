@@ -860,7 +860,15 @@ local function gatherDungeonRows(giveUp, ignoreGates)
     return { rows = { row } }, true
 end
 
+-- Read straight from the account settings: the GetSettings proxy turns a
+-- stored false into nil, which would read as on.
+local function upcomingLootEnabled()
+    local s = LootWishlistDB and LootWishlistDB.settings
+    return not s or s.showUpcomingLoot ~= false
+end
+
 local function collectDungeonRows(giveUp)
+    if not upcomingLootEnabled() then return nil, true end
     local instanceName = GetInstanceInfo and select(1, GetInstanceInfo()) or nil
     local instanceID = getCurrentEJInstanceID()
     local dedupeKey = instanceID or instanceName
@@ -888,6 +896,7 @@ local function gatherBossRows(giveUp, ignoreGates)
 end
 
 local function collectRaidRows(giveUp)
+    if not upcomingLootEnabled() then return nil, true end
     local instanceName = GetInstanceInfo and select(1, GetInstanceInfo()) or ""
     local dedupeKey = instanceName .. "|raid"
     if bossReminded[dedupeKey] then return nil, true end

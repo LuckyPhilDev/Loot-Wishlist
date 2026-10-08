@@ -135,5 +135,19 @@ Reminders:TestNextBoss(VENOMOUS_ABYSS, "nek'zali")
 assert(oddsInstance == VENOMOUS_ABYSS, "odds read for " .. tostring(oddsInstance))
 checks = checks + 1
 
+-- The automatic check on entering the raid stays silent once the window is
+-- turned off, and comes back when it is turned on again.
+C_Map = { GetBestMapForUnit = function() return 2601 end }
+C_Timer = { After = function(_, callback) callback() end }
+LootWishlist.BonusRoll.GetCharges = function() return 5 end
+LootWishlistDB = { settings = { showUpcomingLoot = false } }
+oddsInstance = nil
+Reminders:ResetDebounce()
+assert(oddsInstance == nil, "the raid check ran with the window turned off")
+LootWishlistDB.settings.showUpcomingLoot = true
+Reminders:ResetDebounce()
+assert(oddsInstance == VENOMOUS_ABYSS, "the raid check did not run with the window turned on")
+checks = checks + 1
+
 print = realPrint
 print(string.format("NextBossTest: %d checks passed", checks))

@@ -423,9 +423,18 @@ local function buildBonusRolls(g)
 
   g:Section(S.specSection)
 
+  g:Toggle({
+    label    = S.upcomingLoot,
+    desc     = S.upcomingLootDesc,
+    since    = "1.21.5",
+    checked  = function() return isOn("showUpcomingLoot") end,
+    onToggle = function(checked) write("showUpcomingLoot", checked) end,
+  })
+
   g:Slider({
     label     = S.specDelay,
     desc      = S.specDelayDesc,
+    parent    = S.upcomingLoot,
     min       = 0,
     max       = 30,
     suffix    = "s",
@@ -548,7 +557,6 @@ local function CreatePanel()
 
   panel = LuckySettings:NewRichPanel(LootWishlist.Strings.addon.title, {
     addonFolder   = ADDON_FOLDER,
-    minVersion    = LootWishlist.WHATS_NEW_MIN_VERSION,
     devMode       = {
       label    = S.debugMode,
       desc     = S.debugModeDesc,

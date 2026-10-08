@@ -4,10 +4,6 @@ LootWishlist = LootWishlist or {}
 
 local S = LootWishlist.Strings
 
--- Settings added in this version or later carry a NEW badge and a What's New
--- card in the settings panel.
-LootWishlist.WHATS_NEW_MIN_VERSION = "1.12.0"
-
 LootWishlist.Const = {
   -- Defaults for templates
   DEFAULT_WHISPER_TEMPLATE = S.templates.defaultWhisper,

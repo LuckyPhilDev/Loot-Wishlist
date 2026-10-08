@@ -402,6 +402,8 @@ LootWishlist.Strings = LuckyStrings.New("LootWishlist.Strings", {
         blockKeepHuntsDesc      = "Show the Bonus Roll popup after completing hunts.",
 
         specSection        = "Spec reminders",
+        upcomingLoot       = "Show the Upcoming loot window",
+        upcomingLootDesc   = "When you enter a raid or dungeon, and after each raid boss kill, a window lists the bosses ahead that drop something you track, with the loot spec to switch to and what a Bonus Roll charge is worth there.",
         specDelay          = "Delay after a boss kill",
         specDelayDesc      = "A spec reminder warns you when something you track on an upcoming boss needs a different loot spec. This is how long after a kill the check runs.",
 
