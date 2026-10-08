@@ -124,6 +124,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Handle the Bonus Roll popup automatically, keeping it only in the content you pick (per character). Chat names the setting that acted
 - Choose what an unwanted popup gets: the roll locked with the reason on hover, or passed outright
 - Narrow that to bosses you flagged a wishlist item on, so the popup only appears where the roll could land something you want
+- Turn the Upcoming loot window off (on by default)
 - Configure the delay before spec reminders show after a boss kill
 - Enable debug mode for troubleshooting
 - Customise Whisper and Party message templates (`%item%`, `%looter%`)

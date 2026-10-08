@@ -1,3 +1,11 @@
+## [1.21.5] - 2026-10-08
+
+### Added
+- **Show the Upcoming loot window** A setting under Spec reminders that stops the Upcoming loot window opening when you enter a raid or dungeon, or after a raid boss kill. (Thanks for the suggestion Bearicaide)
+
+### Fixed
+- The NEW badges and What's New page in the settings panel no longer flag settings from many versions ago.
+
 ## [1.21.4] - 2026-10-07
 
 ### Added
