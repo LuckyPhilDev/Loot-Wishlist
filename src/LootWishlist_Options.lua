@@ -426,7 +426,7 @@ local function buildBonusRolls(g)
   g:Toggle({
     label    = S.upcomingLoot,
     desc     = S.upcomingLootDesc,
-    since    = "1.22.0",
+    since    = "1.21.5",
     checked  = function() return isOn("showUpcomingLoot") end,
     onToggle = function(checked) write("showUpcomingLoot", checked) end,
   })
