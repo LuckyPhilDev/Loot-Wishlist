@@ -1,3 +1,8 @@
+## [1.21.7] - 2026-10-14
+
+### Fixed
+- Opening the wishlist no longer throws a stream of errors on patch 12.x, and item rows show their quality color again.
+
 ## [1.21.6] - 2026-10-13
 
 ### Improved
