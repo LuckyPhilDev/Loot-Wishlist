@@ -529,7 +529,7 @@ local function populatePoolFrame(f, row, rowIndex)
       if quality then info.quality = quality end
     end
     if quality then
-      local qr, qg, qb = GetItemQualityColor(quality)
+      local qr, qg, qb = C_Item.GetItemQualityColor(quality)
       if qr then
         f.qualityBar:SetColorTexture(qr, qg, qb, 1)
         f.qualityBar:Show()

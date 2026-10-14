@@ -1780,7 +1780,7 @@ local function updateLootRow(row, r)
     quality = C_Item.GetItemQualityByID(it.itemID)
   end
   if quality then
-    local qr, qg, qb = GetItemQualityColor(quality)
+    local qr, qg, qb = C_Item.GetItemQualityColor(quality)
     if qr then
       row.qbar:SetColorTexture(qr, qg, qb, 1)
       row.qbar:Show()
