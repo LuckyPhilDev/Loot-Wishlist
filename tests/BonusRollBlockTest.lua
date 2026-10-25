@@ -121,7 +121,7 @@ check(Block.FlaggedForRoll({ encounterID = 2874, instanceID = 1320 }),
 check(Block.FlaggedForRoll({ encounterID = 0, instanceID = 1320 }),
     true, "a keystone roll with no encounter falls back to the instance")
 
--- A passed roll says who passed it and which setting decided
+-- A hidden roll says who hid it and which setting decided
 local function reasonFor(settings, ctx, keyLevel, isFlagged, scope)
   local unwanted, reason = Block.IsUnwanted(settings, ctx, keyLevel, isFlagged, scope)
   return unwanted and reason or nil
@@ -149,14 +149,14 @@ check(Block.ReasonText(why, "raidHeroic", "notFlaggedBoss"), S.bonusRollBlock.no
 check(Block.ReasonText(why, "mythicplus", "notFlaggedDungeon"), S.bonusRollBlock.notFlaggedDungeon,
     "and so is the dungeon wording")
 
-check(Block.Message(why, "dungeon", "content", "pass"),
-    "Bonus Roll passed. You do not keep the popup in Dungeons.", "the content message names the content")
-check(Block.Message(why, "mythicplus", "keyLevel", "pass"),
-    "Bonus Roll passed. This key is below your minimum of 10.", "the key level message names the minimum")
-check(Block.Message(why, "somewhere new", "content", "pass"),
-    S.bonusRollBlock.passedPlain, "an unnamed context still says the roll was passed")
+check(Block.Message(why, "dungeon", "content", "hide"),
+    "Bonus Roll hidden. You do not keep the popup in Dungeons.", "the content message names the content")
+check(Block.Message(why, "mythicplus", "keyLevel", "hide"),
+    "Bonus Roll hidden. This key is below your minimum of 10.", "the key level message names the minimum")
+check(Block.Message(why, "somewhere new", "content", "hide"),
+    S.bonusRollBlock.hiddenPlain, "an unnamed context still says the roll was hidden")
 
--- The same reason reads either way round, so locking and passing share it
+-- The same reason reads either way round, so locking and hiding share it
 check(Block.ReasonText(why, "dungeon", "content"),
     "You do not keep the popup in Dungeons.",
     "the reason stands as a sentence, so the lock tooltip can show it alone")
@@ -171,9 +171,12 @@ check(Block.Message(why, "somewhere new", "content", "lock"),
 local fresh = {}
 Block.ApplyDefaults(fresh)
 check(fresh.bonusRollAutoDismiss, false, "the feature is off until it is asked for")
-check(Block.ActionFor(fresh), "lock", "and when it is asked for, an unwanted popup is locked, not passed")
+check(Block.ActionFor(fresh), "lock", "and when it is asked for, an unwanted popup is locked, not hidden")
+fresh.bonusRollUnwantedAction = "hide"
+check(Block.ActionFor(fresh), "hide", "hiding is what the other setting means")
 fresh.bonusRollUnwantedAction = "pass"
-check(Block.ActionFor(fresh), "pass", "passing is what the other setting means")
+Block.ApplyDefaults(fresh)
+check(fresh.bonusRollUnwantedAction, "hide", "a character set to the retired Pass action now hides instead")
 fresh.bonusRollUnwantedAction = "nonsense"
 check(Block.ActionFor(fresh), "lock", "an unreadable setting falls back to the safe action")
 
@@ -212,5 +215,52 @@ check(normalTexture.r, 1, "restoring the colour, not leaving it dimmed")
 
 BonusRollFrame = nil
 check(Block.Lock("no frame"), false, "locking without the frame reports failure rather than erroring")
+
+-- Hiding leaves the roll live, so the chat link can bring it back until it ends.
+local printed = {}
+local realPrint = print
+print = function(text) table.insert(printed, text) end
+local now = 1000
+time = function() return now end
+
+local function newRoll(spellID, endTime)
+  local frame = { state = "prompt", spellID = spellID, endTime = endTime, remaining = 0, shown = true }
+  frame.Hide = function(self) self.shown = false end
+  frame.Show = function(self) self.shown = true end
+  return frame
+end
+
+BonusRollFrame = newRoll(500, 1180)
+Block.Hide(BonusRollFrame, "Bonus Roll hidden.")
+check(BonusRollFrame.shown, false, "an unwanted roll is hidden")
+check(#printed, 1, "and announced once")
+check(printed[1]:find("|Haddon:LootWishlist:bonusroll|h", 1, true) ~= nil, true, "with a link to bring it back")
+
+BonusRollFrame:Show()
+Block.Hide(BonusRollFrame, "Bonus Roll hidden.")
+check(#printed, 1, "Blizzard's periodic re-show is hidden again without another message")
+check(Block.WasReopened(BonusRollFrame), false, "a roll nobody asked back is not treated as reopened")
+
+now = 1100
+check(Block.Reopen(), true, "the link brings a live roll back")
+check(BonusRollFrame.shown, true, "showing the popup")
+check(BonusRollFrame.remaining, 80, "with the timer set to what is actually left")
+check(Block.WasReopened(BonusRollFrame), true, "and marks it as wanted, so the show hook leaves it up")
+
+local again = newRoll(500, 1500)
+check(Block.WasReopened(again), false, "the same spell raised by a later run is a new roll")
+Block.Hide(again, "Bonus Roll hidden.")
+check(#printed, 2, "and is announced in its own right")
+
+now = 1600
+BonusRollFrame = again
+check(Block.Reopen(), false, "a roll past its timer cannot be brought back")
+check(printed[3], S.addon.prefix .. S.bonusRollBlock.reopenExpired, "and says so")
+
+BonusRollFrame = newRoll(600, 2000)
+check(Block.Reopen(), false, "a roll that was never hidden is not the link's to show")
+
+print = realPrint
+BonusRollFrame = nil
 
 print(string.format("BonusRollBlockTest: %d checks passed", passed))
