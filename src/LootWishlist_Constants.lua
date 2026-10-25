@@ -148,7 +148,7 @@ LootWishlist.Const = {
 -- store the key; the label is what the options panel and tooltip show.
 LootWishlist.Const.BONUS_ROLL_ACTIONS = {
   { key = "lock", label = S.settings.blockActionLock },
-  { key = "pass", label = S.settings.blockActionPass },
+  { key = "hide", label = S.settings.blockActionHide },
 }
 
 LootWishlist.Const.WISHLIST_ORDERS = {

@@ -1,6 +1,6 @@
 -- Loot Wishlist - Bonus Roll blocking.
--- Hooks BonusRollFrame:OnShow and clicks Pass in content the player has not
--- chosen to keep the popup for. Settings are per-character.
+-- Hooks BonusRollFrame:OnShow and locks or hides the popup in content the
+-- player has not chosen to keep it for. Settings are per-character.
 
 LootWishlist = LootWishlist or {}
 LootWishlist.BonusRollBlock = LootWishlist.BonusRollBlock or {}
@@ -82,6 +82,8 @@ function Block.ApplyDefaults(s)
   for key, value in pairs(DEFAULTS) do
     if s[key] == nil then s[key] = value end
   end
+  -- Passing was replaced by hiding, which keeps the roll recoverable.
+  if s.bonusRollUnwantedAction == "pass" then s.bonusRollUnwantedAction = "hide" end
 end
 
 local function classifyRaidContext(difficultyID)
@@ -130,7 +132,7 @@ end
 
 -- Returns true and the reason when the player would not have wanted this popup.
 -- An unidentifiable context, or a boss the game named no journal entry for, is
--- always wanted: an extra popup is harmless, passing a wanted roll is not.
+-- always wanted: an extra popup is harmless, hiding a wanted roll is not.
 function Block.IsUnwanted(s, ctx, keystoneLevel, flagged, scope)
   if not s.bonusRollAutoDismiss then return false end
   if not ctx then return false end
@@ -161,25 +163,67 @@ end
 function Block.Message(s, ctx, reason, action)
   local S = LootWishlist.Strings.bonusRollBlock
   local clause = Block.ReasonText(s, ctx, reason)
-  if action == "pass" then
-    return clause and S.passed:format(clause) or S.passedPlain
+  if action == "hide" then
+    return clause and S.hidden:format(clause) or S.hiddenPlain
   end
   return clause and S.locked:format(clause) or S.lockedPlain
 end
 
 function Block.ActionFor(s)
-  return s.bonusRollUnwantedAction == "pass" and "pass" or "lock"
+  return s.bonusRollUnwantedAction == "hide" and "hide" or "lock"
 end
 
-local function clickPass()
-  local btn = BonusRollFrame
-    and BonusRollFrame.PromptFrame
-    and BonusRollFrame.PromptFrame.PassButton
-  if btn then
-    btn:Click("LeftButton")
-  elseif BonusRollFrame and BonusRollFrame.Hide then
-    BonusRollFrame:Hide()
+------------------------------------------------------------------------
+-- Hiding. The roll stays live on the server, so a chat link can bring the
+-- popup back until its timer runs out.
+------------------------------------------------------------------------
+local REOPEN_LINK = "addon:LootWishlist:bonusroll"
+
+-- A roll is the prompt the game started, not its spell: running a dungeon
+-- twice in a session raises the same spell, and that roll is announced afresh.
+function Block.RollKey(frame)
+  return tostring(frame and frame.spellID) .. ":" .. tostring(frame and frame.endTime)
+end
+
+local hiddenRoll, reopenedRoll
+
+function Block.ReopenLink()
+  local S = LootWishlist.Strings.bonusRollBlock
+  return "|cff71d5ff|H" .. REOPEN_LINK .. "|h[" .. S.reopen .. "]|h|r"
+end
+
+function Block.CanReopen(frame, now)
+  return frame ~= nil and frame.state == "prompt"
+    and Block.RollKey(frame) == hiddenRoll
+    and (frame.endTime or 0) > now
+end
+
+function Block.Reopen()
+  local frame = BonusRollFrame
+  if not Block.CanReopen(frame, time()) then
+    print(LootWishlist.Strings.addon.prefix .. LootWishlist.Strings.bonusRollBlock.reopenExpired)
+    return false
   end
+  reopenedRoll = hiddenRoll
+  -- The timer bar only counts down while shown, so it would resume where it was hidden.
+  frame.remaining = frame.endTime - time()
+  frame:Show()
+  return true
+end
+
+-- Blizzard re-shows a waiting roll every few seconds, so only the first showing
+-- of a roll is announced; the rest are put away quietly.
+function Block.Hide(frame, message)
+  local key = Block.RollKey(frame)
+  if key ~= hiddenRoll then
+    hiddenRoll = key
+    print(LootWishlist.Strings.addon.prefix .. message .. " " .. Block.ReopenLink())
+  end
+  frame:Hide()
+end
+
+function Block.WasReopened(frame)
+  return reopenedRoll ~= nil and Block.RollKey(frame) == reopenedRoll
 end
 
 -- nil means the roll could not be tied to a journal boss or instance, which the
@@ -265,6 +309,8 @@ function Block.Unlock()
 end
 
 local function onBonusRollShow()
+  if Block.WasReopened(BonusRollFrame) then return Block.Unlock() end
+
   local s = Block.GetSettings()
   local ctx = Block.DetectContext()
   local flagged, scope = Block.FlaggedForRoll(BonusRollFrame)
@@ -276,15 +322,14 @@ local function onBonusRollShow()
   if not unwanted then return Block.Unlock() end
 
   local action = Block.ActionFor(s)
-  print(LootWishlist.Strings.addon.prefix .. Block.Message(s, ctx, reason, action))
-
-  if action == "pass" then
-    -- Defer one frame so the prompt is fully constructed before clicking.
+  local message = Block.Message(s, ctx, reason, action)
+  if action == "hide" then
     Block.Unlock()
-    C_Timer.After(0, clickPass)
-  else
-    Block.Lock(Block.ReasonText(s, ctx, reason))
+    return Block.Hide(BonusRollFrame, message)
   end
+
+  print(LootWishlist.Strings.addon.prefix .. message)
+  Block.Lock(Block.ReasonText(s, ctx, reason))
 end
 
 local hooked = false
@@ -305,6 +350,9 @@ f:SetScript("OnEvent", function(_, event)
     local s = Block.GetSettings()
     Block.MigrateFromGrabBag(LuckyGrabbagCharDB, s)
     Block.ApplyDefaults(s)
+    EventRegistry:RegisterCallback("SetItemRef", function(_, link)
+      if link == REOPEN_LINK then Block.Reopen() end
+    end, Block)
   end
   if tryHook() then f:UnregisterEvent("ADDON_LOADED") end
 end)
