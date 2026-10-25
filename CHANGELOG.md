@@ -1,3 +1,8 @@
+## [1.22.0] - 2026-10-25
+
+### Improved
+- **Prevent accidental bonus rolls** An unwanted Bonus Roll popup can now be hidden instead of passed. Chat leaves a link that brings the roll back until its timer runs out, so a setting you have not got right yet can no longer cost you a roll. Characters set to pass now hide instead. (Thanks for the suggestion knuppan)
+
 ## [1.21.7] - 2026-10-14
 
 ### Fixed

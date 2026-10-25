@@ -61,7 +61,7 @@ Track loot from the Adventure Guide and manage a per-character wishlist with spe
   - Drag it where you want it and it opens there from then on, per character
 - **Roll History** — the dice icon on the Loot Browser switches it to Roll History, where you tick anything a bonus roll already gave you and count the charges you spent on each boss and dungeon, so the odds are right from the day you install rather than from your next roll; the first time you open the wishlist or the Loot Browser on a character with no rolls on record, a card offers to take you there
 - **Bonus roll odds** — a line under Blizzard's Bonus Roll popup giving your chance of a wishlist item, counted against the loot that can actually drop for you, plus the charges you have already spent there and the loot spec that would give better odds; a raid roll reads one boss, a keystone run the whole dungeon, and anything a roll already gave you drops out of the count
-- **Auto-dismiss Bonus Roll** — handles Blizzard's Bonus Roll popup for you, keeping it only in the content you pick per character; an unwanted popup is either passed outright or left on screen with the dice locked and the reason on hover, and can be narrowed to bosses you flagged an item on
+- **Auto-dismiss Bonus Roll** — handles Blizzard's Bonus Roll popup for you, keeping it only in the content you pick per character; an unwanted popup is either left on screen with the dice locked and the reason on hover, or hidden with a link in chat that brings it back until the roll runs out, and can be narrowed to bosses you flagged an item on
 - **Mark as obtained** — tick an item off on the wishlist and it stays on the list, greyed out, while its alerts and reminders stop; untick it if you were wrong, or hide obtained items entirely from settings
 - **Wishlist sharing** — the Export button on the wishlist window turns your list into a copyable string; Import reads one back and asks whether to add it to your current list or replace it, so you can back up a wishlist or move it between characters
 
@@ -122,7 +122,7 @@ Access via `/wishlist settings` or **ESC > Options > AddOns > Lucky's Loot Wishl
 - Toggle the odds line under the Bonus Roll popup (on by default)
 - Toggle the tier token odds window opening itself in a raid (off by default), and pick the raid difficulties it opens on
 - Handle the Bonus Roll popup automatically, keeping it only in the content you pick (per character). Chat names the setting that acted
-- Choose what an unwanted popup gets: the roll locked with the reason on hover, or passed outright
+- Choose what an unwanted popup gets: the roll locked with the reason on hover, or hidden with a link in chat to bring it back
 - Narrow that to bosses you flagged a wishlist item on, so the popup only appears where the roll could land something you want
 - Turn the Upcoming loot window off (on by default)
 - Configure the delay before spec reminders show after a boss kill
