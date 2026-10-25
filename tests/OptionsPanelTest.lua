@@ -109,6 +109,7 @@ LuckyMedia = function(file) return file end
 LuckyPromo = stub()
 LuckyDeps = stub({ Check = function() return false end })
 C_AddOns = stub({ GetAddOnMetadata = function() return "1.12.3" end })
+StaticPopupDialogs = {}
 
 function UIDropDownMenu_SetWidth() end
 function UIDropDownMenu_SetText() end
