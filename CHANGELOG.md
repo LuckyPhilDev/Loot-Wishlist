@@ -1,4 +1,4 @@
-## [Unreleased]
+## [1.22.1] - 2026-10-26
 
 ### Added
 - **Wago Addons** Lucky's Loot Wishlist is now published on Wago Addons too, so you can install and update it with the Wago app.
